@@ -109,10 +109,10 @@ static void init_meta_obj(metadb_obj_t* mobj,
 static void init_meta_obj_key(metadb_key_t *mkey,
                               int dir_id,
                               int partition_id,
-                              name_hash_t hash) {
+                              const char* path) {
   mkey->parent_id = dir_id;
   mkey->partition_id = partition_id;
-  mkey->name_hash = hash;
+  giga_hash_name(path, mkey->name_hash);
 }
 
 static void safe_free(char** ptr) {
@@ -120,11 +120,6 @@ static void safe_free(char** ptr) {
     free(*ptr);
     *ptr = NULL;
   }
-}
-
-static name_hash_t get_name_hash(const char path[]) {
-  fprintf(stderr, "%s", path);
-  return 0;
 }
 
 int metadb_create(struct MetaDB mdb,
@@ -138,7 +133,7 @@ int metadb_create(struct MetaDB mdb,
   metadb_obj_t* mobj;
   char* err = NULL;
 
-  init_meta_obj_key(&mobj_key, dir_id, partition_id, get_name_hash(path));
+  init_meta_obj_key(&mobj_key, dir_id, partition_id, path);
   mobj = create_metadb_obj(path, strlen(path),
                            realpath, strlen(realpath));
   init_meta_obj(mobj, inode_id, 0660, entry_type);
@@ -167,7 +162,7 @@ int metadb_lookup(struct MetaDB mdb,
   size_t val_len;
   char* val;
 
-  init_meta_obj_key(&mobj_key, dir_id, partition_id, get_name_hash(path));
+  init_meta_obj_key(&mobj_key, dir_id, partition_id, path);
   val = leveldb_get(mdb.db, mdb.lookup_options,
                     (char *) &mobj_key, METADB_KEY_LEN,
                     &val_len, &err);
@@ -189,7 +184,7 @@ int metadb_remove(struct MetaDB mdb,
   metadb_key_t mobj_key;
   char* err = NULL;
 
-  init_meta_obj_key(&mobj_key, dir_id, partition_id, get_name_hash(path));
+  init_meta_obj_key(&mobj_key, dir_id, partition_id, path);
   leveldb_delete(mdb.db, mdb.insert_options,
                 (char *) &mobj_key, METADB_KEY_LEN,
                 &err);

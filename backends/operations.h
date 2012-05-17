@@ -1,11 +1,12 @@
 #ifndef OPERATIONS_H
-#define OPERATIONS_H   
+#define OPERATIONS_H
 
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #include "./leveldb/include/leveldb/c.h"
+#include "common/giga_index.h"
 
 /*
  * Operations for local file system as the backend.
@@ -48,12 +49,11 @@ typedef enum MetaDB_obj_type {
 } metadb_obj_type_t;
 
 typedef uint64_t metadb_inode_t;
-typedef uint64_t name_hash_t;
 
 typedef struct MetaDB_key {
   metadb_inode_t parent_id;
   int partition_id;
-  name_hash_t name_hash;
+  char name_hash[SHA1_HASH_SIZE];
 } metadb_key_t;
 
 typedef struct MetaDB_obj {

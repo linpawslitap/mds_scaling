@@ -11,12 +11,14 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#define LOCALFS_LOG LOG_DEBUG
+
 int local_getattr(const char *path, struct stat *stbuf)
 {
     int ret = 0;
 
     if ((ret = lstat(path, stbuf)) < 0) {
-        logMessage(LOG_DEBUG, __func__,
+        logMessage(LOCALFS_LOG, __func__,
                    "stat(%s) failed: %s", path, strerror(errno));
         ret = errno;
     }

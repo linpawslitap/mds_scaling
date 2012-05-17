@@ -10,6 +10,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#define METADB_LOG LOG_DEBUG
+
 #define DEFAULT_LEVELDB_CACHE_SIZE 100000
 #define DEFAULT_WRITE_BUFFER_SIZE  100000
 #define DEFAULT_MAX_OPEN_FILES     128
@@ -153,29 +155,35 @@ int metadb_create(struct MetaDB mdb,
 }
 
 int metadb_lookup(struct MetaDB mdb,
-                  const metadb_inode_t dir_id,
-                  const int partition_id,
-                  const char *path,
-                  struct stat *stbuf) {
-  metadb_key_t mobj_key;
-  metadb_obj_t* mobj;
-  char* err = NULL;
-  size_t val_len;
-  char* val;
+                  const metadb_inode_t dir_id, const int partition_id,
+                  const char *path, struct stat *stbuf)
+{
+    int ret = 0;
+    metadb_key_t mobj_key;
+    metadb_obj_t* mobj;
+    char* err = NULL;
+    size_t val_len;
+    char* val;
 
-  init_meta_obj_key(&mobj_key, dir_id, partition_id, path);
-  val = leveldb_get(mdb.db, mdb.lookup_options,
+    logMessage(METADB_LOG, __func__, "lookup(%s) in (partition=%d,dirid=%d)",
+               path, partition_id, dir_id);
+
+    init_meta_obj_key(&mobj_key, dir_id, partition_id, path);
+    val = leveldb_get(mdb.db, mdb.lookup_options,
                     (char *) &mobj_key, METADB_KEY_LEN,
                     &val_len, &err);
 
-  if (err == NULL && val != NULL) {
-    mobj = (metadb_obj_t *) val;
-    *stbuf = mobj->statbuf;
-    safe_free(&val);
-    return 0;
-  } else {
-    return ENOENT;
-  }
+    if (err == NULL && val != NULL) {
+        mobj = (metadb_obj_t *) val;
+        *stbuf = mobj->statbuf;
+        safe_free(&val);
+    } 
+    else {
+        logMessage(METADB_LOG, __func__, "entry(%s) not found.", path);
+        ret = ENOENT;
+    }
+
+    return ret;
 }
 
 int metadb_remove(struct MetaDB mdb,
@@ -228,12 +236,29 @@ int metadb_readdir(struct MetaDB mdb,
 /*
 int metadb_extract(struct MetaDB mdb,
                    const metadb_inode_t dir_id,
-                   const int partition_id,
-                   iden_part_t idenf,
-                   const char* result_dir) {
-  metadb_key_t mobj_key;
-  init_meta_obj_key(&mobj_key, dir_id, partition_id, 0);
+                   const int old_partition_id,
+                   const int new_partition_id,
+                   const char* dir_with_new_partition) 
+{
+    metadb_key_t mobj_key;
+    init_meta_obj_key(&mobj_key, dir_id, partition_id, 0);
 
-  return 0;
+    // steps for splitting: P_i (old partition id) into P_j (new partition id)
+    // 
+    // init:
+    // -- create new_sstable_File
+    //
+    // scan the table for all keys "in" P_i and for all keys do:
+    // -- move_status giga_file_migration_status(filename, P_j)
+    // -- if (move_status == 0)
+    //        do not move entry
+    //    else if (move_status == 1)
+    //        (1) delete old entry
+    //        (2) add old entry into new_sst_file
+    //
+    // return:
+    // -- path for new_sst_file
+
+    return 0;
 }
 */

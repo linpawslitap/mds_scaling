@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 
     
-    logOpen(DEFAULT_LOG_FILE_LOCATIONc, LOG_TRACE);
+    logOpen(DEFAULT_LOG_FILE_LOCATIONc, LOG_DEBUG);
     
     memset(&giga_options_t, 0, sizeof(struct giga_options));
     initGIGAsetting(GIGA_CLIENT, DEFAULT_CONF_FILE);

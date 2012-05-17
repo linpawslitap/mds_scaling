@@ -17,6 +17,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#define RPCFS_LOG LOG_DEBUG
+
 static 
 void update_client_mapping(struct giga_directory *dir, struct giga_mapping_t *map)
 {
@@ -38,7 +40,7 @@ int rpc_init()
     CLIENT *rpc_clnt = getConnection(server_id);
     giga_result_t rpc_reply;
     
-    logMessage(LOG_TRACE, __func__, "RPC_init: start.");
+    logMessage(RPCFS_LOG, __func__, "RPC_init: start.");
 
     if ((giga_rpc_init_1(giga_options_t.num_servers, &rpc_reply, rpc_clnt)) 
          != RPC_SUCCESS) {
@@ -52,7 +54,7 @@ int rpc_init()
         int dir_id = 0; // update root server's bitmap
         struct giga_directory *dir = cache_fetch(&dir_id);
         if (dir == NULL) {
-            logMessage(LOG_DEBUG, __func__, "Dir (id=%d) not in cache!", dir_id);
+            logMessage(RPCFS_LOG, __func__, "Dir (id=%d) not in cache!", dir_id);
             ret = -EIO;
         }
         else {
@@ -63,7 +65,7 @@ int rpc_init()
         ret = errnum;
     }
 
-    logMessage(LOG_TRACE, __func__, "RPC_init: done.");
+    logMessage(RPCFS_LOG, __func__, "RPC_init: done.");
 
     return ret;
 }
@@ -75,7 +77,7 @@ int rpc_getattr(int dir_ID, const char *path, struct stat *stbuf)
     int dir_id = dir_ID; // update root server's bitmap
     struct giga_directory *dir = cache_fetch(&dir_id);
     if (dir == NULL) {
-        logMessage(LOG_DEBUG, __func__, "Dir (id=%d) not in cache!", dir_id);
+        logMessage(RPCFS_LOG, __func__, "Dir (id=%d) not in cache!", dir_id);
         ret = -EIO;
     }
     
@@ -86,7 +88,7 @@ retry:
     server_id = get_server_for_file(dir, path);
     CLIENT *rpc_clnt = getConnection(server_id);
 
-    logMessage(LOG_TRACE, __func__, "RPC_getattr: {%s->srv=%d}", path, server_id);
+    logMessage(RPCFS_LOG, __func__, "RPC_getattr: {%s->srv=%d}", path, server_id);
 
     if (giga_rpc_getattr_1(dir_id, (char*)path, &rpc_reply, rpc_clnt) 
         != RPC_SUCCESS) {
@@ -104,11 +106,11 @@ retry:
     } else {
         *stbuf = rpc_reply.statbuf;
         if (stbuf == NULL)
-            logMessage(LOG_DEBUG, __func__, "getattr() stbuf is NULL!");
+            logMessage(RPCFS_LOG, __func__, "getattr() stbuf is NULL!");
         ret = errnum;
     }
 
-    logMessage(LOG_TRACE, __func__, "RPC_getattr: STATUS={%s}", strerror(ret));
+    logMessage(RPCFS_LOG, __func__, "RPC_getattr: STATUS={%s}", strerror(ret));
     
     return ret;
 }
@@ -120,7 +122,7 @@ int rpc_mkdir(int dir_ID, const char *path, mode_t mode)
     int dir_id = dir_ID; // update root server's bitmap
     struct giga_directory *dir = cache_fetch(&dir_id);
     if (dir == NULL) {
-        logMessage(LOG_DEBUG, __func__, "Dir (id=%d) not in cache!", dir_id);
+        logMessage(RPCFS_LOG, __func__, "Dir (id=%d) not in cache!", dir_id);
         ret = -EIO;
     }
     
@@ -131,7 +133,7 @@ retry:
     server_id = get_server_for_file(dir, path);
     CLIENT *rpc_clnt = getConnection(server_id);
 
-    logMessage(LOG_TRACE, __func__, "RPC_mkdir: {%s->srv=%d}", path, server_id);
+    logMessage(RPCFS_LOG, __func__, "RPC_mkdir: {%s->srv=%d}", path, server_id);
 
     if (giga_rpc_mkdir_1(dir_id, (char*)path, mode, &rpc_reply, rpc_clnt) 
         != RPC_SUCCESS) {
@@ -150,10 +152,9 @@ retry:
         ret = 0;
     }
 
-    logMessage(LOG_TRACE, __func__, "RPC_mkdir: {status=%s}", strerror(ret));
+    logMessage(RPCFS_LOG, __func__, "RPC_mkdir: {status=%s}", strerror(ret));
     
     return ret;
-    
 }
 
 /*

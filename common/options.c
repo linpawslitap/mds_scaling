@@ -20,8 +20,8 @@ void init_default_backends()
 {
     //logOpen(DEFAULT_LOG_FILE_LOCATIONc, LOG_WARN);
 
-    //giga_options_t.backend_type = DEFAULT_BACKEND_TYPE;
     giga_options_t.backend_type = BACKEND_RPC_LEVELDB;
+    //giga_options_t.backend_type = BACKEND_RPC_LOCALFS;
 
     giga_options_t.mountpoint = (char*)malloc(sizeof(char)*MAX_LEN);
     if (giga_options_t.mountpoint == NULL) {

@@ -451,7 +451,6 @@ static void print_bitmap(bitmap_t bmap[])
         strncat(bitmap_buf, buf, strlen(buf));
     }
     logMessage(GIGA_LOG, __func__, "%s", bitmap_buf);
-    logMessage(GIGA_LOG, __func__, "\n");
 }
 
 // From a given bitmap, find the radix for that bitmap by looking
@@ -460,7 +459,7 @@ static void print_bitmap(bitmap_t bmap[])
 static int get_radix_from_bmap(bitmap_t bitmap[])
 {
     logMessage(GIGA_LOG, __func__, "for given bitmap, find radix ... ");
-    print_bitmap(bitmap);
+    //print_bitmap(bitmap);
 
     int radix = get_radix_from_index(get_highest_index(bitmap));
 
@@ -506,7 +505,7 @@ static int get_highest_index(bitmap_t bitmap[])
     assert(max_index >= 0);
 
     logMessage(GIGA_LOG, __func__, "for bitmap below, highest=%d", max_index);
-    print_bitmap(bitmap);
+    //print_bitmap(bitmap);
 
     return max_index;
 }
@@ -549,7 +548,7 @@ static int get_bit_status(bitmap_t bmap[], index_t index)
 
     logMessage(GIGA_LOG, __func__, 
                "in bitmap below @ index=%d, bit-status=%d ", index, status);
-    print_bitmap(bmap);
+    //print_bitmap(bmap);
 
     return status;
 }

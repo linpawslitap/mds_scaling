@@ -72,7 +72,7 @@ struct giga_directory* cache_fetch(DIR_handle_t *handle)
         }
     }
     else
-        logMessage(LOG_DEBUG, __func__, "Cache_HIT: dir(%d)\n", *handle); 
+        logMessage(LOG_DEBUG, __func__, "Cache_HIT: dir(%d)", *handle); 
 
 
     dir->refcount++;

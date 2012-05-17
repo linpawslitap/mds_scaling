@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <stdbool.h>
 
+#define HANDLER_LOG LOG_DEBUG
 
 bool_t giga_rpc_init_1_svc(int rpc_req, 
                            giga_result_t *rpc_reply, 
@@ -21,7 +22,7 @@ bool_t giga_rpc_init_1_svc(int rpc_req,
     (void)rqstp;
     assert(rpc_reply);
 
-    logMessage(LOG_TRACE, __func__, "==> RPC_init_recv = %d", rpc_req);
+    logMessage(HANDLER_LOG, __func__, "==> RPC_init_recv = %d", rpc_req);
 
     // send bitmap for the "root" directory.
     //
@@ -29,14 +30,14 @@ bool_t giga_rpc_init_1_svc(int rpc_req,
     struct giga_directory *dir = cache_fetch(&dir_id);
     if (dir == NULL) {
         rpc_reply->errnum = -EIO;
-        logMessage(LOG_DEBUG, __func__, "Dir (id=%d) not in cache!", dir_id);
+        logMessage(HANDLER_LOG, __func__, "Dir (id=%d) not in cache!", dir_id);
         return true;
     }
     rpc_reply->errnum = -EAGAIN;
     memcpy(&(rpc_reply->giga_result_t_u.bitmap), 
            &dir->mapping, sizeof(dir->mapping));
 
-    logMessage(LOG_TRACE, __func__, "RPC_init_reply(%d)", rpc_reply->errnum);
+    logMessage(HANDLER_LOG, __func__, "RPC_init_reply(%d)", rpc_reply->errnum);
 
     return true;
 }
@@ -46,13 +47,13 @@ int giga_rpc_prog_1_freeresult(SVCXPRT *transp,
 {
     (void)transp;
     
-    logMessage(LOG_TRACE, __func__, "RPC_freeresult_recv");
+    logMessage(HANDLER_LOG, __func__, "RPC_freeresult_recv");
 
     xdr_free(xdr_result, result);
 
     /* TODO: add more cleanup code. */
     
-    logMessage(LOG_TRACE, __func__, "RPC_freeresult_reply");
+    logMessage(HANDLER_LOG, __func__, "RPC_freeresult_reply");
 
     return 1;
 }
@@ -65,7 +66,7 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
     assert(rpc_reply);
     assert(path);
 
-    logMessage(LOG_TRACE, __func__, 
+    logMessage(HANDLER_LOG, __func__, 
                "==> RPC_getattr_recv(dir_id=%d,path=%s)", dir_id, path);
 
     bzero(rpc_reply, sizeof(giga_getattr_reply_t));
@@ -73,7 +74,7 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
     struct giga_directory *dir = cache_fetch(&dir_id);
     if (dir == NULL) {
         rpc_reply->result.errnum = -EIO;
-        logMessage(LOG_DEBUG, __func__, "Dir (id=%d) not in cache!", dir_id);
+        logMessage(HANDLER_LOG, __func__, "Dir (id=%d) not in cache!", dir_id);
         return true;
     }
 
@@ -86,10 +87,12 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
         rpc_reply->result.errnum = -EAGAIN;
         memcpy(&(rpc_reply->result.giga_result_t_u.bitmap), 
                &dir->mapping, sizeof(dir->mapping));
-        logMessage(LOG_TRACE, __func__, "req for server-%d reached server-%d.",
+        logMessage(HANDLER_LOG, __func__, "req for server-%d reached server-%d.",
                    server, giga_options_t.serverID);
         return true;
     }
+
+    logMessage(HANDLER_LOG, __func__, "index=%d,server=%d", index, server);
 
     char path_name[MAX_LEN];
 
@@ -110,7 +113,7 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
 
     }
 
-    logMessage(LOG_TRACE, __func__, "RPC_getattr_reply");
+    logMessage(HANDLER_LOG, __func__, "RPC_getattr_reply");
     return true;
 }
 
@@ -122,7 +125,7 @@ bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id, giga_pathname path, mode_t mode,
     assert(rpc_reply);
     assert(path);
 
-    logMessage(LOG_TRACE, __func__, 
+    logMessage(HANDLER_LOG, __func__, 
                "==> RPC_mkdir_recv(path=%s,mode=0%3o)", path, mode);
 
     bzero(rpc_reply, sizeof(giga_result_t));
@@ -130,7 +133,7 @@ bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id, giga_pathname path, mode_t mode,
     struct giga_directory *dir = cache_fetch(&dir_id);
     if (dir == NULL) {
         rpc_reply->errnum = -EIO;
-        logMessage(LOG_DEBUG, __func__, "Dir (id=%d) not in cache!", dir_id);
+        logMessage(HANDLER_LOG, __func__, "Dir (id=%d) not in cache!", dir_id);
         return true;
     }
 
@@ -143,7 +146,7 @@ bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id, giga_pathname path, mode_t mode,
         rpc_reply->errnum = -EAGAIN;
         memcpy(&(rpc_reply->giga_result_t_u.bitmap), 
                &dir->mapping, sizeof(dir->mapping));
-        logMessage(LOG_TRACE, __func__, "req for server-%d reached server-%d.",
+        logMessage(HANDLER_LOG, __func__, "req for server-%d reached server-%d.",
                    server, giga_options_t.serverID);
         return true;
     }
@@ -158,6 +161,8 @@ bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id, giga_pathname path, mode_t mode,
             break;
         case BACKEND_RPC_LEVELDB:
             // create object in the underlying file system
+            // TODO: assume partitioned sub-dirs, and randomly pick a sub-dir
+            //       for symlink creation (for PanFS)
             snprintf(path_name, sizeof(path_name), 
                      "%s/%s", giga_options_t.mountpoint, path);
             rpc_reply->errnum = local_mkdir(path_name, mode); 
@@ -173,7 +178,7 @@ bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id, giga_pathname path, mode_t mode,
 
     }
 
-    logMessage(LOG_TRACE, __func__, 
+    logMessage(HANDLER_LOG, __func__, 
                "RPC_mkdir_reply(status=%d)", rpc_reply->errnum);
 
     return true;

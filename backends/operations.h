@@ -27,40 +27,80 @@ int rpc_mkdir(int dir_id, const char *path, mode_t mode);
 /*
  * LevelDB specific definitions
  */
-
-struct LevelDB {
+struct MetaDB {
     leveldb_t* db;              // DB instance
-    leveldb_comparator_t* cmp;  // Compartor object that allows user-defined 
+    leveldb_comparator_t* cmp;  // Compartor object that allows user-defined
                                 // object comparions functions.
-    leveldb_cache_t* cache;     // Cache object: If set, it enables caching of
-                                // individual blocks (of LDB files) using LRU.
+    leveldb_cache_t* cache;     // Cache object: If enabled, this enables caching of
+                                // individual blocks (of levelDB files) using LRU.
     leveldb_env_t* env;
     leveldb_options_t* options;
-    leveldb_readoptions_t* roptions;
-    leveldb_writeoptions_t* woptions;
+    leveldb_readoptions_t*  lookup_options;
+    leveldb_readoptions_t*  scan_options;
+    leveldb_writeoptions_t* insert_options;
 };
 
-typedef enum LevelDB_obj_type {
+typedef enum MetaDB_obj_type {
     OBJ_FILE,
     OBJ_DIR,
     OBJ_SLINK,
     OBJ_HLINK
-} ldb_obj_type_t;
+} metadb_obj_type_t;
 
-struct LevelDB ldb_mds;
+typedef uint64_t metadb_inode_t;
+typedef uint64_t name_hash_t;
 
-int leveldb_init(struct LevelDB level_db, const char *ldb_name);
-int leveldb_lookup(struct LevelDB level_db, 
-                   const int parent_dir_id, const int partition_id, 
-                   const char *obj_name, struct stat *stbuf);
-int leveldb_create(struct LevelDB ldb, 
-                   const int parent_dir_id, const int partition_id,
-                   ldb_obj_type_t obj_type, const int obj_id, 
-                   const char *obj_name, const char *real_path);
+typedef struct MetaDB_key {
+  metadb_inode_t parent_id;
+  int partition_id;
+  name_hash_t name_hash;
+} metadb_key_t;
 
-/*
-void leveldb_mkdir(struct LevelDB level_db, int if_exists_flag);
-int leveldb_create(struct LevelDB level_db, const char *path, mode_t mode);
-*/
+typedef struct MetaDB_obj {
+  int obj_size;
+  struct stat statbuf;
+  metadb_obj_type_t obj_type;
+  int objname_len;
+  char* objname;
+} metadb_obj_t;
+
+typedef void (*fill_dir_t)(void* buf, metadb_key_t* iter_key, metadb_obj_t* iter_obj);
+
+typedef void (*iden_part_t)(const char* entry, const int partition_id);
+
+struct MetaDB mdb;
+
+int metadb_init(struct MetaDB mdb, const char *mdb_name);
+
+int metadb_destroy(struct MetaDB mdb, const char *mdb_name);
+
+int metadb_create(struct MetaDB mdb,
+                  metadb_obj_type_t entry_type,
+                  const metadb_inode_t dir_id,
+                  const int partition_id,
+                  const char *path,
+                  const char *real_path);
+
+int metadb_remove(struct MetaDB mdb,
+                  const metadb_inode_t dir_id,
+                  const int partition_id,
+                  const char *path);
+
+int metadb_lookup(struct MetaDB mdb,
+                  const metadb_inode_t dir_id,
+                  const int partition_id,
+                  const char *path,
+                  struct stat *stbuf);
+
+int metadb_readdir(struct MetaDB mdb,
+                   const metadb_inode_t dir_id,
+                   const int partition_id,
+                   void *buf, fill_dir_t filler);
+
+int metadb_extract(struct MetaDB mdb,
+                   const metadb_inode_t dir_id,
+                   const int partition_id,
+                   iden_part_t idenf,
+                   const char* result_dir);
 
 #endif /* OPERATIONS_H */

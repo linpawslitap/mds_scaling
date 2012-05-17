@@ -271,7 +271,7 @@ void init_root_partition()
     switch (giga_options_t.backend_type) {
         case BACKEND_RPC_LEVELDB:
             //TODO: leveldb setup and initialization
-            snprintf(ldb_name, strlen(ldb_name), 
+            snprintf(ldb_name, sizeof(ldb_name), 
                      "%s/%d-%s", 
                      DEFAULT_LEVELDB_DIR, giga_options_t.serverID,
                      DEFAULT_LEVELDB_PREFIX);

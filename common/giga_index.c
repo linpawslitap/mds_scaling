@@ -57,13 +57,11 @@ void giga_hash_name(const char* hash_key, char hash_value[])
     shahash((uint8_t*) hash_key, len, hash);
     binary2hex(hash, SHA1_HASH_SIZE, hash_value);
 
-#ifdef DBG_INDEXING
     int i;
     logMessage(GIGA_LOG, __func__, "hash={");
     for (i=0; i<HASH_LEN; i++)
         logMessage(GIGA_LOG, __func__, "%c", hash_value[i]);
     logMessage(GIGA_LOG, __func__, "} of len=%d\n", HASH_LEN);
-#endif
 }
 
 // Initialize the mapping table: 

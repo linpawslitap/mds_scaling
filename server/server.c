@@ -275,12 +275,12 @@ void init_root_partition()
                      "%s/%d-%s", 
                      DEFAULT_LEVELDB_DIR, giga_options_t.serverID,
                      DEFAULT_LEVELDB_PREFIX);
-            leveldb_init(ldb_mds, ldb_name);
+            metadb_init(ldb_mds, ldb_name);
             object_id = 0;
-            if (leveldb_create(ldb_mds, 
-                               ROOT_DIR_ID, 0,
-                               OBJ_DIR, 
-                               object_id, "/", giga_options_t.mountpoint) < 0) {
+            if (metadb_create(ldb_mds, 
+                              ROOT_DIR_ID, 0,
+                              OBJ_DIR, 
+                              object_id, "/", giga_options_t.mountpoint) < 0) {
                 logMessage(LOG_FATAL, __func__, "root entry creation error.");
                 exit(1);
             }

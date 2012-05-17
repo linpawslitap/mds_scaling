@@ -57,29 +57,31 @@ typedef struct MetaDB_key {
 } metadb_key_t;
 
 typedef struct MetaDB_obj {
-  int obj_size;
   struct stat statbuf;
   metadb_obj_type_t obj_type;
   int objname_len;
   char* objname;
+  int realpath_len;
+  char* realpath;
 } metadb_obj_t;
 
 typedef void (*fill_dir_t)(void* buf, metadb_key_t* iter_key, metadb_obj_t* iter_obj);
 
 typedef void (*iden_part_t)(const char* entry, const int partition_id);
 
-struct MetaDB mdb;
+struct MetaDB ldb_mds;
 
 int metadb_init(struct MetaDB mdb, const char *mdb_name);
 
 int metadb_destroy(struct MetaDB mdb, const char *mdb_name);
 
 int metadb_create(struct MetaDB mdb,
-                  metadb_obj_type_t entry_type,
                   const metadb_inode_t dir_id,
                   const int partition_id,
+                  metadb_obj_type_t entry_type,
+                  const metadb_inode_t inode_id,
                   const char *path,
-                  const char *real_path);
+                  const char *realpath);
 
 int metadb_remove(struct MetaDB mdb,
                   const metadb_inode_t dir_id,
@@ -97,10 +99,11 @@ int metadb_readdir(struct MetaDB mdb,
                    const int partition_id,
                    void *buf, fill_dir_t filler);
 
+/*
 int metadb_extract(struct MetaDB mdb,
                    const metadb_inode_t dir_id,
                    const int partition_id,
                    iden_part_t idenf,
                    const char* result_dir);
-
+*/
 #endif /* OPERATIONS_H */

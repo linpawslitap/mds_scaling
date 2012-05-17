@@ -101,9 +101,9 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
                                                      &rpc_reply->statbuf);
             break;
         case BACKEND_RPC_LEVELDB:
-            rpc_reply->result.errnum = leveldb_lookup(ldb_mds, 
-                                                      dir_id, index, path, 
-                                                      &rpc_reply->statbuf);
+            rpc_reply->result.errnum = metadb_lookup(ldb_mds,
+                                                     dir_id, index, path,
+                                                     &rpc_reply->statbuf);
             break;  
         default:
             break;
@@ -164,9 +164,9 @@ bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id, giga_pathname path, mode_t mode,
             
             // create object entry (metadata) in levelDB
             object_id += 1; 
-            rpc_reply->errnum = leveldb_create(ldb_mds, dir_id, index,
-                                               OBJ_DIR, 
-                                               object_id, path, path_name);
+            rpc_reply->errnum = metadb_create(ldb_mds, dir_id, index,
+                                              OBJ_DIR,
+                                              object_id, path, path_name);
             break;
         default:
             break;

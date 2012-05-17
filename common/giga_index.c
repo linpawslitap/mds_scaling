@@ -51,17 +51,24 @@ void giga_hash_name(const char* hash_key, char hash_value[])
     assert(hash_value);
     int len = (int)strlen(hash_key);
 
-    logMessage(GIGA_LOG, __func__,
-               "hash: key={%s} of len=%d", hash_key, len);
-
     shahash((uint8_t*) hash_key, len, hash);
     binary2hex(hash, SHA1_HASH_SIZE, hash_value);
-
+   
+    char hash_buf[HASH_LEN+1] = {0};
     int i;
-    logMessage(GIGA_LOG, __func__, "hash={");
     for (i=0; i<HASH_LEN; i++)
-        logMessage(GIGA_LOG, __func__, "%c", hash_value[i]);
-    logMessage(GIGA_LOG, __func__, "} of len=%d\n", HASH_LEN);
+        hash_buf[i] = hash_value[i];
+    hash_buf[i] = '\0';
+
+    logMessage(GIGA_LOG, __func__,
+               "hash(key={%s} of len=%d)->{%s}", hash_key, len, hash_buf);
+
+
+    //logMessage(GIGA_LOG, __func__, "hash={");
+    //int i;
+    //for (i=0; i<HASH_LEN; i++)
+    //    logMessage(GIGA_LOG, __func__, "%c", hash_value[i]);
+    //logMessage(GIGA_LOG, __func__, "} of len=%d\n", HASH_LEN);
 }
 
 // Initialize the mapping table: 

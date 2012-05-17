@@ -11,7 +11,7 @@
 
 #define SPLIT_THRESHOLD 4000
 
-static struct MetaDB ldb_mds;
+struct MetaDB ldb_mds;  //TODO: make this thread-safe.
 
 static int object_id;
 

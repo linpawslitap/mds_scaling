@@ -269,13 +269,13 @@ void init_root_partition()
     //
     char ldb_name[MAX_LEN] = {0};
     switch (giga_options_t.backend_type) {
-        case BACKEND_LOCAL_LEVELDB:
+        case BACKEND_RPC_LEVELDB:
             //TODO: leveldb setup and initialization
             snprintf(ldb_name, strlen(ldb_name), 
                      "%s/%d-%s", 
                      DEFAULT_LEVELDB_DIR, giga_options_t.serverID,
                      DEFAULT_LEVELDB_PREFIX);
-            metadb_init(ldb_mds, ldb_name);
+            metadb_init(&ldb_mds, ldb_name);
             object_id = 0;
             if (metadb_create(ldb_mds, 
                               ROOT_DIR_ID, 0,

@@ -22,31 +22,31 @@
     abort();                                                             \
   }
 
-int metadb_init(struct MetaDB mdb, const char *mdb_name) {
+int metadb_init(struct MetaDB *mdb, const char *mdb_name) {
   char* err = NULL;
 
-  mdb.env = leveldb_create_default_env();
-  mdb.cache = leveldb_cache_create_lru(DEFAULT_LEVELDB_CACHE_SIZE);
+  mdb->env = leveldb_create_default_env();
+  mdb->cache = leveldb_cache_create_lru(DEFAULT_LEVELDB_CACHE_SIZE);
 
-  mdb.options = leveldb_options_create();
-  leveldb_options_set_cache(mdb.options, mdb.cache);
-  leveldb_options_set_env(mdb.options, mdb.env);
-  leveldb_options_set_info_log(mdb.options, NULL);
-  leveldb_options_set_write_buffer_size(mdb.options, DEFAULT_WRITE_BUFFER_SIZE);
-  leveldb_options_set_max_open_files(mdb.options, DEFAULT_MAX_OPEN_FILES);
-  leveldb_options_set_block_size(mdb.options, 1024);
-  leveldb_options_set_compression(mdb.options, leveldb_no_compression);
+  mdb->options = leveldb_options_create();
+  leveldb_options_set_cache(mdb->options, mdb->cache);
+  leveldb_options_set_env(mdb->options, mdb->env);
+  leveldb_options_set_info_log(mdb->options, NULL);
+  leveldb_options_set_write_buffer_size(mdb->options, DEFAULT_WRITE_BUFFER_SIZE);
+  leveldb_options_set_max_open_files(mdb->options, DEFAULT_MAX_OPEN_FILES);
+  leveldb_options_set_block_size(mdb->options, 1024);
+  leveldb_options_set_compression(mdb->options, leveldb_no_compression);
 
-  mdb.lookup_options = leveldb_readoptions_create();
-  leveldb_readoptions_set_fill_cache(mdb.lookup_options, 1);
+  mdb->lookup_options = leveldb_readoptions_create();
+  leveldb_readoptions_set_fill_cache(mdb->lookup_options, 1);
 
-  mdb.scan_options = leveldb_readoptions_create();
-  leveldb_readoptions_set_fill_cache(mdb.scan_options, 1);
+  mdb->scan_options = leveldb_readoptions_create();
+  leveldb_readoptions_set_fill_cache(mdb->scan_options, 1);
 
-  mdb.insert_options = leveldb_writeoptions_create();
-  leveldb_writeoptions_set_sync(mdb.insert_options, 1);
+  mdb->insert_options = leveldb_writeoptions_create();
+  leveldb_writeoptions_set_sync(mdb->insert_options, 1);
 
-  mdb.db = leveldb_open(mdb.options, mdb_name, &err);
+  mdb->db = leveldb_open(mdb->options, mdb_name, &err);
   metadb_error("leveldb_init", err);
 
   return 0;

@@ -69,9 +69,8 @@ typedef void (*fill_dir_t)(void* buf, metadb_key_t* iter_key, metadb_obj_t* iter
 
 typedef void (*iden_part_t)(const char* entry, const int partition_id);
 
-struct MetaDB ldb_mds;
 
-int metadb_init(struct MetaDB mdb, const char *mdb_name);
+int metadb_init(struct MetaDB *mdb, const char *mdb_name);
 
 int metadb_destroy(struct MetaDB mdb, const char *mdb_name);
 

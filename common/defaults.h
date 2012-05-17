@@ -22,17 +22,17 @@
 
 #define DEFAULT_NUM_OF_SERVERS  1               /* server list size */
 #define DEFAULT_SERVER_NUMBER   0               /* server number for self */
-#define DEFAULT_CLI_MNT_POINT   "./xxx/giga_c/" /* FUSE mount point @ client */
+#define DEFAULT_CLI_MNT_POINT   "/tmp/giga_c/" /* FUSE mount point @ client */
 #define DEFAULT_SRV_BACKEND     "/tmp/giga_s/" /* Backend @ server */
 #define DEFAULT_BACKEND_TYPE    0               /* Backend type = local */
 
 #define DEFAULT_PORT            55677           /* Server's port number */
 #define DEFAULT_IP              "127.0.0.1"     /* Server's IP address */
 
-#define DEFAULT_LOG_DIRECTORY   "./xxx/logs/"   /* log directory location */
+#define DEFAULT_LOG_DIRECTORY   "/tmp/logs/"   /* log directory location */
 #define DEFAULT_LOG_FD_PREFIX   "giga_log"      /* log file prefix */
 
-#define DEFAULT_CONF_FILE       "./test_conf_file"
+#define DEFAULT_CONF_FILE       "/tmp/test_conf_file"
 
 #define DEFAULT_LEVELDB_DIR     "/tmp/ldb"
 #define DEFAULT_LEVELDB_PREFIX  "ldb-giga"

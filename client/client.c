@@ -31,8 +31,6 @@ static struct fuse_opt giga_opts[] = {
     FUSE_OPT_END
 };
 
-
-
 /** This tells FUSE how to do every operation */
 static struct fuse_operations giga_oper = {
     .init       = GIGAinit,             

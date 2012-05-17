@@ -76,6 +76,7 @@ static metadb_obj_t* create_metadb_obj(const char* objname,
     mobj->objname_len = objname_len;
     mobj->objname = (char *) mobj + sizeof(metadb_obj_t);
     strncpy(mobj->objname, objname, objname_len);
+    mobj->realpath_len = realpath_len;
     mobj->realpath = (char *) mobj+sizeof(metadb_obj_t)+objname_len+1;
     strncpy(mobj->realpath, realpath, realpath_len);
     mobj->objname[objname_len] = '\0';
@@ -104,7 +105,7 @@ static void init_meta_obj(metadb_obj_t* mobj,
   mobj->statbuf.st_ctime = now;
 }
 
-#define meta_obj_size(mobj) ((mobj.objname_len+1)+(mobj.realpath_len+1)+sizeof(metadb_obj_t))
+#define meta_obj_size(mobj) ((mobj->objname_len+1)+(mobj->realpath_len+1)+sizeof(metadb_obj_t))
 
 static void init_meta_obj_key(metadb_key_t *mkey,
                               int dir_id,
@@ -139,8 +140,8 @@ int metadb_create(struct MetaDB mdb,
   init_meta_obj(mobj, inode_id, 0660, entry_type);
 
   leveldb_put(mdb.db, mdb.insert_options,
-              (char *) &mobj_key, sizeof(metadb_key_t),
-              (char *) &mobj, METADB_KEY_LEN,
+              (char *) &mobj_key, METADB_KEY_LEN,
+              (char *) &mobj, meta_obj_size(mobj),
               &err);
 
   safe_free((char **) (&mobj));

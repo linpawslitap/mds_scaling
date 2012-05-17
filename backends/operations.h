@@ -53,7 +53,7 @@ typedef uint64_t metadb_inode_t;
 typedef struct MetaDB_key {
   metadb_inode_t parent_id;
   int partition_id;
-  char name_hash[SHA1_HASH_SIZE];
+  char name_hash[HASH_LEN];
 } metadb_key_t;
 
 typedef struct MetaDB_obj {

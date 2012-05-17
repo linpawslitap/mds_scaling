@@ -3,7 +3,8 @@ include ../Makefile.inc
 CFLAGS += -iquote ..
 LDFLAGS += /usr/lib/libssl.so.0.9.8 ../backends/leveldb/libleveldb.a
 
-OBJS += ../backends/local_fs.o ../backends/rpc_fs.o ../backends/leveldb_backend.o
+OBJS += ../backends/local_fs.o ../backends/rpc_fs.o ../backends/metadb_fs.o
+#OBJS += ../backends/*.o
 
 TARGETS = ../giga_server
 

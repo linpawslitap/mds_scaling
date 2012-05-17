@@ -3,8 +3,8 @@ include ../Makefile.inc
 CFLAGS += -iquote .. 
 LDFLAGS += `pkg-config fuse --libs` ./leveldb/libleveldb.a
 
-leveldb_backend.o : leveldb_backend.c operations.h
-	$(CC) $(CFLAGS) -c leveldb_backend.c ../common.a
+metadb_fs.o : metadb_fs.c operations.h
+	$(CC) $(CFLAGS) -c metadb_fs.c ../common.a
 
 rpc_fs.o : rpc_fs.c operations.h
 	$(CC) $(CFLAGS) -c local_fs.c ../common.a

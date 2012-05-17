@@ -17,8 +17,8 @@
 #define METADB_KEY_LEN (sizeof(metadb_key_t))
 
 #define metadb_error(phase, cond)                                        \
-  if (!(cond)) {                                                         \
-    fprintf(stderr, "%s:%d: %s: %s\n", __FILE__, __LINE__, phase, #cond);\
+  if (cond != NULL) {                                                         \
+    fprintf(stderr, "%s:%d: %s: %s\n", __FILE__, __LINE__, phase, cond);\
     abort();                                                             \
   }
 
@@ -31,6 +31,7 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name) {
   mdb->options = leveldb_options_create();
   leveldb_options_set_cache(mdb->options, mdb->cache);
   leveldb_options_set_env(mdb->options, mdb->env);
+  leveldb_options_set_create_if_missing(mdb->options, 1);
   leveldb_options_set_info_log(mdb->options, NULL);
   leveldb_options_set_write_buffer_size(mdb->options, DEFAULT_WRITE_BUFFER_SIZE);
   leveldb_options_set_max_open_files(mdb->options, DEFAULT_MAX_OPEN_FILES);

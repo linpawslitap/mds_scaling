@@ -100,11 +100,13 @@ int metadb_readdir(struct MetaDB mdb,
                    const int partition_id,
                    void *buf, fill_dir_t filler);
 
-/*
 int metadb_extract(struct MetaDB mdb,
                    const metadb_inode_t dir_id,
-                   const int partition_id,
-                   iden_part_t idenf,
-                   const char* result_dir);
-*/
+                   const int old_partition_id,
+                   const int new_partition_id,
+                   const char* dir_with_new_partition);
+
+int metadb_bulkinsert(struct MetaDB mdb,
+                      const char* dir_with_new_partition);
+
 #endif /* OPERATIONS_H */

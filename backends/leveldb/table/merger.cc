@@ -111,6 +111,11 @@ class MergingIterator : public Iterator {
     FindLargest();
   }
 
+  virtual Slice internalkey() const {
+    assert(Valid());
+    return current_->key();
+  }
+
   virtual Slice key() const {
     assert(Valid());
     return current_->key();

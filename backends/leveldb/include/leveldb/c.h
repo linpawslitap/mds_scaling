@@ -170,6 +170,7 @@ extern void leveldb_iter_seek_to_last(leveldb_iterator_t*);
 extern void leveldb_iter_seek(leveldb_iterator_t*, const char* k, size_t klen);
 extern void leveldb_iter_next(leveldb_iterator_t*);
 extern void leveldb_iter_prev(leveldb_iterator_t*);
+extern const char* leveldb_iter_internalkey(const leveldb_iterator_t*, size_t* klen);
 extern const char* leveldb_iter_key(const leveldb_iterator_t*, size_t* klen);
 extern const char* leveldb_iter_value(const leveldb_iterator_t*, size_t* vlen);
 extern void leveldb_iter_get_error(const leveldb_iterator_t*, char** errptr);
@@ -285,11 +286,17 @@ extern leveldb_env_t* leveldb_create_default_env();
 extern void leveldb_env_destroy(leveldb_env_t*);
 
 /* TableBuilder */
-extern leveldb_tablebuilder_t* leveldb_create_tablebuilder(
+extern leveldb_tablebuilder_t* leveldb_tablebuilder_create(
+    const leveldb_options_t* options,
     const char* name,
     leveldb_env_t* env,
     char** errptr);
-
+extern void leveldb_tablebuilder_destroy(leveldb_tablebuilder_t*);
+extern void leveldb_tablebuilder_put(
+    leveldb_tablebuilder_t*,
+    const char* key, size_t klen,
+    const char* val, size_t vlen);
+extern size_t leveldb_tablebuilder_size(leveldb_tablebuilder_t*);
 
 #ifdef __cplusplus
 }  /* end extern "C" */

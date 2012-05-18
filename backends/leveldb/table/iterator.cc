@@ -48,6 +48,7 @@ class EmptyIterator : public Iterator {
   virtual void SeekToLast() { }
   virtual void Next() { assert(false); }
   virtual void Prev() { assert(false); }
+  Slice internalkey() const { assert(false); return Slice(); }
   Slice key() const { assert(false); return Slice(); }
   Slice value() const { assert(false); return Slice(); }
   virtual Status status() const { return status_; }

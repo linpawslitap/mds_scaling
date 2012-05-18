@@ -52,6 +52,8 @@ class Iterator {
   // REQUIRES: Valid()
   virtual void Prev() = 0;
 
+  virtual Slice internalkey() const = 0;
+
   // Return the key for the current entry.  The underlying storage for
   // the returned slice is valid only until the next modification of
   // the iterator.

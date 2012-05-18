@@ -9,7 +9,7 @@
 
 #define NUM_BACKLOG_CONN 128
 
-#define SPLIT_THRESHOLD 4000
+#define SPLIT_THRESHOLD 200000
 
 struct MetaDB ldb_mds;  //TODO: make this thread-safe.
 

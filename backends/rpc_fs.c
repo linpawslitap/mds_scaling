@@ -180,7 +180,7 @@ retry:
     if (giga_rpc_mknod_1(dir_id, (char*)path, mode, dev, &rpc_reply, rpc_clnt) 
         != RPC_SUCCESS) {
         logMessage(LOG_FATAL, __func__, "RPC_error: rpc_mknod failed."); 
-        clnt_perror(rpc_clnt,"(rpc_getattr failed)");
+        clnt_perror(rpc_clnt,"(rpc_mknod failed)");
         exit(1);//TODO: retry again?
     }
 

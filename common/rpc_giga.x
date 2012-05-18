@@ -65,6 +65,8 @@ program GIGA_RPC_PROG {                 /* program number */
         giga_result_t GIGA_RPC_MKDIR(giga_dir_id, giga_pathname, mode_t) = 201;
 
         giga_result_t GIGA_RPC_MKNOD(giga_dir_id, giga_pathname, mode_t, short) = 301;
+        /* {dir_to_split, parent_index, child_index, path_leveldb_files} */
+        giga_result_t GIGA_RPC_SPLIT(giga_dir_id, int, int, giga_pathname) = 401;
 		
         /* CLIENT API */
 		/*giga_lookup_t RPC_CREATE(giga_dir_id, giga_pathname, mode_t) = 101;*/

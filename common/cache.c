@@ -29,6 +29,8 @@ void fill_bitmap(struct giga_mapping_t *mapping, DIR_handle_t *handle)
 static 
 struct giga_directory* new_directory(DIR_handle_t *handle)
 {
+    int i = 0;
+
     struct giga_directory *dir = malloc(sizeof(struct giga_directory));
     if (!dir) {
         logMessage(LOG_FATAL, __func__, "malloc_err: %s", strerror(errno));
@@ -42,6 +44,8 @@ struct giga_directory* new_directory(DIR_handle_t *handle)
     // FIXME: what should flag be?
     giga_init_mapping(&dir->mapping, -1, zeroth_srv, giga_options_t.num_servers);
     dir->refcount = 1;
+    for (i=0; i < (int)sizeof(dir->partition_size); i++)
+        dir->partition_size[i] = 0;
 
     HASH_ADD(hh, dircache, handle, sizeof(DIR_handle_t), dir);
 

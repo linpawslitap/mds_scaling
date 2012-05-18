@@ -9,6 +9,7 @@ typedef int DIR_handle_t;
 struct giga_directory {
     DIR_handle_t handle;
     struct giga_mapping_t mapping;
+    int partition_size[MAX_BMAP_LEN];
     int refcount;
     UT_hash_handle hh;
 

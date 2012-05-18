@@ -24,6 +24,7 @@ int local_mkdir(const char *path, mode_t mode);
 int rpc_init();
 int rpc_getattr(int dir_id, const char *path, struct stat *statbuf);
 int rpc_mkdir(int dir_id, const char *path, mode_t mode);
+int rpc_mknod(int dir_ID, const char *path, mode_t mode, dev_t dev);
 
 /*
  * LevelDB specific definitions
@@ -32,8 +33,8 @@ struct MetaDB {
     leveldb_t* db;              // DB instance
     leveldb_comparator_t* cmp;  // Compartor object that allows user-defined
                                 // object comparions functions.
-    leveldb_cache_t* cache;     // Cache object: If enabled, this enables caching of
-                                // individual blocks (of levelDB files) using LRU.
+    leveldb_cache_t* cache;     // Cache object: If set, individual blocks 
+                                // (of levelDB files) are cached using LRU.
     leveldb_env_t* env;
     leveldb_options_t* options;
     leveldb_readoptions_t*  lookup_options;
@@ -42,8 +43,9 @@ struct MetaDB {
 };
 
 typedef enum MetaDB_obj_type {
-    OBJ_FILE,
     OBJ_DIR,
+    OBJ_FILE,
+    OBJ_MKNOD,
     OBJ_SLINK,
     OBJ_HLINK
 } metadb_obj_type_t;
@@ -51,18 +53,18 @@ typedef enum MetaDB_obj_type {
 typedef uint64_t metadb_inode_t;
 
 typedef struct MetaDB_key {
-  metadb_inode_t parent_id;
-  int partition_id;
-  char name_hash[HASH_LEN];
+    metadb_inode_t parent_id;
+    int partition_id;
+    char name_hash[HASH_LEN];
 } metadb_key_t;
 
 typedef struct MetaDB_obj {
-  struct stat statbuf;
-  metadb_obj_type_t obj_type;
-  int objname_len;
-  char* objname;
-  int realpath_len;
-  char* realpath;
+    struct stat statbuf;
+    metadb_obj_type_t obj_type;
+    int objname_len;
+    char* objname;
+    int realpath_len;
+    char* realpath;
 } metadb_obj_t;
 
 typedef void (*fill_dir_t)(void* buf, metadb_key_t* iter_key, metadb_obj_t* iter_obj);

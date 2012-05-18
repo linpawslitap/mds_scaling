@@ -24,36 +24,177 @@
     abort();                                                             \
   }
 
-int metadb_init(struct MetaDB *mdb, const char *mdb_name) {
-  char* err = NULL;
+#define meta_obj_size(mobj) ((mobj->objname_len+1)+(mobj->realpath_len+1)+sizeof(metadb_obj_t))
 
-  mdb->env = leveldb_create_default_env();
-  mdb->cache = leveldb_cache_create_lru(DEFAULT_LEVELDB_CACHE_SIZE);
-
-  mdb->options = leveldb_options_create();
-  leveldb_options_set_cache(mdb->options, mdb->cache);
-  leveldb_options_set_env(mdb->options, mdb->env);
-  leveldb_options_set_create_if_missing(mdb->options, 1);
-  leveldb_options_set_info_log(mdb->options, NULL);
-  leveldb_options_set_write_buffer_size(mdb->options, DEFAULT_WRITE_BUFFER_SIZE);
-  leveldb_options_set_max_open_files(mdb->options, DEFAULT_MAX_OPEN_FILES);
-  leveldb_options_set_block_size(mdb->options, 1024);
-  leveldb_options_set_compression(mdb->options, leveldb_no_compression);
-
-  mdb->lookup_options = leveldb_readoptions_create();
-  leveldb_readoptions_set_fill_cache(mdb->lookup_options, 1);
-
-  mdb->scan_options = leveldb_readoptions_create();
-  leveldb_readoptions_set_fill_cache(mdb->scan_options, 1);
-
-  mdb->insert_options = leveldb_writeoptions_create();
-  leveldb_writeoptions_set_sync(mdb->insert_options, 1);
-
-  mdb->db = leveldb_open(mdb->options, mdb_name, &err);
-  metadb_error("leveldb_init", err);
-
-  return 0;
+static 
+void safe_free(char** ptr) 
+{
+    if (*ptr) {
+        free(*ptr);
+        *ptr = NULL;
+    }
 }
+
+    
+static 
+void init_meta_obj_key(metadb_key_t *mkey, 
+                       int dir_id, int partition_id, const char* path) 
+{
+    mkey->parent_id = dir_id;
+    mkey->partition_id = partition_id;
+    giga_hash_name(path, mkey->name_hash);
+}
+
+static 
+metadb_obj_t* create_metadb_obj(const char* objname, const size_t objname_len,
+                                const char* realpath, const size_t realpath_len) 
+{
+    metadb_obj_t *mobj = (metadb_obj_t*)malloc(sizeof(metadb_obj_t)
+                                             + realpath_len + 1
+                                             + objname_len + 1);
+    if (mobj != NULL) {
+        mobj->objname_len = objname_len;
+        mobj->objname = (char*)mobj + sizeof(metadb_obj_t);
+        strncpy(mobj->objname, objname, objname_len);
+
+        mobj->realpath_len = realpath_len;
+        mobj->realpath = (char*)mobj + sizeof(metadb_obj_t) + objname_len + 1;
+        strncpy(mobj->realpath, realpath, realpath_len);
+        
+        mobj->objname[objname_len] = '\0';
+    }
+    return mobj;
+}
+
+static 
+void init_meta_obj(metadb_obj_t* mobj, 
+                   const int inode_id, metadb_obj_type_t obj_type) 
+{
+    mobj->obj_type = obj_type;
+    
+    mobj->statbuf.st_ino  = inode_id;
+    mobj->statbuf.st_mode = 0600;
+    mobj->statbuf.st_uid  = 1000;
+    mobj->statbuf.st_gid  = 1000;
+    mobj->statbuf.st_size = 0;
+    
+    if (obj_type == OBJ_DIR) 
+        mobj->statbuf.st_nlink   = 2;
+    else 
+        mobj->statbuf.st_nlink   = 1;
+    
+    time_t now = time(NULL);
+    mobj->statbuf.st_atime = now;
+    mobj->statbuf.st_mtime = now;
+    mobj->statbuf.st_ctime = now;
+}
+
+
+int metadb_init(struct MetaDB *mdb, const char *mdb_name) 
+{
+    char* err = NULL;
+    
+    mdb->env = leveldb_create_default_env();
+    mdb->cache = leveldb_cache_create_lru(DEFAULT_LEVELDB_CACHE_SIZE);
+
+    mdb->options = leveldb_options_create();
+    leveldb_options_set_cache(mdb->options, mdb->cache);
+    leveldb_options_set_env(mdb->options, mdb->env);
+    leveldb_options_set_create_if_missing(mdb->options, 1);
+    leveldb_options_set_info_log(mdb->options, NULL);
+    leveldb_options_set_write_buffer_size(mdb->options, DEFAULT_WRITE_BUFFER_SIZE);
+    leveldb_options_set_max_open_files(mdb->options, DEFAULT_MAX_OPEN_FILES);
+    leveldb_options_set_block_size(mdb->options, 1024);
+    leveldb_options_set_compression(mdb->options, leveldb_no_compression);
+
+    mdb->lookup_options = leveldb_readoptions_create();
+    leveldb_readoptions_set_fill_cache(mdb->lookup_options, 1);
+
+    mdb->scan_options = leveldb_readoptions_create();
+    leveldb_readoptions_set_fill_cache(mdb->scan_options, 1);
+
+    mdb->insert_options = leveldb_writeoptions_create();
+    leveldb_writeoptions_set_sync(mdb->insert_options, 1);
+
+    mdb->db = leveldb_open(mdb->options, mdb_name, &err);
+    metadb_error("leveldb_init", err);
+    
+    logMessage(METADB_LOG, __func__, "LevelDB table(%s) created.", mdb_name);
+
+    return 0;
+}
+
+
+int metadb_create(struct MetaDB mdb,
+                  const metadb_inode_t dir_id, const int partition_id,
+                  metadb_obj_type_t entry_type,
+                  const metadb_inode_t inode_id, const char *path,
+                  const char *realpath) 
+{
+    int ret = 0;
+    metadb_key_t mobj_key;
+    metadb_obj_t* mobj;
+    char* err = NULL;
+    
+    logMessage(METADB_LOG, __func__, "create(%s) in (partition=%d,dirid=%d)",
+               path, partition_id, dir_id);
+
+    //TODO: check if the ibject exists: return error if it does
+    
+    //TODO: how do we treat different "entry_type" differently?
+
+    init_meta_obj_key(&mobj_key, dir_id, partition_id, path);
+    mobj = create_metadb_obj(path, strlen(path),
+                           realpath, strlen(realpath));
+    init_meta_obj(mobj, inode_id, entry_type);
+
+    leveldb_put(mdb.db, mdb.insert_options, 
+                (char*)&mobj_key, METADB_KEY_LEN,
+                (char*) &mobj, meta_obj_size(mobj), &err);
+
+    safe_free((char **) (&mobj));
+
+    if (err != NULL)
+      ret = -1;
+
+    return ret;
+}
+
+int metadb_lookup(struct MetaDB mdb,
+                  const metadb_inode_t dir_id, const int partition_id,
+                  const char *path, struct stat *stbuf)
+{
+    int ret = 0;
+    metadb_key_t mobj_key;
+    metadb_obj_t* mobj;
+    char* err = NULL;
+
+    char* val;
+    size_t val_len;
+
+    logMessage(METADB_LOG, __func__, "lookup(%s) in (partition=%d,dirid=%d)",
+               path, partition_id, dir_id);
+
+    init_meta_obj_key(&mobj_key, dir_id, partition_id, path);
+    val = leveldb_get(mdb.db, mdb.lookup_options,
+                      (char*) &mobj_key, METADB_KEY_LEN, &val_len, &err);
+
+    if ((err == NULL) && (val != NULL)) {
+        mobj = (metadb_obj_t*)val;
+        *stbuf = mobj->statbuf;
+        safe_free(&val);
+    } 
+    else {
+        logMessage(METADB_LOG, __func__, "entry(%s) not found.", path);
+        ret = ENOENT;
+    }
+
+    return ret;
+}
+
+// #####################
+//
+
 
 int metadb_close(struct MetaDB mdb) {
   leveldb_close(mdb.db);
@@ -66,125 +207,6 @@ int metadb_close(struct MetaDB mdb) {
   return 0;
 }
 
-static metadb_obj_t* create_metadb_obj(const char* objname,
-                                       const size_t objname_len,
-                                       const char* realpath,
-                                       const size_t realpath_len) {
-  metadb_obj_t *mobj;
-  mobj = (metadb_obj_t *) malloc(sizeof(metadb_obj_t)
-                                 + realpath_len + 1
-                                 + objname_len + 1);
-  if (mobj != NULL) {
-    mobj->objname_len = objname_len;
-    mobj->objname = (char *) mobj + sizeof(metadb_obj_t);
-    strncpy(mobj->objname, objname, objname_len);
-    mobj->realpath_len = realpath_len;
-    mobj->realpath = (char *) mobj+sizeof(metadb_obj_t)+objname_len+1;
-    strncpy(mobj->realpath, realpath, realpath_len);
-    mobj->objname[objname_len] = '\0';
-  }
-  return mobj;
-}
-
-static void init_meta_obj(metadb_obj_t* mobj,
-                          const int inode_id,
-                          mode_t mode,
-                          metadb_obj_type_t obj_type) {
-  mobj->obj_type = obj_type;
-  mobj->statbuf.st_ino  = inode_id;
-  mobj->statbuf.st_mode = mode;
-  mobj->statbuf.st_uid  = 1000;
-  mobj->statbuf.st_gid  = 1000;
-  mobj->statbuf.st_size = 0;
-  if (obj_type == OBJ_DIR) {
-    mobj->statbuf.st_nlink   = 2;
-  } else {
-    mobj->statbuf.st_nlink   = 1;
-  }
-  time_t now = time(NULL);
-  mobj->statbuf.st_atime = now;
-  mobj->statbuf.st_mtime = now;
-  mobj->statbuf.st_ctime = now;
-}
-
-#define meta_obj_size(mobj) ((mobj->objname_len+1)+(mobj->realpath_len+1)+sizeof(metadb_obj_t))
-
-static void init_meta_obj_key(metadb_key_t *mkey,
-                              int dir_id,
-                              int partition_id,
-                              const char* path) {
-  mkey->parent_id = dir_id;
-  mkey->partition_id = partition_id;
-  giga_hash_name(path, mkey->name_hash);
-}
-
-static void safe_free(char** ptr) {
-  if (*ptr) {
-    free(*ptr);
-    *ptr = NULL;
-  }
-}
-
-int metadb_create(struct MetaDB mdb,
-                  const metadb_inode_t dir_id,
-                  const int partition_id,
-                  metadb_obj_type_t entry_type,
-                  const metadb_inode_t inode_id,
-                  const char *path,
-                  const char *realpath) {
-  metadb_key_t mobj_key;
-  metadb_obj_t* mobj;
-  char* err = NULL;
-
-  init_meta_obj_key(&mobj_key, dir_id, partition_id, path);
-  mobj = create_metadb_obj(path, strlen(path),
-                           realpath, strlen(realpath));
-  init_meta_obj(mobj, inode_id, 0660, entry_type);
-
-  leveldb_put(mdb.db, mdb.insert_options,
-              (char *) &mobj_key, METADB_KEY_LEN,
-              (char *) &mobj, meta_obj_size(mobj),
-              &err);
-
-  safe_free((char **) (&mobj));
-
-  if (err != NULL)
-      return -1;
-
-  return 0;
-}
-
-int metadb_lookup(struct MetaDB mdb,
-                  const metadb_inode_t dir_id, const int partition_id,
-                  const char *path, struct stat *stbuf)
-{
-    int ret = 0;
-    metadb_key_t mobj_key;
-    metadb_obj_t* mobj;
-    char* err = NULL;
-    size_t val_len;
-    char* val;
-
-    logMessage(METADB_LOG, __func__, "lookup(%s) in (partition=%d,dirid=%d)",
-               path, partition_id, dir_id);
-
-    init_meta_obj_key(&mobj_key, dir_id, partition_id, path);
-    val = leveldb_get(mdb.db, mdb.lookup_options,
-                    (char *) &mobj_key, METADB_KEY_LEN,
-                    &val_len, &err);
-
-    if (err == NULL && val != NULL) {
-        mobj = (metadb_obj_t *) val;
-        *stbuf = mobj->statbuf;
-        safe_free(&val);
-    } 
-    else {
-        logMessage(METADB_LOG, __func__, "entry(%s) not found.", path);
-        ret = ENOENT;
-    }
-
-    return ret;
-}
 
 int metadb_remove(struct MetaDB mdb,
                   const metadb_inode_t dir_id,

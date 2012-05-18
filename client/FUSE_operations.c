@@ -122,9 +122,8 @@ void GIGAdestroy(void * unused)
 
     logClose();
 
-    /* FIXME: check cleanup code.
-    rpc_disconnect();
-    */
+    // FIXME: check cleanup code.
+    //rpc_disconnect();
 }
 
 
@@ -197,10 +196,6 @@ int GIGAmkdir(const char *path, mode_t mode)
     return ret;
 }
 
-/*
-#######
-*/
-
     
 int GIGAmknod(const char *path, mode_t mode, dev_t dev)
 {
@@ -209,6 +204,9 @@ int GIGAmknod(const char *path, mode_t mode, dev_t dev)
 
     int ret = 0;
     char fpath[PATH_MAX];
+    char dir[MAX_LEN] = {0};
+    char file[MAX_LEN] = {0};
+    int dir_id = 0;
     
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
@@ -216,7 +214,12 @@ int GIGAmknod(const char *path, mode_t mode, dev_t dev)
             ret = local_mknod(fpath, mode, dev);
             ret = FUSE_ERROR(ret);
             break;
+        case BACKEND_RPC_LOCALFS:
+            ;
         case BACKEND_RPC_LEVELDB:
+            parse_path_components(path, file, dir);
+            ret = rpc_mknod(dir_id, file, mode, dev);
+            ret = FUSE_ERROR(ret);
             break;
         default:
             break;
@@ -224,6 +227,11 @@ int GIGAmknod(const char *path, mode_t mode, dev_t dev)
 
     return ret;
 }
+
+/*
+#######
+*/
+
 
 int GIGAsymlink(const char *path, const char *link)
 {

@@ -7,6 +7,8 @@
 
 #ifdef RPC_HDR
 %#include <sys/types.h>
+%#include <unistd.h>
+%#include <fcntl.h>
 %#include "giga_index.h"
 %#include "rpc_helper.h"
 #elif RPC_XDR
@@ -63,6 +65,8 @@ program GIGA_RPC_PROG {                 /* program number */
         giga_getattr_reply_t GIGA_RPC_GETATTR(giga_dir_id, giga_pathname) = 101;
 
         giga_result_t GIGA_RPC_MKDIR(giga_dir_id, giga_pathname, mode_t) = 201;
+
+        giga_result_t GIGA_RPC_MKNOD(giga_dir_id, giga_pathname, mode_t, short) = 301;
 		
         /* CLIENT API */
 		/*giga_lookup_t RPC_CREATE(giga_dir_id, giga_pathname, mode_t) = 101;*/

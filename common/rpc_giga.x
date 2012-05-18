@@ -7,8 +7,6 @@
 
 #ifdef RPC_HDR
 %#include <sys/types.h>
-%#include <unistd.h>
-%#include <fcntl.h>
 %#include "giga_index.h"
 %#include "rpc_helper.h"
 #elif RPC_XDR

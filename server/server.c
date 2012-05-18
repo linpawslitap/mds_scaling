@@ -348,7 +348,7 @@ int main(int argc, char **argv)
 
     signal(SIGINT, sig_handler);    // handling SIGINT
     
-    logOpen(DEFAULT_LOG_FILE_LOCATIONs, LOG_DEBUG);     // init logging.
+    logOpen(DEFAULT_LOG_FILE_LOCATIONs, DEFAULT_LOG_LEVEL); // init logging.
     initGIGAsetting(GIGA_SERVER, DEFAULT_CONF_FILE);    // init GIGA+ options.
 
     if (giga_options_t.serverID == -1){

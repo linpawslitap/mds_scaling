@@ -1,6 +1,8 @@
 #ifndef DEFAULTS_H
 #define DEFAULTS_H   
 
+#include "debugging.h"
+
 /* client and server settings specific constants */
 #define DEFAULT_MOUNT "./"
 #define DEFAULT_PVFS_FS "tcp://localhost:3334/pvfs2-fs"
@@ -31,6 +33,7 @@
 
 #define DEFAULT_LOG_DIRECTORY   "/tmp/logs/"   /* log directory location */
 #define DEFAULT_LOG_FD_PREFIX   "giga_log"      /* log file prefix */
+#define DEFAULT_LOG_LEVEL       LOG_DEBUG
 
 #define DEFAULT_CONF_FILE       "/tmp/test_conf_file"
 

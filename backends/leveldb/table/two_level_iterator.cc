@@ -34,6 +34,10 @@ class TwoLevelIterator: public Iterator {
   virtual bool Valid() const {
     return data_iter_.Valid();
   }
+  virtual Slice internalkey() const {
+    assert(Valid());
+    return data_iter_.key();
+  }
   virtual Slice key() const {
     assert(Valid());
     return data_iter_.key();

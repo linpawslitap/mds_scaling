@@ -9,12 +9,16 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <dirent.h>
 
 #define METADB_LOG LOG_DEBUG
 
 #define DEFAULT_LEVELDB_CACHE_SIZE 100000
 #define DEFAULT_WRITE_BUFFER_SIZE  100000
 #define DEFAULT_MAX_OPEN_FILES     128
+#define DEFAULT_SSTABLE_SIZE 2*1024*1024
+#define MAX_FILENAME_LEN 1024
+#define DEFAULT_INTERNAL_KEY_LEN 48
 
 #define METADB_KEY_LEN (sizeof(metadb_key_t))
 
@@ -230,6 +234,7 @@ int metadb_readdir(struct MetaDB mdb,
                    const metadb_inode_t dir_id,
                    const int partition_id,
                    void *buf, fill_dir_t filler) {
+  int ret = 0;
   metadb_key_t mobj_key;
 
   init_meta_obj_key(&mobj_key, dir_id, partition_id, 0);
@@ -249,24 +254,45 @@ int metadb_readdir(struct MetaDB mdb,
         break;
       }
     }
-    return 0;
   } else {
-    return ENOENT;
+    ret = ENOENT;
   }
+  leveldb_iter_destroy(iter);
+  return ret;
 }
 
-/*
+static void build_sstable_filename(const char* dir_with_new_partition,
+                                   int new_partition_id,
+                                   int num_new_sstable,
+                                   char* sstable_filename) {
+  snprintf(sstable_filename, MAX_FILENAME_LEN,
+           "%s/p%d-%08x", dir_with_new_partition,
+           new_partition_id, num_new_sstable);
+}
+
+static void construct_new_key(const char* old_key,
+                              int key_len,
+                              int new_partition_id,
+                              char* new_key) {
+  strncpy(new_key, old_key, key_len);
+  metadb_key_t* user_key = (metadb_key_t*) new_key;
+  user_key->partition_id = new_partition_id;
+}
+
 int metadb_extract(struct MetaDB mdb,
                    const metadb_inode_t dir_id,
                    const int old_partition_id,
                    const int new_partition_id,
-                   const char* dir_with_new_partition) 
+                   const char* dir_with_new_partition)
 {
+    int ret = 0;
+    char* err = NULL;
+
     metadb_key_t mobj_key;
-    init_meta_obj_key(&mobj_key, dir_id, partition_id, 0);
+    init_meta_obj_key(&mobj_key, dir_id, old_partition_id, 0);
 
     // steps for splitting: P_i (old partition id) into P_j (new partition id)
-    // 
+    //
     // init:
     // -- create new_sstable_File
     //
@@ -281,6 +307,100 @@ int metadb_extract(struct MetaDB mdb,
     // return:
     // -- path for new_sst_file
 
-    return 0;
+    int num_new_sstable = 0;
+    char sstable_filename[MAX_FILENAME_LEN];
+    char new_internal_key[DEFAULT_INTERNAL_KEY_LEN];
+    build_sstable_filename(dir_with_new_partition,
+                           new_partition_id, num_new_sstable,
+                           sstable_filename);
+    leveldb_tablebuilder_t* builder = leveldb_tablebuilder_create(
+        mdb.options, sstable_filename, mdb.env, &err);
+    metadb_error(err, "create new builder");
+
+    leveldb_iterator_t* iter =
+      leveldb_create_iterator(mdb.db, mdb.scan_options);
+    leveldb_writebatch_t* batch = leveldb_writebatch_create();
+
+    if (leveldb_iter_valid(iter)) {
+      leveldb_iter_seek(iter, (char *) &mobj_key, METADB_KEY_LEN);
+      while (leveldb_iter_valid(iter)) {
+        size_t klen;
+        const char* iter_ori_key = leveldb_iter_key(iter, &klen);
+        metadb_key_t* iter_key = (metadb_key_t*) iter_ori_key;
+
+        if (iter_key->parent_id == dir_id &&
+            iter_key->partition_id == old_partition_id) {
+
+          size_t vlen;
+          const char* iter_ori_val = leveldb_iter_value(iter, &vlen);
+          metadb_obj_t* iter_obj = (metadb_obj_t*) iter_ori_val;
+
+          if (giga_file_migration_status(iter_obj->objname, new_partition_id)) {
+            leveldb_writebatch_delete(batch, iter_ori_key, klen);
+            size_t iklen;
+            const char* iter_internal_key =
+              leveldb_iter_internalkey(iter, &iklen);
+            //TODO: Construct new key
+            construct_new_key(iter_internal_key, iklen,
+                              new_partition_id, new_internal_key);
+            leveldb_tablebuilder_put(builder,
+                new_internal_key, iklen, iter_ori_val, vlen);
+          }
+
+          if (leveldb_tablebuilder_size(builder) >= DEFAULT_SSTABLE_SIZE) {
+            // flush sstable file
+            leveldb_tablebuilder_destroy(builder);
+            // create new sstable builder
+            ++num_new_sstable;
+            build_sstable_filename(dir_with_new_partition,
+                                   new_partition_id, num_new_sstable,
+                                   sstable_filename);
+            builder = leveldb_tablebuilder_create(
+                  mdb.options, sstable_filename, mdb.env, &err);
+            metadb_error(err, "create new builder");
+            // delete moved entries
+            leveldb_write(mdb.db, mdb.insert_options, batch, &err);
+            metadb_error(err, "delete moved entreis");
+            leveldb_writebatch_clear(batch);
+          }
+        } else {
+          break;
+        }
+      }
+      return 0;
+    } else {
+      ret = ENOENT;
+    }
+    if (leveldb_tablebuilder_size(builder) > 0) {
+       leveldb_write(mdb.db, mdb.insert_options, batch, &err);
+       metadb_error(err, "delete moved entreis");
+    }
+    leveldb_writebatch_destroy(batch);
+    leveldb_tablebuilder_destroy(builder);
+    leveldb_iter_destroy(iter);
+    return ret;
 }
-*/
+
+int metadb_bulkinsert(struct MetaDB mdb,
+                      const char* dir_with_new_partition) {
+
+    int ret = 0;
+    char sstable_filename[MAX_FILENAME_LEN];
+    char* err = NULL;
+
+    DIR* dp = opendir(dir_with_new_partition);
+    if (dp != NULL) {
+        struct dirent *de;
+        while ((de = readdir(dp)) != NULL) {
+          if (strcmp(de->d_name, ".") != 0 && strcmp(de->d_name, "..") != 0) {
+            snprintf(sstable_filename, MAX_FILENAME_LEN,
+                     "%s/%s", dir_with_new_partition, de->d_name);
+            leveldb_bulkinsert(mdb.db, mdb.insert_options,
+                               sstable_filename, &err);
+            metadb_error(err, "bulkinsert");
+          }
+        }
+    }
+    closedir(dp);
+    return ret;
+}

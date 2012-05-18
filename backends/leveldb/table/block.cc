@@ -126,6 +126,10 @@ class Block::Iter : public Iterator {
 
   virtual bool Valid() const { return current_ < restarts_; }
   virtual Status status() const { return status_; }
+  virtual Slice internalkey() const {
+    assert(Valid());
+    return key_;
+  }
   virtual Slice key() const {
     assert(Valid());
     return key_;

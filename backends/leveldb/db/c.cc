@@ -15,6 +15,8 @@
 #include "leveldb/options.h"
 #include "leveldb/status.h"
 #include "leveldb/write_batch.h"
+#include "leveldb/table_builder.h"
+#include "db/dbformat.h"
 
 using leveldb::Cache;
 using leveldb::Comparator;
@@ -38,6 +40,7 @@ using leveldb::Status;
 using leveldb::WritableFile;
 using leveldb::WriteBatch;
 using leveldb::WriteOptions;
+using leveldb::TableBuilder;
 
 extern "C" {
 
@@ -54,6 +57,8 @@ struct leveldb_randomfile_t   { RandomAccessFile* rep; };
 struct leveldb_writablefile_t { WritableFile*     rep; };
 struct leveldb_logger_t       { Logger*           rep; };
 struct leveldb_filelock_t     { FileLock*         rep; };
+struct leveldb_tablebuilder_t { WritableFile*     file;
+                                TableBuilder*     rep; };
 
 struct leveldb_comparator_t : public Comparator {
   void* state_;
@@ -282,7 +287,7 @@ void leveldb_bulksplit(
     const char* diretory_name,
     char** errptr) {
   Slice a, b;
-  SaveError(errptr, db->rep->BulkSplit(options->rep, sequence_number, 
+  SaveError(errptr, db->rep->BulkSplit(options->rep, sequence_number,
       (begin_key? (a = Slice(begin_key, begin_key_len), &a) : NULL),
       (end_key ? (b = Slice(end_key, end_key_len), &b) : NULL),
       std::string(diretory_name)));
@@ -293,7 +298,7 @@ void leveldb_bulkinsert(
     const leveldb_writeoptions_t* options,
     const char* filename,
     char** errptr) {
-  SaveError(errptr, db->rep->BulkInsert(options->rep, 
+  SaveError(errptr, db->rep->BulkInsert(options->rep,
         std::string(filename)));
 }
 
@@ -338,6 +343,12 @@ void leveldb_iter_next(leveldb_iterator_t* iter) {
 
 void leveldb_iter_prev(leveldb_iterator_t* iter) {
   iter->rep->Prev();
+}
+
+const char* leveldb_iter_internalkey(const leveldb_iterator_t* iter, size_t* klen) {
+  Slice s = iter->rep->internalkey();
+  *klen = s.size();
+  return s.data();
 }
 
 const char* leveldb_iter_key(const leveldb_iterator_t* iter, size_t* klen) {
@@ -600,6 +611,49 @@ leveldb_env_t* leveldb_create_default_env() {
 void leveldb_env_destroy(leveldb_env_t* env) {
   if (!env->is_default) delete env->rep;
   delete env;
+}
+
+leveldb_tablebuilder_t* leveldb_tablebuilder_create(
+    const leveldb_options_t* options,
+    const char* name,
+    leveldb_env_t* env,
+    char** errptr) {
+  leveldb_tablebuilder_t* result = new leveldb_tablebuilder_t;
+  Status s = env->rep->NewWritableFile(std::string(name),
+                                       &result->file);
+  if (s.ok()) {
+    result->rep = new TableBuilder(options->rep, result->file);
+  } else {
+    SaveError(errptr, s);
+    delete result;
+    result = NULL;
+  }
+  return result;
+}
+
+void leveldb_tablebuilder_destroy(leveldb_tablebuilder_t* builder) {
+  if (builder->rep->NumEntries() >  0) {
+    builder->rep->Finish();
+    builder->file->Sync();
+    builder->file->Close();
+  } else {
+    builder->rep->Abandon();
+  }
+  delete builder->rep;
+  builder->rep = NULL;
+  delete builder->file;
+  builder->file = NULL;
+}
+
+void leveldb_tablebuilder_put(
+    leveldb_tablebuilder_t* builder,
+    const char* key, size_t klen,
+    const char* val, size_t vlen) {
+  builder->rep->Add(Slice(key, klen), Slice(val, vlen));
+}
+
+size_t leveldb_tablebuilder_size(leveldb_tablebuilder_t* builder) {
+  return builder->rep->FileSize();
 }
 
 }  // end extern "C"

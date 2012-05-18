@@ -60,6 +60,10 @@ class DBIter: public Iterator {
     delete iter_;
   }
   virtual bool Valid() const { return valid_; }
+  virtual Slice internalkey() const {
+    assert(valid_);
+    return iter_->key();
+  }
   virtual Slice key() const {
     assert(valid_);
     return (direction_ == kForward) ? ExtractUserKey(iter_->key()) : saved_key_;

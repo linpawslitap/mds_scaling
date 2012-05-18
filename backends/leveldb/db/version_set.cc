@@ -195,6 +195,10 @@ class Version::LevelFileNumIterator : public Iterator {
       index_--;
     }
   }
+  Slice internalkey() const {
+    assert(Valid());
+    return (*flist_)[index_]->largest.Encode();
+  }
   Slice key() const {
     assert(Valid());
     return (*flist_)[index_]->largest.Encode();

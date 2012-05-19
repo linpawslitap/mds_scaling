@@ -26,6 +26,7 @@ void fill_bitmap(struct giga_mapping_t *mapping, DIR_handle_t *handle)
 }
 */
 
+/*
 static 
 struct giga_directory* new_directory(DIR_handle_t *handle)
 {
@@ -44,7 +45,8 @@ struct giga_directory* new_directory(DIR_handle_t *handle)
     // FIXME: what should flag be?
     giga_init_mapping(&dir->mapping, -1, zeroth_srv, giga_options_t.num_servers);
     dir->refcount = 1;
-    for (i=0; i < (int)sizeof(dir->partition_size); i++)
+    //for (i=0; i < (int)sizeof(dir->partition_size); i++)
+    for (i=0; i < MAX_BMAP_LEN; i++)
         dir->partition_size[i] = 0;
 
     HASH_ADD(hh, dircache, handle, sizeof(DIR_handle_t), dir);
@@ -90,12 +92,12 @@ void cache_return(struct giga_directory *dir)
     dir->refcount--;
 }
 
-/* when an object is deleted */
+// when an object is deleted
 void cache_destroy(struct giga_directory *dir)
 {
     assert(dir->refcount > 1);
 
-    /* once to release from the caller */
+    // once to release from the caller
     __sync_fetch_and_sub(&dir->refcount, 1);
 
     HASH_DEL(dircache, dir);
@@ -103,3 +105,45 @@ void cache_destroy(struct giga_directory *dir)
     if (__sync_sub_and_fetch(&dir->refcount, 1) == 0)
         free(dir);
 }
+*/
+
+int cache_init()
+{
+    int i = 0;
+
+    dircache = (struct giga_directory*)malloc(sizeof(struct giga_directory));
+    if (!dircache) {
+        logMessage(LOG_FATAL, __func__, "malloc_err: %s", strerror(errno));
+        exit(1);
+    }
+
+    dircache->handle = 0;
+    
+    int zeroth_srv = 0; //FIXME: how do you get zeroth server info?
+    giga_init_mapping(&dircache->mapping, -1, zeroth_srv, giga_options_t.num_servers);
+    dircache->refcount = 1;
+    //for (i=0; i < (int)sizeof(dir->partition_size); i++)
+    for (i=0; i < MAX_BMAP_LEN; i++)
+        dircache->partition_size[i] = 0;
+
+   
+    logMessage(LOG_TRACE, __func__, "Cache_CREATE: dir(%d)", dircache->handle);
+
+    return 0; 
+}
+
+struct giga_directory* cache_fetch(DIR_handle_t *handle)
+{
+    if (dircache == NULL) {
+        logMessage(LOG_DEBUG, __func__, "Cache_NULL: dir(%d)", *handle); 
+        cache_init();
+    }
+    
+    if (dircache->handle != *handle) {
+        logMessage(LOG_DEBUG, __func__, "Cache_MISS: dir(%d)", *handle); 
+        return NULL;
+    }
+    
+    return dircache;
+}
+

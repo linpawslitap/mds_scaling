@@ -11,19 +11,18 @@ struct giga_directory {
     struct giga_mapping_t mapping;
     int partition_size[MAX_BMAP_LEN];
     int refcount;
-    UT_hash_handle hh;
-
+    //UT_hash_handle hh; //FIXME:
 };
 
 
-/* initialize the directory cache */
+// initialize the directory cache
 int cache_init();
 
-/* get the skye_directory object for a given PVFS_object_ref. */
+// get the skye_directory object for a given PVFS_object_ref.
 struct giga_directory* cache_fetch(DIR_handle_t *handle);
 
-/* return a previously fetched skye_directory.  This is necessairy because we
- * refcount skye_directory objects */
-void cache_return(struct giga_directory *dir);
+// return a previously fetched skye_directory.  This is necessairy because we
+// refcount skye_directory objects 
+//void cache_return(struct giga_directory *dir);
 
 #endif

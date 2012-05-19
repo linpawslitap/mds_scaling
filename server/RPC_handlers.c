@@ -190,8 +190,10 @@ static
 int split_bucket(struct giga_directory *dir, int partition_id)
 {
     int ret = 0;
-
+        
     int new_index = giga_index_for_splitting(&(dir->mapping), partition_id);
+    
+    logMessage(HANDLER_LOG, __func__, "SPLIT(%d->%d) ...", index, new_index); 
 
     char split_dir_path[MAX_LEN] = {0};
     snprintf(split_dir_path, sizeof(split_dir_path), 
@@ -201,6 +203,8 @@ int split_bucket(struct giga_directory *dir, int partition_id)
     // FIXME: should we even do this for local splitting?? move to remote
     // split??
     //
+    
+    logMessage(HANDLER_LOG, __func__, "extract from leveldb ... ");
     ret = metadb_extract(ldb_mds, dir->handle, 
                          partition_id, new_index, split_dir_path);
     if (ret < 0) {
@@ -211,16 +215,19 @@ int split_bucket(struct giga_directory *dir, int partition_id)
     int destination_server = new_index % giga_options_t.num_servers;
 
     if (destination_server == giga_options_t.serverID) {
+        logMessage(HANDLER_LOG, __func__, "LOCAL_SPLIT ... ");
         if ((ret = metadb_bulkinsert(ldb_mds, split_dir_path)) < 0) 
             logMessage(LOG_FATAL, __func__, "bulk insert failed!!!");
     }
     else {
         // send rpc
         //
+        
         giga_result_t rpc_reply;
         CLIENT *rpc_clnt = getConnection(destination_server);
 
-        logMessage(HANDLER_LOG, __func__, "RPC_split()");
+        logMessage(HANDLER_LOG, __func__, "RPC_split(srv%d->srv%d)",
+                   giga_options_t.serverID, destination_server);
 
         if (giga_rpc_split_1(dir->handle, partition_id, new_index,
                              (char*)split_dir_path, &rpc_reply, rpc_clnt) 
@@ -333,6 +340,9 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
 
     // (3): check for splits.
     if (dir->partition_size[index] > SPLIT_THRESHOLD) {
+        logMessage(HANDLER_LOG, __func__, 
+                   "bucket(%d) has %d entries!.", index, dir->partition_size[index]);
+        
         if ((rpc_reply->errnum = split_bucket(dir, index)) < 0) {
             logMessage(LOG_FATAL, __func__, "split failed.!!!");
             exit(1);    //FIXME: do somethign smarter

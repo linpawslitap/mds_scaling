@@ -159,6 +159,8 @@ int GIGAgetattr(const char *path, struct stat *statbuf)
             break;
     }
 
+    logMessage(FUSE_LOG, __func__,
+               " ==> getattr(status=[%d],%s) ", ret, strerror(ret));
     return ret;
 }
 
@@ -192,7 +194,7 @@ int GIGAmkdir(const char *path, mode_t mode)
         default:
             break;
     }
-
+    
     return ret;
 }
 
@@ -224,7 +226,9 @@ int GIGAmknod(const char *path, mode_t mode, dev_t dev)
         default:
             break;
     }
-
+    
+    logMessage(FUSE_LOG, __func__,
+               " ==> mknod(status=[%d],%s) ", ret, strerror(ret));
     return ret;
 }
 

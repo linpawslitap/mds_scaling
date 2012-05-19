@@ -42,6 +42,7 @@ typedef enum log_level {
 
 
 #define DEFAULT_LOG_LEVEL       LOG_DEBUG
+
 #define DEFAULT_LOG_FILE_LOCATIONs   "/tmp/dbg.log.s"
 #define DEFAULT_LOG_FILE_LOCATIONc  "/tmp/dbg.log.c"
 #define MAX_ERR_BUF_SIZE    512

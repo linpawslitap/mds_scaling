@@ -59,11 +59,12 @@ typedef struct MetaDB_key {
 } metadb_key_t;
 
 typedef struct MetaDB_obj {
-    struct stat statbuf;
+    int magic_number;
     metadb_obj_type_t obj_type;
-    int objname_len;
+    struct stat statbuf;
+    size_t objname_len;
     char* objname;
-    int realpath_len;
+    size_t realpath_len;
     char* realpath;
 } metadb_obj_t;
 
@@ -74,7 +75,7 @@ typedef void (*iden_part_t)(const char* entry, const int partition_id);
 
 int metadb_init(struct MetaDB *mdb, const char *mdb_name);
 
-int metadb_destroy(struct MetaDB mdb, const char *mdb_name);
+int metadb_close(struct MetaDB mdb);
 
 int metadb_create(struct MetaDB mdb,
                   const metadb_inode_t dir_id,
@@ -108,5 +109,11 @@ int metadb_extract(struct MetaDB mdb,
 
 int metadb_bulkinsert(struct MetaDB mdb,
                       const char* dir_with_new_partition);
+
+
+void metadb_test_put_and_get(struct MetaDB mdb,
+                             const metadb_inode_t dir_id,
+                             const int partition_id,
+                             const char *path);
 
 #endif /* OPERATIONS_H */

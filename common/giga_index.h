@@ -82,7 +82,9 @@ void giga_print_mapping(struct giga_mapping_t *mapping);
 
 // Check whether a file needs to move to the new bucket created from a split.
 //
-int giga_file_migration_status(const char *filename, index_t new_index);   
+int giga_file_migration_status(const char *filename, index_t new_index);
+
+int giga_file_migration_status_with_hash(char *hash, index_t new_index);
 
 // Given the index of the overflow partition, return the index 
 // of the partition created after splitting that partition.

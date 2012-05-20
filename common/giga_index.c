@@ -400,6 +400,19 @@ int giga_file_migration_status(const char* filename, index_t new_index)
     return ret;
 }
 
+int giga_file_migration_status_with_hash(char* hash, index_t new_index) 
+{
+    int ret = 0;
+    logMessage(GIGA_LOG, __func__, "checking if hash(%s) moves?", hash);
+
+    int radix = get_radix_from_index(new_index);
+    if (compute_index(hash, radix) == new_index)
+        ret = 1;
+
+    logMessage(GIGA_LOG, __func__, "hash(%s) move status: %d", hash, ret);
+    return ret;
+}
+
 int giga_is_splittable(struct giga_mapping_t *mapping, index_t old_index)
 {
     switch (SPLIT_TYPE) {

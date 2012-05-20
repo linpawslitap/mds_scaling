@@ -499,7 +499,7 @@ TEST(DBTest, BulkInsertion2) {
 
   MakeTables(3, "p", "q");
   ASSERT_EQ("1,1,1", FilesPerLevel());
-  
+
   Random randgen(100);
   WriteOptions options;
   for (int i = 0; i < num_entries; ++i) {
@@ -528,7 +528,6 @@ TEST(DBTest, BulkInsertion2) {
   delete iter;
   ASSERT_EQ(count, new_count);
 }
-
 
 
 }  // namespace leveldb

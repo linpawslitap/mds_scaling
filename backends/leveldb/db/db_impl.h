@@ -45,7 +45,9 @@ class DBImpl : public DB {
                            const Slice* begin, const Slice* end,
                            const std::string& dname);
   virtual Status BulkInsert(const WriteOptions& options,
-                            const std::string& fname);
+                            const std::string& fname,
+                            uint64_t min_sequence_number,
+                            uint64_t max_sequence_number);
 
   // Extra methods (for testing) that are not in the public DB interface
 

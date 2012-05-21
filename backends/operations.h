@@ -54,7 +54,7 @@ typedef uint64_t metadb_inode_t;
 
 typedef struct MetaDB_key {
     metadb_inode_t parent_id;
-    int partition_id;
+    long int partition_id;
     char name_hash[HASH_LEN];
 } metadb_key_t;
 
@@ -105,11 +105,14 @@ int metadb_extract(struct MetaDB mdb,
                    const metadb_inode_t dir_id,
                    const int old_partition_id,
                    const int new_partition_id,
-                   const char* dir_with_new_partition);
+                   const char* dir_with_new_partition,
+                   uint64_t *min_sequence_number,
+                   uint64_t *max_sequence_number);
 
 int metadb_bulkinsert(struct MetaDB mdb,
-                      const char* dir_with_new_partition);
-
+                      const char* dir_with_new_partition,
+                      uint64_t min_sequence_number,
+                      uint64_t max_sequence_number);
 
 void metadb_test_put_and_get(struct MetaDB mdb,
                              const metadb_inode_t dir_id,

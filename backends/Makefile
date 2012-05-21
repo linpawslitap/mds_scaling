@@ -20,4 +20,4 @@ metadb_fs_test : metadb_fs_test.o metadb_fs.o
 	$(CC) -o $@ $^ ../common.a $(LDFLAGS)
 
 clean :
-	rm -f *.o
+	rm -f *.o metadb_fs_test

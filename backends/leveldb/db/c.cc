@@ -297,9 +297,14 @@ void leveldb_bulkinsert(
     leveldb_t* db,
     const leveldb_writeoptions_t* options,
     const char* filename,
+    uint64_t min_sequence_number,
+    uint64_t max_sequence_number,
     char** errptr) {
-  SaveError(errptr, db->rep->BulkInsert(options->rep,
-        std::string(filename)));
+  SaveError(errptr,
+        db->rep->BulkInsert(options->rep,
+        std::string(filename),
+        min_sequence_number,
+        max_sequence_number));
 }
 
 void leveldb_destroy_db(

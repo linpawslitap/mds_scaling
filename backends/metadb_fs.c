@@ -50,7 +50,7 @@ void init_meta_obj_key(metadb_key_t *mkey,
 
 static
 void print_meta_obj_key(metadb_key_t *mkey) {
-    printf("%ld, %d, %s\n", mkey->parent_id, mkey->partition_id, mkey->name_hash);
+    printf("%ld, %ld, %s\n", mkey->parent_id, mkey->partition_id, mkey->name_hash);
 }
 
 static
@@ -297,15 +297,13 @@ int metadb_readdir(struct MetaDB mdb,
 
   init_meta_obj_seek_key(&mobj_key, dir_id, partition_id);
   leveldb_iterator_t* iter = leveldb_create_iterator(mdb.db, mdb.scan_options);
-  //leveldb_iter_seek(iter, (char *) &mobj_key, METADB_KEY_LEN);
-  leveldb_iter_seek_to_first(iter);
+  leveldb_iter_seek(iter, (char *) &mobj_key, METADB_KEY_LEN);
   if (leveldb_iter_valid(iter)) {
     do {
       metadb_key_t* iter_key;
       metadb_obj_t* iter_obj;
       size_t len;
       iter_key = (metadb_key_t*) leveldb_iter_key(iter, &len);
-      print_meta_obj_key(iter_key);
       if (iter_key->parent_id == dir_id &&
           iter_key->partition_id == partition_id) {
         iter_obj = (metadb_obj_t*) leveldb_iter_value(iter, &len);
@@ -341,6 +339,14 @@ static void construct_new_key(const char* old_key,
     user_key->partition_id = new_partition_id;
 }
 
+static uint64_t get_sequence_number(const char* key,
+                                    int key_len) {
+    uint64_t num;
+    //TODO: Only consider little-endian
+    memcpy(&num, (key + key_len - 8), sizeof(num));
+    return num >> 8;
+}
+
 static int directory_exists(const char* path) {
     struct stat st;
     if (stat(path, &st) == 0) {
@@ -354,7 +360,9 @@ int metadb_extract(struct MetaDB mdb,
                    const metadb_inode_t dir_id,
                    const int old_partition_id,
                    const int new_partition_id,
-                   const char* dir_with_new_partition)
+                   const char* dir_with_new_partition,
+                   uint64_t* min_sequence_number,
+                   uint64_t* max_sequence_number)
 {
     int ret = 0;
     char* err = NULL;
@@ -399,7 +407,9 @@ int metadb_extract(struct MetaDB mdb,
 
     if (!leveldb_iter_valid(iter)) {
 
+        uint64_t min_seq, max_seq;
         leveldb_iter_seek(iter, (char *) &mobj_key, METADB_KEY_LEN);
+
         while (leveldb_iter_valid(iter)) {
             size_t klen;
             const char* iter_ori_key = leveldb_iter_key(iter, &klen);
@@ -411,13 +421,13 @@ int metadb_extract(struct MetaDB mdb,
 
                 size_t vlen;
                 const char* iter_ori_val = leveldb_iter_value(iter, &vlen);
-                const metadb_obj_t* iter_obj = (const metadb_obj_t *) iter_ori_val;
-
-
+                /*
+                const metadb_obj_t* iter_obj =
+                    (const metadb_obj_t *) iter_ori_val;
+                */
                 if (giga_file_migration_status_with_hash(iter_key->name_hash,
                                                          new_partition_id)) {
 
-                    num_migrated_entries++;
                     leveldb_writebatch_delete(batch, iter_ori_key, klen);
 
                     size_t iklen;
@@ -428,12 +438,27 @@ int metadb_extract(struct MetaDB mdb,
                     leveldb_tablebuilder_put(builder,
                         new_internal_key, iklen, iter_ori_val, vlen);
 
+                    uint64_t sequence_number =
+                        get_sequence_number(iter_internal_key, iklen);
+                    if (!num_migrated_entries) {
+                        min_seq = sequence_number;
+                        max_seq = sequence_number;
+                    } else {
+                        if (sequence_number < min_seq) {
+                            min_seq = sequence_number;
+                        } else if (sequence_number > max_seq) {
+                            max_seq = sequence_number;
+                        }
+                    }
+
+                    num_migrated_entries++;
+                    /*
                     printf("metadb_extract %d: %ld %d %ld %ld %ld %ld %08x\n", __LINE__,
                        iter_key->parent_id, iter_key->partition_id,
                        vlen, iter_obj->statbuf.st_ino,
                        klen, iklen,
                        iter_obj->magic_number);
-
+                    */
                 }
 
                 if (leveldb_tablebuilder_size(builder) >= DEFAULT_SSTABLE_SIZE)
@@ -458,6 +483,8 @@ int metadb_extract(struct MetaDB mdb,
             }
             leveldb_iter_next(iter);
         }
+        *min_sequence_number = min_seq;
+        *max_sequence_number = max_seq;
         ret = num_migrated_entries;
     } else {
         ret = -ENOENT;
@@ -474,7 +501,9 @@ int metadb_extract(struct MetaDB mdb,
 }
 
 int metadb_bulkinsert(struct MetaDB mdb,
-                      const char* dir_with_new_partition) {
+                      const char* dir_with_new_partition,
+                      uint64_t min_sequence_number,
+                      uint64_t max_sequence_number) {
 
     int ret = 0;
     char sstable_filename[MAX_FILENAME_LEN];
@@ -488,7 +517,10 @@ int metadb_bulkinsert(struct MetaDB mdb,
             snprintf(sstable_filename, MAX_FILENAME_LEN,
                      "%s/%s", dir_with_new_partition, de->d_name);
             leveldb_bulkinsert(mdb.db, mdb.insert_options,
-                               sstable_filename, &err);
+                               sstable_filename,
+                               min_sequence_number,
+                               max_sequence_number,
+                               &err);
             metadb_error("bulkinsert", err);
           }
         }
@@ -569,7 +601,7 @@ void metadb_test_put_and_get(struct MetaDB mdb,
                        &new_val_len, &err);
     shitobj = (metadb_obj_t *) shit;
 
-    printf("shit_obj: %d: %ld %d %ld %ld %08x\n", __LINE__,
+    printf("shit_obj: %d: %ld %ld %ld %ld %08x\n", __LINE__,
        mobj_key.parent_id, mobj_key.partition_id,
        metadb_obj_size(shitobj), shitobj->statbuf.st_ino,
        shitobj->magic_number);

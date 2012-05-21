@@ -423,7 +423,7 @@ class DBTest {
     db_->BulkSplit(options, seqno, &start, &limit, dirname);
   }
 
-  void BulkInsert() {
+  void BulkInsert(uint64_t max_sequence_number) {
     WriteOptions options;
     options.sync = true;
     std::string dirname = test::TmpDir() + "/db_bulk";
@@ -431,11 +431,21 @@ class DBTest {
     env_->GetChildren(dirname, &files);
     for (int i = 0; i < files.size(); ++i)
       if (files[i].compare(".") != 0 && files[i].compare("..") != 0)
-        db_->BulkInsert(options, dirname+"/"+files[i]);
+        db_->BulkInsert(options, dirname+"/"+files[i], 0, max_sequence_number);
   }
 
+  void BulkInsert(const std::string &dirname, uint64_t max_sequence_number) {
+    WriteOptions options;
+    options.sync = true;
+    std::vector<std::string> files;
+    env_->GetChildren(dirname, &files);
+    for (int i = 0; i < files.size(); ++i)
+      if (files[i].compare(".") != 0 && files[i].compare("..") != 0)
+        db_->BulkInsert(options, dirname+"/"+files[i], 0, max_sequence_number);
+  }
 };
 
+/*
 TEST(DBTest, BulkDeletion) {
   ASSERT_EQ(config::kMaxMemCompactLevel, 2)
       << "Need to update this test to match kMaxMemCompactLevel";
@@ -528,7 +538,19 @@ TEST(DBTest, BulkInsertion2) {
   delete iter;
   ASSERT_EQ(count, new_count);
 }
+*/
 
+TEST(DBTest, BulkInsertion3) {
+  std::string dirname = "/tmp/extract";
+  BulkInsert(dirname, 500);
+  int new_count = 0;
+  Iterator* iter = db_->NewIterator(ReadOptions());
+  for (iter->SeekToFirst(); iter->Valid(); iter->Next())
+    new_count++;
+  delete iter;
+  printf("new_count: %d\n", new_count);
+  ASSERT_TRUE(new_count > 0);
+}
 
 }  // namespace leveldb
 

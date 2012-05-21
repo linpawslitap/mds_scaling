@@ -1599,8 +1599,10 @@ Status DBImpl::MigrateLevel0Table(const std::string& fname,
 }
 
 
-Status DBImpl::BulkInsert(const WriteOptions& write_opt, 
-                          const std::string& fname) {
+Status DBImpl::BulkInsert(const WriteOptions& write_opt,
+                          const std::string& fname,
+                          uint64_t min_sequence_number,
+                          uint64_t max_sequence_number) {
   FileMetaData meta;
   env_->GetFileSize(fname, &meta.file_size);
 
@@ -1623,6 +1625,10 @@ Status DBImpl::BulkInsert(const WriteOptions& write_opt,
       edit.SetPrevLogNumber(0);
       edit.SetLogNumber(logfile_number_);  // Earlier logs no longer needed
       s = versions_->LogAndApply(&edit, &mutex_);
+      //TODO: simply update last_sequence by max(max_sequence_number, old_seq)
+      //      Not consider snapshot
+      if (max_sequence_number > versions_->LastSequence())
+        versions_->SetLastSequence(max_sequence_number);
     }
 
     // TODO:
@@ -1635,7 +1641,6 @@ Status DBImpl::BulkInsert(const WriteOptions& write_opt,
   }
   return s;
 }
-
 
 // Default implementations of convenience methods that subclasses of DB
 // can call if they wish

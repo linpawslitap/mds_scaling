@@ -151,7 +151,9 @@ class DB {
                            const std::string &dname) = 0;
   // Insert a sstable file into LevelDB
   virtual Status BulkInsert(const WriteOptions& options,
-                            const std::string &fname) = 0;
+                            const std::string &fname,
+                            uint64_t min_sequence_number,
+                            uint64_t max_sequence_number) = 0;
 
  private:
   // No copying allowed

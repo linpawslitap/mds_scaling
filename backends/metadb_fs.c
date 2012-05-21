@@ -67,7 +67,7 @@ metadb_obj_t* create_metadb_obj(const char* objname, const size_t objname_len,
                                 const char* realpath, const size_t realpath_len)
 {
     size_t allocation = sizeof(metadb_obj_t) + realpath_len + objname_len + 2;
-    metadb_obj_t *mobj = /*(metadb_obj_t*)*/ malloc(allocation);
+    metadb_obj_t *mobj = (metadb_obj_t*) malloc(allocation);
 
     if (mobj != NULL) {
         mobj->objname_len = objname_len;
@@ -234,12 +234,9 @@ int metadb_lookup(struct MetaDB mdb,
     if ((err == NULL) && (val_len != 0)) {
         mobj = (metadb_obj_t*)val;
 
-/*
-        printf("metadb_lookup %d: %ld %d %ld %ld %08x\n", __LINE__,
+        printf("metadb_lookup %d: %ld %ld %ld %ld %08x\n", __LINE__,
            mobj_key.parent_id, mobj_key.partition_id,
-           val_len, mobj->statbuf.st_ino,
-           mobj->magic_number);
-*/
+           val_len, mobj->statbuf.st_ino, mobj->magic_number);
 
         *stbuf = mobj->statbuf;
 
@@ -342,7 +339,7 @@ static void construct_new_key(const char* old_key,
 static uint64_t get_sequence_number(const char* key,
                                     int key_len) {
     uint64_t num;
-    //TODO: Only consider little-endian
+    //FIXME: Current code only considers little-endian
     memcpy(&num, (key + key_len - 8), sizeof(num));
     return num >> 8;
 }
@@ -452,6 +449,7 @@ int metadb_extract(struct MetaDB mdb,
                     }
 
                     num_migrated_entries++;
+
                     /*
                     printf("metadb_extract %d: %ld %d %ld %ld %ld %ld %08x\n", __LINE__,
                        iter_key->parent_id, iter_key->partition_id,

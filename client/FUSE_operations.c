@@ -161,6 +161,11 @@ int GIGAgetattr(const char *path, struct stat *statbuf)
 
     logMessage(FUSE_LOG, __func__,
                " ==> getattr(status=[%d],%s) ", ret, strerror(ret));
+    if (ret == 0) {
+        logMessage(FUSE_LOG, __func__,
+                "==> getattr: gid=%d, uid=%d, mode=%08d",
+                statbuf->st_gid, statbuf->st_uid, statbuf->st_mode);
+    }
     return ret;
 }
 

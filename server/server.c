@@ -271,15 +271,15 @@ void init_root_partition()
     switch (giga_options_t.backend_type) {
         case BACKEND_RPC_LEVELDB:
             //TODO: leveldb setup and initialization
-            snprintf(ldb_name, sizeof(ldb_name), 
-                     "%s/%d-%s", 
+            snprintf(ldb_name, sizeof(ldb_name),
+                     "%s/%d-%s",
                      DEFAULT_LEVELDB_DIR, giga_options_t.serverID,
                      DEFAULT_LEVELDB_PREFIX);
             metadb_init(&ldb_mds, ldb_name);
             object_id = 0;
-            if (metadb_create(ldb_mds, 
+            if (metadb_create(ldb_mds,
                               ROOT_DIR_ID, 0,
-                              OBJ_DIR, 
+                              OBJ_DIR,
                               object_id, "/", giga_options_t.mountpoint) < 0) {
                 logMessage(LOG_FATAL, __func__, "root entry creation error.");
                 exit(1);

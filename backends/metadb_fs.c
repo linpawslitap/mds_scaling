@@ -43,7 +43,7 @@ void init_meta_obj_key(metadb_key_t *mkey,
                        metadb_inode_t dir_id, int partition_id, const char* path)
 {
     mkey->parent_id = dir_id;
-    mkey->partition_id = partition_id;
+    mkey->partition_id = (uint64_t) partition_id;
     memset(mkey->name_hash, 0, sizeof(mkey->name_hash));
     giga_hash_name(path, mkey->name_hash);
 }
@@ -93,22 +93,37 @@ size_t metadb_obj_size(const metadb_obj_t* mobj) {
 }
 
 static
-void init_meta_obj(metadb_obj_t* mobj,
-                   const metadb_inode_t inode_id, metadb_obj_type_t obj_type)
+void init_meta_obj_statbuf(metadb_obj_t* mobj,
+     const metadb_inode_t inode_id, metadb_obj_type_t obj_type)
 {
 
-    mobj->magic_number = 0x12345;
     mobj->obj_type = obj_type;
+
+    //FIXME: Initialize Inode
+
+    lstat("./", &(mobj->statbuf));
+    mobj->statbuf.st_ino = inode_id;
+    if (obj_type == OBJ_DIR) {
+        mobj->statbuf.st_mode = (mobj->statbuf.st_mode & ~S_IFMT) | S_IFDIR;
+    } else {
+        mobj->statbuf.st_mode = (mobj->statbuf.st_mode & ~S_IFMT) | S_IFREG;
+    }
+
+    logMessage(METADB_LOG, __func__, "init_meta_obj: %16lx",
+               mobj->statbuf.st_mode);
+
+    /*
     mobj->statbuf.st_ino  = inode_id;
     mobj->statbuf.st_mode = DEFAULT_MODE;
-    mobj->statbuf.st_uid  = 1000;
-    mobj->statbuf.st_gid  = 1000;
-    mobj->statbuf.st_size = 0;
-
     if (obj_type == OBJ_DIR)
         mobj->statbuf.st_nlink   = 2;
     else
         mobj->statbuf.st_nlink   = 1;
+
+    mobj->statbuf.st_uid  = 1000;
+    mobj->statbuf.st_gid  = 1000;
+    mobj->statbuf.st_size = 4096;
+    */
 
     time_t now = time(NULL);
     mobj->statbuf.st_atime = now;
@@ -195,7 +210,7 @@ int metadb_create(struct MetaDB mdb,
 
     mobj = create_metadb_obj(path, strlen(path),
                              realpath, strlen(realpath));
-    init_meta_obj(mobj, inode_id, entry_type);
+    init_meta_obj_statbuf(mobj, inode_id, entry_type);
 
     size_t msize = metadb_obj_size(mobj);
     leveldb_put(mdb.db, mdb.insert_options,
@@ -222,7 +237,7 @@ int metadb_lookup(struct MetaDB mdb,
     char* val;
     size_t val_len;
 
-    logMessage(METADB_LOG, __func__, "lookup(%s) in (partition=%d,dirid=%d)",
+    logMessage(METADB_LOG, __func__, "lookup(%s) in (partition=%d,dirid=%ld)",
                path, partition_id, dir_id);
 
     init_meta_obj_key(&mobj_key, dir_id, partition_id, path);
@@ -234,19 +249,26 @@ int metadb_lookup(struct MetaDB mdb,
     if ((err == NULL) && (val_len != 0)) {
         mobj = (metadb_obj_t*)val;
 
+        /*
         printf("metadb_lookup %d: %ld %ld %ld %ld %08x\n", __LINE__,
            mobj_key.parent_id, mobj_key.partition_id,
            val_len, mobj->statbuf.st_ino, mobj->magic_number);
+        */
 
-        *stbuf = mobj->statbuf;
+
+       *stbuf = mobj->statbuf;
+
+       logMessage(METADB_LOG, __func__, "lookup found entry(%s).", path);
 
         safe_free(&val);
     } else {
         logMessage(METADB_LOG, __func__, "entry(%s) not found.", path);
 
+        /*
         printf("entry not found %s %ld\n", err, val_len);
+        */
 
-        ret = -ENOENT;
+        ret = ENOENT;
     }
 
     return ret;
@@ -312,7 +334,7 @@ int metadb_readdir(struct MetaDB mdb,
     } while (leveldb_iter_valid(iter));
   } else {
     printf("metadb_readdir: Invalid Iterator.\n");
-    ret = -ENOENT;
+    ret = ENOENT;
   }
   leveldb_iter_destroy(iter);
   return ret;
@@ -485,7 +507,7 @@ int metadb_extract(struct MetaDB mdb,
         *max_sequence_number = max_seq;
         ret = num_migrated_entries;
     } else {
-        ret = -ENOENT;
+        ret = ENOENT;
     }
 
     if (leveldb_tablebuilder_size(builder) > 0) {
@@ -574,7 +596,7 @@ void metadb_test_put_and_get(struct MetaDB mdb,
     metadb_obj_t mobj;
     mobj.objname_len = 0;
     mobj.realpath_len = 0;
-    init_meta_obj(&mobj, 0, 0);
+    init_meta_obj_statbuf(&mobj, 0, 0);
 
     leveldb_put(mdb.db, mdb.insert_options,
                 (const char*) &mobj_key, METADB_KEY_LEN,
@@ -584,11 +606,10 @@ void metadb_test_put_and_get(struct MetaDB mdb,
                           (const char*) &mobj_key, METADB_KEY_LEN,
                           &new_val_len, &err);
     metadb_obj_t* shitobj = (metadb_obj_t *) shit;
-    printf("shit magic: %08x\n", shitobj->magic_number);
 
     metadb_obj_t* nmobj;
     nmobj = create_metadb_obj(path, strlen(path), path, strlen(path));
-    init_meta_obj(nmobj, 0, 0);
+    init_meta_obj_statbuf(nmobj, 0, 0);
 
     leveldb_put(mdb.db, mdb.insert_options,
                 (const char*) &mobj_key, METADB_KEY_LEN,
@@ -598,10 +619,4 @@ void metadb_test_put_and_get(struct MetaDB mdb,
                        (const char*) &mobj_key, METADB_KEY_LEN,
                        &new_val_len, &err);
     shitobj = (metadb_obj_t *) shit;
-
-    printf("shit_obj: %d: %ld %ld %ld %ld %08x\n", __LINE__,
-       mobj_key.parent_id, mobj_key.partition_id,
-       metadb_obj_size(shitobj), shitobj->statbuf.st_ino,
-       shitobj->magic_number);
-
 }

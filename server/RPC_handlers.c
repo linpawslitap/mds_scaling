@@ -119,7 +119,7 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
 }
 
 bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id, giga_pathname path, mode_t mode,
-                            giga_result_t *rpc_reply, 
+                            giga_result_t *rpc_reply,
                             struct svc_req *rqstp)
 {
     (void)rqstp;
@@ -141,11 +141,11 @@ bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id, giga_pathname path, mode_t mode,
     // (1): get the giga index/partition for operation
     int index = giga_get_index_for_file(&dir->mapping, (const char*)path);
     int server = giga_get_server_for_index(&dir->mapping, index);
-    
+
     // (2): is this the correct server? NO --> (errnum=-EAGAIN) and return
     if (server != giga_options_t.serverID) {
         rpc_reply->errnum = -EAGAIN;
-        memcpy(&(rpc_reply->giga_result_t_u.bitmap), 
+        memcpy(&(rpc_reply->giga_result_t_u.bitmap),
                &dir->mapping, sizeof(dir->mapping));
         logMessage(HANDLER_LOG, __func__, "req for server-%d reached server-%d.",
                    server, giga_options_t.serverID);
@@ -382,7 +382,7 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
             //       for symlink creation (for PanFS)
             snprintf(path_name, sizeof(path_name),
                      "%s/%s", giga_options_t.mountpoint, path);
-            rpc_reply->errnum = local_mknod(path_name, mode, dev);
+            // rpc_reply->errnum = local_mknod(path_name, mode, dev);
 
             // create object entry (metadata) in levelDB
             // object_id += 1;

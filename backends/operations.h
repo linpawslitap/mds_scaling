@@ -59,9 +59,8 @@ typedef struct MetaDB_key {
 } metadb_key_t;
 
 typedef struct MetaDB_obj {
-    int magic_number;
-    metadb_obj_type_t obj_type;
     struct stat statbuf;
+    metadb_obj_type_t obj_type;
     size_t objname_len;
     char* objname;
     size_t realpath_len;

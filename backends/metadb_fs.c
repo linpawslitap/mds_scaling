@@ -50,7 +50,8 @@ void init_meta_obj_key(metadb_key_t *mkey,
 
 static
 void print_meta_obj_key(metadb_key_t *mkey) {
-    printf("%ld, %ld, %s\n", mkey->parent_id, mkey->partition_id, mkey->name_hash);
+//    printf("%ld, %ld, %s\n", mkey->parent_id, mkey->partition_id, mkey->name_hash);
+    printf("%s\n",  mkey->name_hash);
 }
 
 static
@@ -591,7 +592,7 @@ void metadb_test_put_and_get(struct MetaDB mdb,
     char* shit = leveldb_get(mdb.db, mdb.lookup_options,
                           (const char*) &mobj_key, METADB_KEY_LEN,
                           &new_val_len, &err);
-    printf("%s %ld\n", shit, new_val_len);
+//    printf("%s %ld\n", shit, new_val_len);
 
     metadb_obj_t mobj;
     mobj.objname_len = 0;

@@ -13,6 +13,16 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+static char* backends_str[] = {
+    /* Non-networked, local backends */
+    "BACKEND_LOCAL_FS",           /* Local file system */
+    "BACKEND_LOCAL_LEVELDB",      /* Local levelDB */
+
+    /* Networked, RPC-based backends */
+    "BACKEND_RPC_LOCALFS",        /* ship ops via RPC to server */
+    "BACKEND_RPC_LEVELDB"
+};
+
 static int giga_proc_type;
 
 static 
@@ -35,7 +45,8 @@ void init_default_backends()
         strncpy(giga_options_t.mountpoint, 
                 DEFAULT_SRV_BACKEND, strlen(DEFAULT_SRV_BACKEND)+1);
 
-    logMessage(LOG_TRACE, __func__, "BACKEND_TYPE=%d", giga_options_t.backend_type);
+    logMessage(LOG_TRACE, __func__, "BACKEND_TYPE=%s", 
+               backends_str[giga_options_t.backend_type]);
     logMessage(LOG_TRACE, __func__, "BACKEND_MNT=%s", giga_options_t.mountpoint);
 }
 
@@ -119,12 +130,43 @@ void parse_serverlist_file(const char *serverlist_file)
 static
 void print_settings()
 {
+    if (giga_proc_type == GIGA_CLIENT) {
+        logMessage(LOG_FATAL, __func__, "=================="); 
+        logMessage(LOG_FATAL, __func__, "Settings: client. ");
+        logMessage(LOG_FATAL, __func__, "=================="); 
+        logMessage(LOG_FATAL, __func__, "SELF_HOSTNAME=%s", giga_options_t.hostname);
+        logMessage(LOG_FATAL, __func__, "SELF_IP=%s", giga_options_t.ip_addr);
+        logMessage(LOG_FATAL, __func__, "SELF_PORT=%d", giga_options_t.port_num);
+        logMessage(LOG_FATAL, __func__, "\n");
+        logMessage(LOG_FATAL, __func__, "BACKEND_TYPE=%s", 
+                   backends_str[giga_options_t.backend_type]);
+        logMessage(LOG_FATAL, __func__, "BACKEND_MNT=%s", giga_options_t.mountpoint);
+        logMessage(LOG_FATAL, __func__, "\n");
+        logMessage(LOG_FATAL, __func__, "NUM_SERVERS=%d",giga_options_t.num_servers);
+        logMessage(LOG_FATAL, __func__, "==================\n");
+
+        return;
+    }
+
+    fprintf(stdout, "==================\n"); 
+    fprintf(stdout, "Settings: server[%d]\n", giga_options_t.serverID); 
+    fprintf(stdout, "==================\n"); 
+    fprintf(stdout, "\tSELF_HOSTNAME=%s\n", giga_options_t.hostname);
+    fprintf(stdout, "\tSELF_IP=%s\n", giga_options_t.ip_addr);
+    fprintf(stdout, "\tSELF_PORT=%d\n", giga_options_t.port_num);
+    fprintf(stdout, "\n");
+    fprintf(stdout, "\tBACKEND_TYPE=%s\n", backends_str[giga_options_t.backend_type]);
+    fprintf(stdout, "\tBACKEND_MNT=%s\n", giga_options_t.mountpoint);
+    fprintf(stdout, "\n");
+    fprintf(stdout, "\tNUM_SERVERS=%d\n",giga_options_t.num_servers);
+    fprintf(stdout, "==================\n"); 
+    
     return;
 }
 
 void initGIGAsetting(int process_type, const char *serverlist_file)
 {
-    giga_proc_type = process_type;
+    giga_proc_type = process_type;  // client or server flag
 
     init_default_backends();
     init_self_network_IDs();

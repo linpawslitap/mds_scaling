@@ -48,7 +48,6 @@ int main(int argc, char *argv[])
     int ret = -1;;
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 
-    
     logOpen(DEFAULT_LOG_FILE_LOCATIONc, DEFAULT_LOG_LEVEL);
     
     memset(&giga_options_t, 0, sizeof(struct giga_options));

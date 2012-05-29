@@ -93,7 +93,7 @@ void getHostIPAddress(char *ip_addr, int ip_addr_len)
     hostname[MAX_LEN-1] = '\0';
     gethostname(hostname, MAX_LEN-1);
 
-    fprintf(stdout, "[%s] finding IP addr of host=%s\n", __func__, hostname);
+    //fprintf(stdout, "[%s] finding IP addr of host=%s\n", __func__, hostname);
 
     /*
     //FIXME: for local desktop testing on SVP's machine.
@@ -119,7 +119,7 @@ void getHostIPAddress(char *ip_addr, int ip_addr_len)
         exit(1);
     }
 
-    fprintf(stdout, "[%s] finding non-loopback IP addr ... \n", __func__);
+    //fprintf(stdout, "[%s] finding non-loopback IP addr ... \n", __func__);
 
     void *ptr;
     struct addrinfo *p;
@@ -135,11 +135,11 @@ void getHostIPAddress(char *ip_addr, int ip_addr_len)
         }
         
         inet_ntop (p->ai_family, ptr, ip_addr, ip_addr_len);
-        fprintf(stdout, "\t IPv%d address: %s (%s)\n", 
-                p->ai_family == PF_INET6 ? 6 : 4, ip_addr, p->ai_canonname);
+        //fprintf(stdout, "\t IPv%d address: %s (%s)\n", 
+        //        p->ai_family == PF_INET6 ? 6 : 4, ip_addr, p->ai_canonname);
     }
 
-    fprintf(stdout, "[%s] host=%s has IP=%s\n", __func__, hostname, ip_addr);
+    //fprintf(stdout, "[%s] host=%s has IP=%s\n", __func__, hostname, ip_addr);
 
     return;
 }

@@ -51,6 +51,7 @@ typedef enum MetaDB_obj_type {
 } metadb_obj_type_t;
 
 typedef uint64_t metadb_inode_t;
+typedef uint64_t mdb_seq_num_t;
 
 typedef struct MetaDB_key {
     metadb_inode_t parent_id;

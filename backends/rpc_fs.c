@@ -28,7 +28,16 @@ void update_client_mapping(struct giga_directory *dir, struct giga_mapping_t *ma
 static 
 int get_server_for_file(struct giga_directory *dir, const char *name)
 {
-    return giga_get_server_for_file(&dir->mapping, name);
+    index_t index = giga_get_index_for_file(&(dir->mapping), name);
+    int server_id = (index + (&(dir->mapping))->zeroth_server) % 
+                    ((&(dir->mapping))->server_count);
+
+    logMessage(RPCFS_LOG, __func__, "{%s}={p%d->s%d}", name, index, server_id);
+
+    return server_id;
+
+    //TODO: mask this call for better debugging: partition id and server id
+    //return giga_get_server_for_file(&dir->mapping, name);
 }
 
 
@@ -186,7 +195,8 @@ retry:
 
     int errnum = rpc_reply.errnum;
     if (errnum == -EAGAIN) {
-        update_client_mapping(dir, &rpc_reply.giga_result_t_u.bitmap); 
+        update_client_mapping(dir, &rpc_reply.giga_result_t_u.bitmap);
+        logMessage(RPCFS_LOG, __func__, "client mapping updated. retrying ...");
         goto retry;
     } else if (errnum < 0) {
         ret = errnum;

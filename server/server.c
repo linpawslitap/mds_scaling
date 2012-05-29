@@ -374,8 +374,8 @@ int main(int argc, char **argv)
     // FIXME: we sleep 15 seconds here to let the other servers startup.  This
     // mechanism needs to be replaced by an intelligent reconnection system.
     //sleep(15);
-    if (giga_options_t.num_servers > 1) {
-        if (rpcConnect()) {
+    if (giga_options_t.num_servers >= 1) {
+        if (rpcConnect() < 0) {
             logMessage(LOG_FATAL, __func__, "Error making RPC conns: exit .");
             exit(1);
         }

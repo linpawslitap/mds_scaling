@@ -24,5 +24,11 @@ metadb_fs_test.o : metadb_fs_test.c operations.h
 metadb_fs_test : metadb_fs_test.o metadb_fs.o
 	$(CC) -o $@ $^ ../common.a $(LDFLAGS)
 
+metadb_insert_test.o : metadb_insert_test.c operations.h
+	$(CC) $(CFLAGS) -c metadb_insert_test.c ../common.a
+
+metadb_insert_test : metadb_insert_test.o metadb_fs.o
+	$(CC) -o $@ $^ ../common.a $(LDFLAGS)
+
 clean :
-	rm -f *.o metadb_fs_test
+	rm -f *.o metadb_fs_test metadb_insert_test

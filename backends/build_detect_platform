@@ -1,0 +1,48 @@
+#!/bin/sh
+#
+# Detects OS we're compiling on and outputs a file specified by the first
+# argument, which in turn gets read while processing Makefile.
+#
+# The output will set the following variables:
+#   PLATFORM_LDFLAGS            Linker flags
+#   PLATFORM_SHARED_EXT         Extension for shared libraries
+#   PLATFORM_SHARED_LDFLAGS     Flags for building shared library
+#   PLATFORM_SHARED_CFLAGS      Flags for compiling objects for shared library
+#   PLATFORM_CCFLAGS            C compiler flags
+#   PLATFORM_CXXFLAGS           C++ compiler flags.  Will contain:
+#       -DLEVELDB_PLATFORM_POSIX if cstdatomic is present
+#       -DLEVELDB_PLATFORM_NOATOMIC if it is not
+
+OUTPUT=$1
+if test -z "$OUTPUT"; then
+  echo "usage: $0 <output-filename>"
+  exit 1
+fi
+
+# Delete existing output, if it exists
+rm -f $OUTPUT
+touch $OUTPUT
+
+
+# Detect MACHINE
+if test -z "$TARGET_MACHINE"; then
+    TARGET_MACHINE=`uname -m`
+fi
+
+LIBRARY=
+
+# On GCC, we pick libc's memcmp over GCC's memcmp via -fno-builtin-memcmp
+case "$TARGET_MACHINE" in
+    i686)
+        LIBRARY=./leveldb/libleveldb.a
+        ;;
+    x86_64)
+        LIBRARY=./leveldb/libleveldb-64.a
+        ;;
+    *)
+        echo "Unknown platform!"
+        exit 1
+esac
+
+echo "LEVELDBLIBRARY=$LIBRARY" >> $OUTPUT
+

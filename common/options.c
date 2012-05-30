@@ -90,7 +90,8 @@ void parse_serverlist_file(const char *serverlist_file)
         logMessage(LOG_FATAL, __func__, "err_open(conf=%s).", serverlist_file);
         exit(1);
     }
-    
+   
+    giga_options_t.split_threshold = DEFAULT_SPLIT_THRESHOLD;
     giga_options_t.serverlist = NULL;
     giga_options_t.num_servers = 0;
     
@@ -134,15 +135,28 @@ void print_settings()
         logMessage(LOG_FATAL, __func__, "=================="); 
         logMessage(LOG_FATAL, __func__, "Settings: client. ");
         logMessage(LOG_FATAL, __func__, "=================="); 
-        logMessage(LOG_FATAL, __func__, "SELF_HOSTNAME=%s", giga_options_t.hostname);
-        logMessage(LOG_FATAL, __func__, "SELF_IP=%s", giga_options_t.ip_addr);
-        logMessage(LOG_FATAL, __func__, "SELF_PORT=%d", giga_options_t.port_num);
+        
+        logMessage(LOG_FATAL, __func__, 
+                   "SELF_HOSTNAME=%s", giga_options_t.hostname);
+        logMessage(LOG_FATAL, __func__, 
+                   "SELF_IP=%s", giga_options_t.ip_addr);
+        logMessage(LOG_FATAL, __func__, 
+                   "SELF_PORT=%d", giga_options_t.port_num);
+        
         logMessage(LOG_FATAL, __func__, "\n");
-        logMessage(LOG_FATAL, __func__, "BACKEND_TYPE=%s", 
-                   backends_str[giga_options_t.backend_type]);
-        logMessage(LOG_FATAL, __func__, "BACKEND_MNT=%s", giga_options_t.mountpoint);
+        
+        logMessage(LOG_FATAL, __func__, 
+                   "BACKEND_TYPE=%s", backends_str[giga_options_t.backend_type]);
+        logMessage(LOG_FATAL, __func__, 
+                   "BACKEND_MNT=%s", giga_options_t.mountpoint);
+        
         logMessage(LOG_FATAL, __func__, "\n");
-        logMessage(LOG_FATAL, __func__, "NUM_SERVERS=%d",giga_options_t.num_servers);
+        
+        logMessage(LOG_FATAL, __func__, 
+                   "NUM_SERVERS=%d",giga_options_t.num_servers);
+        logMessage(LOG_FATAL, __func__, 
+                   "SPLIT_THRESHOLD=%d", giga_options_t.split_threshold);
+        
         logMessage(LOG_FATAL, __func__, "==================\n");
 
         return;
@@ -159,6 +173,7 @@ void print_settings()
     fprintf(stdout, "\tBACKEND_MNT=%s\n", giga_options_t.mountpoint);
     fprintf(stdout, "\n");
     fprintf(stdout, "\tNUM_SERVERS=%d\n",giga_options_t.num_servers);
+    fprintf(stdout, "\tSPLIT_THRESHOLD=%d\n",giga_options_t.split_threshold);
     fprintf(stdout, "==================\n"); 
     
     return;

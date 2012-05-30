@@ -1,5 +1,6 @@
 
 #include "server.h"
+#include "split.h"
 
 #include "common/rpc_giga.h"
 #include "common/connection.h"
@@ -29,11 +30,8 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-
-//struct server_settings srv_settings;
-//struct giga_options giga_options;
-
-static pthread_t listen_tid;
+static pthread_t listen_tid;    // connection listener thread
+static pthread_t split_tid;     // giga splitting thread
 
 extern SVCXPRT *svcfd_create (int __sock, u_int __sendsize, u_int __recvsize);
 // FIXME: rpcgen should put this in giga_rpc.h, but it doesn't. Why?
@@ -370,6 +368,14 @@ int main(int argc, char **argv)
     init_giga_mapping();    // init GIGA+ mapping structure.
 
     server_socket();        // start server socket(s). 
+
+    if (pthread_create(&split_tid, 0, split_thread, NULL) < 0) {
+        logMessage(LOG_FATAL, __func__, "ERR_pthread: split_thread create()");
+    }
+
+    if (pthread_detach(split_tid) < 0){
+        logMessage(LOG_FATAL, __func__, "ERR_pthread: split_thread_detach()");
+    }
 
     // FIXME: we sleep 15 seconds here to let the other servers startup.  This
     // mechanism needs to be replaced by an intelligent reconnection system.

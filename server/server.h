@@ -9,8 +9,6 @@
 
 #define NUM_BACKLOG_CONN 128
 
-#define SPLIT_THRESHOLD 20
-
 struct MetaDB ldb_mds;  //TODO: make this thread-safe.
 
 static int object_id;

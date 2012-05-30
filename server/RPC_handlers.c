@@ -17,50 +17,50 @@
 
 #define HANDLER_LOG LOG_DEBUG
 
+static
+int check_split_eligibility(struct giga_directory *dir, int index)
+{
+    if (dir->partition_size[index] < giga_options_t.split_threshold)
+        return false;
+
+    return true;
+}
+
+// returns "index" on correct or "-1" on error
+//
 static 
-int giga_addressing(struct giga_directory *dir,
-                    giga_pathname path, giga_result_t *rpc_reply,
-                    int *partition_id) 
+int check_giga_addressing(struct giga_directory *dir, giga_pathname path, 
+                          giga_result_t *rpc_reply,
+                          giga_getattr_reply_t *stat_rpc_reply) 
 {
 
     // (1): get the giga index/partition for operation
     int index = giga_get_index_for_file(&dir->mapping, (const char*)path);
-    *partition_id = index;
+    //*partition_id = index;
     int server = giga_get_server_for_index(&dir->mapping, index);
     
     // (2): is this the correct server? 
-    // ---- NO: set rpc_reply (errnum=-EAGAIN and copy server bitmap) and return
+    // ---- NO: set rpc_reply (errnum=-EAGAIN and copy bitmap) and return
     if (server != giga_options_t.serverID) {
-        memcpy(&(rpc_reply->giga_result_t_u.bitmap), 
-               &dir->mapping, sizeof(dir->mapping));
-        rpc_reply->errnum = -EAGAIN;
+        if (rpc_reply != NULL) {
+            assert (stat_rpc_reply == NULL);
+            memcpy(&(rpc_reply->giga_result_t_u.bitmap), 
+                   &dir->mapping, sizeof(dir->mapping));
+            rpc_reply->errnum = -EAGAIN;
+        }
+        else if (stat_rpc_reply != NULL) {
+            assert (rpc_reply == NULL);
+            memcpy(&(stat_rpc_reply->result.giga_result_t_u.bitmap), 
+                   &dir->mapping, sizeof(dir->mapping));
+            stat_rpc_reply->result.errnum = -EAGAIN;
+        }
         
         logMessage(HANDLER_LOG, __func__, "ERR_redirect: to s%d, not me(s%d)",
                    server, giga_options_t.serverID);
         return -1;
     }
 
-    // (3): check for splits.
-    if (dir->partition_size[index] > SPLIT_THRESHOLD) {
-        logMessage(HANDLER_LOG, __func__, 
-                   "SPLIT: p%d has %d entries!", index, dir->partition_size[index]);
-        
-        if ((rpc_reply->errnum = split_bucket(dir, index)) < 0) {
-            logMessage(LOG_FATAL, __func__, "***FATAL_ERROR*** during split");
-            exit(1);    //FIXME: do somethign smarter
-        }
-
-        memcpy(&(rpc_reply->giga_result_t_u.bitmap), 
-               &dir->mapping, sizeof(dir->mapping));
-        rpc_reply->errnum = -EAGAIN;
-    
-        logMessage(HANDLER_LOG, __func__, "ERR_retry: split_p%d [status=%d]", 
-                   rpc_reply->errnum, index);
-        
-        return -1;
-    }
-
-    return 0;
+    return index;
 }
 
 bool_t giga_rpc_init_1_svc(int rpc_req, 
@@ -78,7 +78,7 @@ bool_t giga_rpc_init_1_svc(int rpc_req,
     struct giga_directory *dir = cache_fetch(&dir_id);
     if (dir == NULL) {
         rpc_reply->errnum = -EIO;
-        logMessage(HANDLER_LOG, __func__, "ERR_cache: dir(%d) missing!", dir_id);
+        logMessage(HANDLER_LOG, __func__, "ERR_cache: dir(%d) missing", dir_id);
         return true;
     }
     rpc_reply->errnum = -EAGAIN;
@@ -95,13 +95,11 @@ int giga_rpc_prog_1_freeresult(SVCXPRT *transp,
 {
     (void)transp;
     
-    logMessage(HANDLER_LOG, __func__, "RPC_freeresult_recv");
-
     xdr_free(xdr_result, result);
 
     /* TODO: add more cleanup code. */
     
-    logMessage(HANDLER_LOG, __func__, "RPC_freeresult_reply");
+    logMessage(HANDLER_LOG, __func__, ">>> RPC_freeresult <<<");
 
     return 1;
 }
@@ -123,28 +121,34 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
     if (dir == NULL) {
         rpc_reply->result.errnum = -EIO;
         
-        logMessage(HANDLER_LOG, __func__, "ERR_cache: dir(%d) missing!", dir_id);
+        logMessage(HANDLER_LOG, __func__, "ERR_cache: dir(%d) missing", dir_id);
         return true;
     }
 
+    /*
     // (1): get the giga index/partition for operation
     int index = giga_get_index_for_file(&dir->mapping, (const char*)path);
     int server = giga_get_server_for_index(&dir->mapping, index);
     
     // (2): is this the correct server? 
-    // ---- NO = set rpc_reply (errnum=-EAGAIN and copy correct bitmap) and return
+    // ---- NO: set rpc_reply (errnum=-EAGAIN and copy bitmap) and return
     if (server != giga_options_t.serverID) {
         memcpy(&(rpc_reply->result.giga_result_t_u.bitmap), 
                &dir->mapping, sizeof(dir->mapping));
         rpc_reply->result.errnum = -EAGAIN;
         
-        logMessage(HANDLER_LOG, __func__, "ERR_redirect: send to s%d, not me(s%d)",
+        logMessage(HANDLER_LOG, __func__, "ERR_redirect: to s%d, not me(s%d)",
                    server, giga_options_t.serverID);
         return true;
     }
-
-    logMessage(HANDLER_LOG, __func__, "Handling getattr: p%d on s%d", index, server);
-
+    */
+    
+    // check for giga specific addressing checks.
+    //
+    int index = check_giga_addressing(dir, path, NULL, rpc_reply);
+    if (index < 0)
+        return true;
+    
     char path_name[MAX_LEN];
 
     switch (giga_options_t.backend_type) {
@@ -187,16 +191,42 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
     if (dir == NULL) {
         rpc_reply->errnum = -EIO;
         
-        logMessage(HANDLER_LOG, __func__, "ERR_cache: dir(%d) missing!", dir_id);
+        logMessage(HANDLER_LOG, __func__, "ERR_cache: dir(%d) missing", dir_id);
         return true;
     }
-    
-    int index;
-    if (giga_addressing(dir, path, rpc_reply, &index) < 0)
+  
+    // check for giga specific addressing checks.
+    //
+    int index = check_giga_addressing(dir, path, rpc_reply, NULL);
+    if (index < 0)
         return true;
     
-    char path_name[MAX_LEN];
+    // check for splits.
+    //
+    if (check_split_eligibility(dir, index) == true) {
+        logMessage(HANDLER_LOG, __func__, 
+                   "SPLIT p%d (%d dirents)", index, dir->partition_size[index]);
+        
+        if ((rpc_reply->errnum = split_bucket(dir, index)) < 0) {
+            logMessage(LOG_FATAL, __func__, "***FATAL_ERROR*** during split");
+            exit(1);    //FIXME: do somethign smarter
+        }
 
+        memcpy(&(rpc_reply->giga_result_t_u.bitmap), 
+               &dir->mapping, sizeof(dir->mapping));
+        rpc_reply->errnum = -EAGAIN;
+    
+        logMessage(HANDLER_LOG, __func__, "ERR_retry: split_p%d [status=%d]", 
+                   rpc_reply->errnum, index);
+        
+        return true;
+    }
+   
+    // regular operations (if no splits)
+    //
+    
+    char path_name[MAX_LEN];
+    
     switch (giga_options_t.backend_type) {
         case BACKEND_RPC_LOCALFS:
             snprintf(path_name, sizeof(path_name), 
@@ -214,7 +244,7 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
             rpc_reply->errnum = local_mknod(path_name, mode, dev); 
            
             // create object entry (metadata) in levelDB
-            // object_id += 1; 
+            // object_id += 1;  //TODO: don't need this for non-dir objects 
             rpc_reply->errnum = metadb_create(ldb_mds, dir_id, index,
                                               OBJ_MKNOD,
                                               object_id, path, path_name);
@@ -249,16 +279,40 @@ bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id,
     if (dir == NULL) {
         rpc_reply->errnum = -EIO;
         
-        logMessage(HANDLER_LOG, __func__, "ERR_cache: dir(%d) missing!", dir_id);
-        return -1;
+        logMessage(HANDLER_LOG, __func__, "ERR_cache: dir(%d) missing", dir_id);
+        return true;
     }
     
-    int index;
-    if (giga_addressing(dir, path, rpc_reply, &index) < 0)
+    // check for giga specific addressing checks.
+    //
+    int index = check_giga_addressing(dir, path, rpc_reply, NULL);
+    if (index < 0)
         return true;
-    //if (giga_addressing(dir_id, path, rpc_reply) < 0)
-    //    return true;
+    
+    // check for splits.
+    //
+    if (check_split_eligibility(dir, index) == true) {
+        logMessage(HANDLER_LOG, __func__, 
+                   "SPLIT p%d (%d dirents)", index, dir->partition_size[index]);
+        
+        if ((rpc_reply->errnum = split_bucket(dir, index)) < 0) {
+            logMessage(LOG_FATAL, __func__, "***FATAL_ERROR*** during split");
+            exit(1);    //FIXME: do somethign smarter
+        }
 
+        memcpy(&(rpc_reply->giga_result_t_u.bitmap), 
+               &dir->mapping, sizeof(dir->mapping));
+        rpc_reply->errnum = -EAGAIN;
+    
+        logMessage(HANDLER_LOG, __func__, "ERR_retry: split_p%d [status=%d]", 
+                   rpc_reply->errnum, index);
+        
+        return true;
+    }
+
+    // regular operations (if no splits)
+    //
+    
     char path_name[MAX_LEN];
 
     switch (giga_options_t.backend_type) {

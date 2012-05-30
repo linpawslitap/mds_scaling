@@ -122,11 +122,11 @@ int cache_init()
     int zeroth_srv = 0; //FIXME: how do you get zeroth server info?
     giga_init_mapping(&dircache->mapping, -1, zeroth_srv, giga_options_t.num_servers);
     dircache->refcount = 1;
+    dircache->split_flag = -1;
     //for (i=0; i < (int)sizeof(dir->partition_size); i++)
     for (i=0; i < MAX_BMAP_LEN; i++)
         dircache->partition_size[i] = 0;
 
-   
     logMessage(LOG_TRACE, __func__, "Cache_CREATE: dir(%d)", dircache->handle);
 
     return 0; 

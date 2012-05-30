@@ -35,7 +35,7 @@ struct giga_options {
    
    int num_servers;             /* num of servers in the server list */
    const char **serverlist;     /* server list GIGA+ nodes */
-   
+   int split_threshold;         /* default split threshold */
    
    /* 
     * Server specific parameters 

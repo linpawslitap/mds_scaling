@@ -31,9 +31,9 @@ int main(int argc, char **argv)
     printf("Creating %d files ... \n", num_files);
     for (i=0; i<num_files; i++) {
         char path[512] = {0};
-        snprintf(path, sizeof(path), "%s/fd-%d", argv[1], i);
+        snprintf(path, sizeof(path), "%s/fd%d", argv[1], i);
         if (mknod(path, m, d) < 0) {
-            printf ("ERROR! %s\n", strerror(errno));
+            printf ("ERR_file%d: %s\n", i, strerror(errno));
         }
     }
     

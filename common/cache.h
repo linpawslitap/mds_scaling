@@ -7,10 +7,12 @@
 typedef int DIR_handle_t;
 
 struct giga_directory {
-    DIR_handle_t handle;
-    struct giga_mapping_t mapping;
-    int partition_size[MAX_BMAP_LEN];
-    int refcount;
+    DIR_handle_t handle;                // directory ID for directory "d"
+    struct giga_mapping_t mapping;      // giga mapping for "d"
+    int partition_size[MAX_BMAP_LEN];   // num dirents in each partition
+    int split_flag;                     // flag to store the partion id of the
+                                        // partition undergoing split.
+    int refcount;                       // ???
     //UT_hash_handle hh; //FIXME:
 };
 

@@ -33,7 +33,7 @@ int main(int argc, char **argv)
         char path[512] = {0};
         snprintf(path, sizeof(path), "%s/fd-%d", argv[1], i);
         if (mknod(path, m, d) < 0) {
-            printf ("ERROR! %s\n", strerror(errno));
+            printf ("ERROR! %s %d\n", strerror(errno), i);
         }
     }
     

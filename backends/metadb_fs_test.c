@@ -5,7 +5,7 @@
 #include <string.h>
 
 #define MAX_FILENAME_LEN 1024
-#define MAX_NUM_ENTRIES  1024
+#define MAX_NUM_ENTRIES 10000
 
 int num_print_entries;
 char* entry_list[MAX_NUM_ENTRIES];
@@ -64,7 +64,9 @@ void run_test() {
     metadb_test_put_and_get(mdb, dir_id, partition_id, filename);
     metadb_lookup(mdb, dir_id, partition_id, filename, &statbuf);
 
-    for (i = 0; i < 50; ++i) {
+    size_t num_test_entries = MAX_NUM_ENTRIES;
+
+    for (i = 0; i < num_test_entries; ++i) {
         memset(filename, 0, sizeof(filename));
         snprintf(filename, MAX_FILENAME_LEN, "%16lx", i);
         memset(backup, 0, sizeof(filename));
@@ -76,7 +78,6 @@ void run_test() {
         assert(statbuf.st_ino == i);
         if (giga_file_migration_status(backup, new_partition_id)) {
             ++num_migrated_entries;
-            printf("%ld\n", i);
         }
     }
 
@@ -110,7 +111,7 @@ void run_test() {
     metadb_key_t testkey;
     init_meta_obj_key(&testkey, dir_id, partition_id, filename);
 
-    for (i = 0; i < 50; ++i) {
+    for (i = 0; i < num_test_entries; ++i) {
         memset(filename, 0, sizeof(filename));
         snprintf(filename, MAX_FILENAME_LEN, "%16lx", i);
 
@@ -129,6 +130,30 @@ void run_test() {
         free(entry_list[k]);
     printf("%d %d\n", num_migrated_entries, num_found_entries);
     assert(num_migrated_entries == num_found_entries);
+
+    for (i = num_test_entries; i < num_test_entries*2; ++i) {
+        memset(filename, 0, sizeof(filename));
+        snprintf(filename, MAX_FILENAME_LEN, "%16lx", i);
+        memset(backup, 0, sizeof(filename));
+        snprintf(backup, MAX_FILENAME_LEN, "%16lx", i);
+
+        assert(metadb_create(mdb2, dir_id, partition_id, OBJ_DIR, i,
+                             filename, filename) == 0);
+        metadb_lookup(mdb2, dir_id, partition_id, filename, &statbuf);
+        assert(statbuf.st_ino == i);
+    }
+
+    for (i = num_test_entries; i < num_test_entries*4; ++i) {
+        memset(filename, 0, sizeof(filename));
+        snprintf(filename, MAX_FILENAME_LEN, "%16lx", i);
+        memset(backup, 0, sizeof(filename));
+        snprintf(backup, MAX_FILENAME_LEN, "%16lx", i);
+
+        assert(metadb_create(mdb, dir_id, partition_id, OBJ_DIR, i,
+                             filename, filename) == 0);
+        metadb_lookup(mdb, dir_id, partition_id, filename, &statbuf);
+        assert(statbuf.st_ino == i);
+    }
 
     metadb_close(mdb);
     metadb_close(mdb2);

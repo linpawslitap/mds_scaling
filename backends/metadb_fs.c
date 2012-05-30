@@ -317,7 +317,8 @@ int metadb_readdir(struct MetaDB mdb,
 
   init_meta_obj_seek_key(&mobj_key, dir_id, partition_id);
   leveldb_iterator_t* iter = leveldb_create_iterator(mdb.db, mdb.scan_options);
-  leveldb_iter_seek(iter, (char *) &mobj_key, METADB_KEY_LEN);
+//  leveldb_iter_seek(iter, (char *) &mobj_key, METADB_KEY_LEN);
+  leveldb_iter_seek_to_first(iter);
   if (leveldb_iter_valid(iter)) {
     do {
       metadb_key_t* iter_key;
@@ -441,10 +442,8 @@ int metadb_extract(struct MetaDB mdb,
 
                 size_t vlen;
                 const char* iter_ori_val = leveldb_iter_value(iter, &vlen);
-                /*
-                const metadb_obj_t* iter_obj =
-                    (const metadb_obj_t *) iter_ori_val;
-                */
+//                const metadb_obj_t* iter_obj =
+//                    (const metadb_obj_t *) iter_ori_val;
                 if (giga_file_migration_status_with_hash(iter_key->name_hash,
                                                          new_partition_id)) {
 
@@ -479,6 +478,12 @@ int metadb_extract(struct MetaDB mdb,
                        vlen, iter_obj->statbuf.st_ino,
                        klen, iklen,
                        iter_obj->magic_number);
+                    */
+                    /*
+                    printf("metadb_extract %d: %lld %ld %d %lld %d %d\n", __LINE__,
+                       iter_key->parent_id, iter_key->partition_id,
+                       vlen, iter_obj->statbuf.st_ino,
+                       klen, iklen);
                     */
                 }
 
@@ -522,6 +527,54 @@ int metadb_extract(struct MetaDB mdb,
 }
 
 int metadb_bulkinsert(struct MetaDB mdb,
+                      const char* dir_with_new_partition,
+                      uint64_t min_sequence_number,
+                      uint64_t max_sequence_number) {
+
+    int ret = 0;
+    char sstable_filename[MAX_FILENAME_LEN];
+    char* err = NULL;
+
+    if (min_sequence_number > max_sequence_number) {
+      return ret;
+    }
+
+    DIR* dp = opendir(dir_with_new_partition);
+    if (dp != NULL) {
+        struct dirent *de;
+        while ((de = readdir(dp)) != NULL) {
+          if (strcmp(de->d_name, ".") != 0 && strcmp(de->d_name, "..") != 0) {
+            snprintf(sstable_filename, MAX_FILENAME_LEN,
+                     "%s/%s", dir_with_new_partition, de->d_name);
+
+            leveldb_table_t* table = leveldb_table_create(
+                mdb.options, sstable_filename, mdb.env, &err);
+            metadb_error("create new builder", err);
+
+            leveldb_iterator_t* iter =
+              leveldb_table_create_iterator(table, mdb.scan_options);
+
+            leveldb_iter_seek_to_first(iter);
+            while (leveldb_iter_valid(iter)) {
+                size_t klen, vlen;
+                const char* key = leveldb_iter_key(iter, &klen);
+                const char* val = leveldb_iter_value(iter, &vlen);
+                leveldb_put(mdb.db, mdb.insert_options, key, klen-sizeof(uint64_t), val, vlen,
+                            &err);
+                metadb_error("bulkinsert", err);
+                leveldb_iter_next(iter);
+            }
+
+            leveldb_iter_destroy(iter);
+            leveldb_table_destroy(table);
+          }
+        }
+    }
+    closedir(dp);
+    return ret;
+}
+
+int metadb_bulkinsert_real(struct MetaDB mdb,
                       const char* dir_with_new_partition,
                       uint64_t min_sequence_number,
                       uint64_t max_sequence_number) {

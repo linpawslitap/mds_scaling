@@ -16,6 +16,7 @@
 #include "leveldb/status.h"
 #include "leveldb/write_batch.h"
 #include "leveldb/table_builder.h"
+#include "leveldb/table.h"
 #include "db/dbformat.h"
 
 using leveldb::Cache;
@@ -41,6 +42,7 @@ using leveldb::WritableFile;
 using leveldb::WriteBatch;
 using leveldb::WriteOptions;
 using leveldb::TableBuilder;
+using leveldb::Table;
 
 extern "C" {
 
@@ -59,6 +61,9 @@ struct leveldb_logger_t       { Logger*           rep; };
 struct leveldb_filelock_t     { FileLock*         rep; };
 struct leveldb_tablebuilder_t { WritableFile*     file;
                                 TableBuilder*     rep; };
+struct leveldb_table_t        { RandomAccessFile* file;
+                                Table*            rep; };
+
 
 struct leveldb_comparator_t : public Comparator {
   void* state_;
@@ -659,6 +664,41 @@ void leveldb_tablebuilder_put(
 
 size_t leveldb_tablebuilder_size(leveldb_tablebuilder_t* builder) {
   return builder->rep->FileSize();
+}
+
+leveldb_table_t* leveldb_table_create(
+    const leveldb_options_t* options,
+    const char* name,
+    leveldb_env_t* env,
+    char** errptr) {
+  leveldb_table_t* result = new leveldb_table_t;
+  Status s = env->rep->NewRandomAccessFile(std::string(name),
+                                           &result->file);
+  if (s.ok()) {
+    uint64_t file_size;
+    env->rep->GetFileSize(std::string(name), &file_size);
+    Table::Open(options->rep, result->file, file_size, &result->rep);
+  } else {
+    SaveError(errptr, s);
+    delete result;
+    result = NULL;
+  }
+  return result;
+}
+
+void leveldb_table_destroy(leveldb_table_t* table) {
+  delete table->rep;
+  delete table->file;
+  table->rep = NULL;
+  table->file = NULL;
+}
+
+leveldb_iterator_t* leveldb_table_create_iterator(
+    leveldb_table_t* table,
+    const leveldb_readoptions_t* options) {
+  leveldb_iterator_t* result = new leveldb_iterator_t;
+  result->rep = table->rep->NewIterator(options->rep);
+  return result;
 }
 
 }  // end extern "C"

@@ -5,14 +5,15 @@
 #include <string.h>
 
 #define MAX_FILENAME_LEN 1024
-#define MAX_NUM_ENTRIES  1024
+#define MAX_NUM_ENTRIES 10000
+#define FILE_FORMAT "%016llx"
 
 int num_print_entries;
 char* entry_list[MAX_NUM_ENTRIES];
 
 static
 void print_meta_obj_key(metadb_key_t *mkey) {
-    printf("%ld, %ld, ", mkey->parent_id, mkey->partition_id);
+//    printf("%ld, %ld, ", mkey->parent_id, mkey->partition_id);
     int i;
     for (i = 0; i < HASH_LEN; ++i)
         printf("%c", mkey->name_hash[i]);
@@ -41,9 +42,15 @@ void init_meta_obj_key(metadb_key_t *mkey,
     giga_hash_name(path, mkey->name_hash);
 }
 
-void run_test() {
-    char dbname[] = "/tmp/testdb";
-    char dbname2[] = "/tmp/testdb2";
+void run_test(int nargs, char* args[]) {
+    if (nargs < 4) {
+        return;
+    }
+
+    char* dbname = args[1];
+    char* dbname2 = args[2];
+    char* extname = args[3];
+
     struct MetaDB mdb;
     struct MetaDB mdb2;
 
@@ -64,11 +71,13 @@ void run_test() {
     metadb_test_put_and_get(mdb, dir_id, partition_id, filename);
     metadb_lookup(mdb, dir_id, partition_id, filename, &statbuf);
 
-    for (i = 0; i < 50; ++i) {
+    size_t num_test_entries = MAX_NUM_ENTRIES;
+
+    for (i = 0; i < num_test_entries; ++i) {
         memset(filename, 0, sizeof(filename));
-        snprintf(filename, MAX_FILENAME_LEN, "%16lx", i);
+        snprintf(filename, MAX_FILENAME_LEN, FILE_FORMAT, i);
         memset(backup, 0, sizeof(filename));
-        snprintf(backup, MAX_FILENAME_LEN, "%16lx", i);
+        snprintf(backup, MAX_FILENAME_LEN, FILE_FORMAT, i);
 
         assert(metadb_create(mdb, dir_id, partition_id, OBJ_DIR, i,
                              filename, filename) == 0);
@@ -76,13 +85,11 @@ void run_test() {
         assert(statbuf.st_ino == i);
         if (giga_file_migration_status(backup, new_partition_id)) {
             ++num_migrated_entries;
-            printf("%ld\n", i);
         }
     }
 
     printf("moved entries: %d \n", num_migrated_entries);
 
-    char extname[] = "/tmp/extract";
     uint64_t min_seq, max_seq;
     int ret =
         metadb_extract(mdb, dir_id, partition_id, new_partition_id,
@@ -110,12 +117,12 @@ void run_test() {
     metadb_key_t testkey;
     init_meta_obj_key(&testkey, dir_id, partition_id, filename);
 
-    for (i = 0; i < 50; ++i) {
+    for (i = 0; i < num_test_entries; ++i) {
         memset(filename, 0, sizeof(filename));
-        snprintf(filename, MAX_FILENAME_LEN, "%16lx", i);
+        snprintf(filename, MAX_FILENAME_LEN, FILE_FORMAT, i);
 
         init_meta_obj_key(&testkey, dir_id, new_partition_id, filename);
-        printf("Num %02ld: ", i);
+//        printf("Num %02ld: ", i);
         print_meta_obj_key(&testkey);
 
         ret = metadb_lookup(mdb2, dir_id, new_partition_id, filename, &statbuf);
@@ -130,11 +137,35 @@ void run_test() {
     printf("%d %d\n", num_migrated_entries, num_found_entries);
     assert(num_migrated_entries == num_found_entries);
 
+    for (i = num_test_entries; i < num_test_entries*2; ++i) {
+        memset(filename, 0, sizeof(filename));
+        snprintf(filename, MAX_FILENAME_LEN, FILE_FORMAT, i);
+        memset(backup, 0, sizeof(filename));
+        snprintf(backup, MAX_FILENAME_LEN, FILE_FORMAT, i);
+
+        assert(metadb_create(mdb2, dir_id, partition_id, OBJ_DIR, i,
+                             filename, filename) == 0);
+        metadb_lookup(mdb2, dir_id, partition_id, filename, &statbuf);
+        assert(statbuf.st_ino == i);
+    }
+
+    for (i = num_test_entries; i < num_test_entries*4; ++i) {
+        memset(filename, 0, sizeof(filename));
+        snprintf(filename, MAX_FILENAME_LEN, FILE_FORMAT, i);
+        memset(backup, 0, sizeof(filename));
+        snprintf(backup, MAX_FILENAME_LEN, FILE_FORMAT, i);
+
+        assert(metadb_create(mdb, dir_id, partition_id, OBJ_DIR, i,
+                             filename, filename) == 0);
+        metadb_lookup(mdb, dir_id, partition_id, filename, &statbuf);
+        assert(statbuf.st_ino == i);
+    }
+
     metadb_close(mdb);
     metadb_close(mdb2);
 }
 
-int main() {
-    run_test();
+int main(int nargs, char* args[]) {
+    run_test(nargs, args);
     return 0;
 }

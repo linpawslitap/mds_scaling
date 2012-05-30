@@ -1563,9 +1563,11 @@ Status DBImpl::MigrateLevel0Table(const std::string& fname,
   Status s;
   std::string new_fname = TableFileName(dbname_, meta.number);
   s = env_->RenameFile(fname, new_fname);
-  Log(options_.info_log, "Level-0 table #%llu: %lld migrate bytes %s",
+  Log(options_.info_log, "Level-0 table #%llu: %lld migrate bytes by rename file %s to file %s: %s",
       (unsigned long long) meta.number,
       (unsigned long long) meta.file_size,
+      fname.c_str(),
+      new_fname.c_str(),
       s.ToString().c_str());
   pending_outputs_.erase(meta.number);
 
@@ -1608,8 +1610,13 @@ Status DBImpl::BulkInsert(const WriteOptions& write_opt,
 
   TEST_CompactMemTable(); // TODO(kair): Skip if memtable does not overlap
   MutexLock l(&mutex_);
+
   Status s;
+
+//  return s;
+
   if (!shutting_down_.Acquire_Load()) {
+
     VersionEdit edit;
     Version* base = versions_->current();
     base->Ref();
@@ -1624,11 +1631,13 @@ Status DBImpl::BulkInsert(const WriteOptions& write_opt,
     if (s.ok()) {
       edit.SetPrevLogNumber(0);
       edit.SetLogNumber(logfile_number_);  // Earlier logs no longer needed
-      s = versions_->LogAndApply(&edit, &mutex_);
-      //TODO: simply update last_sequence by max(max_sequence_number, old_seq)
+      //TODO: simply update last_sequence by
+      //      max(max_sequence_number, old_seq)
       //      Not consider snapshot
       if (max_sequence_number > versions_->LastSequence())
-        versions_->SetLastSequence(max_sequence_number);
+          versions_->SetLastSequence(max_sequence_number);
+
+      s = versions_->LogAndApply(&edit, &mutex_);
     }
 
     // TODO:

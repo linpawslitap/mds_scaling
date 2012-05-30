@@ -1,7 +1,8 @@
 include ../Makefile.inc
+include ../backends/build_config.mk
 
 CFLAGS += -iquote ..
-LDFLAGS += /usr/lib/libssl.so.0.9.8 ../backends/leveldb/libleveldb.a
+LDFLAGS += /usr/lib/libssl.so.0.9.8 ../backends/$(LEVELDBLIBRARY)
 
 OBJS += ../backends/local_fs.o ../backends/rpc_fs.o ../backends/metadb_fs.o
 #OBJS += ../backends/*.o

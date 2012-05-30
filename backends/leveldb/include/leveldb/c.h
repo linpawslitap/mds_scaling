@@ -67,6 +67,7 @@ typedef struct leveldb_writablefile_t  leveldb_writablefile_t;
 typedef struct leveldb_writebatch_t    leveldb_writebatch_t;
 typedef struct leveldb_writeoptions_t  leveldb_writeoptions_t;
 typedef struct leveldb_tablebuilder_t  leveldb_tablebuilder_t;
+typedef struct leveldb_table_t         leveldb_table_t;
 
 /* DB operations */
 
@@ -299,6 +300,17 @@ extern void leveldb_tablebuilder_put(
     const char* key, size_t klen,
     const char* val, size_t vlen);
 extern size_t leveldb_tablebuilder_size(leveldb_tablebuilder_t*);
+
+/* Table */
+leveldb_table_t* leveldb_table_create(
+    const leveldb_options_t* options,
+    const char* name,
+    leveldb_env_t* env,
+    char** errptr);
+void leveldb_table_destroy(leveldb_table_t* table);
+leveldb_iterator_t* leveldb_table_create_iterator(
+    leveldb_table_t* table,
+    const leveldb_readoptions_t* options);
 
 #ifdef __cplusplus
 }  /* end extern "C" */

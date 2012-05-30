@@ -99,7 +99,7 @@ int giga_rpc_prog_1_freeresult(SVCXPRT *transp,
 
     /* TODO: add more cleanup code. */
     
-    logMessage(HANDLER_LOG, __func__, ">>> RPC_freeresult <<<");
+    //logMessage(HANDLER_LOG, __func__, ">>> RPC_freeresult <<<\n");
 
     return 1;
 }
@@ -113,7 +113,7 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
     assert(path);
 
     logMessage(HANDLER_LOG, __func__, 
-               ">>> RPC_getattr: [dir_id=%d,path=%s]", dir_id, path);
+               ">>> RPC_getattr(d=%d,p=%s)", dir_id, path);
 
     bzero(rpc_reply, sizeof(giga_getattr_reply_t));
 
@@ -168,8 +168,9 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
 
     }
 
-    logMessage(HANDLER_LOG, __func__, "<<< RPC_getattr: [status=%d]", 
-               rpc_reply->result.errnum);
+    logMessage(HANDLER_LOG, __func__, 
+               "<<< RPC_getattr(d=%d,path=%s): status=[%d]", 
+               dir_id, path, rpc_reply->result.errnum);
     return true;
 }
 
@@ -183,7 +184,7 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
     assert(path);
 
     logMessage(HANDLER_LOG, __func__, 
-               ">>> RPC_mknod: [path=%s,mode=0%3o]", path, mode);
+               ">>> RPC_mknod(d=%d,p=%s,m=0%3o)", dir_id, path, mode);
 
     bzero(rpc_reply, sizeof(giga_result_t));
 
@@ -243,6 +244,8 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
                      "%s/%s", giga_options_t.mountpoint, path);
             rpc_reply->errnum = local_mknod(path_name, mode, dev); 
            
+            logMessage(HANDLER_LOG, __func__, "__ret=%d", rpc_reply->errnum);
+
             // create object entry (metadata) in levelDB
             // object_id += 1;  //TODO: don't need this for non-dir objects 
             rpc_reply->errnum = metadb_create(ldb_mds, dir_id, index,
@@ -255,7 +258,8 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
 
     }
 
-    logMessage(HANDLER_LOG, __func__, "<<< RPC_mknod: [status=%d]", 
+    logMessage(HANDLER_LOG, __func__, 
+               "<<< RPC_mknod(d=%d,p=%s): status=[%d]", dir_id, path,
                rpc_reply->errnum);
     return true;
 }

@@ -90,7 +90,7 @@ static void get_full_path(char fpath[MAX_LEN], const char *path)
 
 void* GIGAinit(struct fuse_conn_info *conn)
 {
-    logMessage(FUSE_LOG, __func__, " ==> init() ");
+    logMessage(FUSE_LOG, __func__, ">>> FUSE_init()");
 
     (void)conn;
 
@@ -113,6 +113,7 @@ void* GIGAinit(struct fuse_conn_info *conn)
             break;
     }
     
+    logMessage(FUSE_LOG, __func__, "<<< FUSE_init()");
     return NULL;
 }
 
@@ -121,6 +122,8 @@ void GIGAdestroy(void * unused)
     (void)unused;
 
     logClose();
+    
+    logMessage(FUSE_LOG, __func__, ">>> FUSE_destroy() <<<");
 
     // FIXME: check cleanup code.
     //rpc_disconnect();
@@ -130,7 +133,7 @@ void GIGAdestroy(void * unused)
 int GIGAgetattr(const char *path, struct stat *statbuf)
 {
     logMessage(FUSE_LOG, __func__,
-               " ==> getattr(path=[%s], statbuf=0x%08x) ", path, statbuf);
+               ">>> FUSE_getattr: (path=[%s],statbuf=0x%08x)", path, statbuf);
 
     int ret = 0;
     char fpath[MAX_LEN] = {0};
@@ -159,20 +162,22 @@ int GIGAgetattr(const char *path, struct stat *statbuf)
             break;
     }
 
-    logMessage(FUSE_LOG, __func__,
-               " ==> getattr(status=[%d],%s) ", ret, strerror(ret));
+    logMessage(FUSE_LOG, __func__, "<<< FUSE_getattr: status=[%d]", ret);
+    /*
     if (ret == 0) {
         logMessage(FUSE_LOG, __func__,
                 "==> getattr: gid=%d, uid=%d, mode=%08d",
                 statbuf->st_gid, statbuf->st_uid, statbuf->st_mode);
     }
+    */
     return ret;
 }
 
 int GIGAmkdir(const char *path, mode_t mode)
 {
     logMessage(FUSE_LOG, __func__, 
-               " ==> mkdir(path=[%s], mode=[0%3o])", path, mode);
+               ">>> FUSE_mkdir: (path=[%s],mode=[%lo])", path, (unsigned long)mode);
+               //">>> FUSE_mkdir: (path=[%s],mode=[0%3o])", path, mode);
 
     int ret = 0;
     char fpath[MAX_LEN] = {0};
@@ -200,6 +205,7 @@ int GIGAmkdir(const char *path, mode_t mode)
             break;
     }
     
+    logMessage(FUSE_LOG, __func__, "<<< FUSE_mkdir: status=[%d] ", ret);
     return ret;
 }
 
@@ -207,7 +213,7 @@ int GIGAmkdir(const char *path, mode_t mode)
 int GIGAmknod(const char *path, mode_t mode, dev_t dev)
 {
     logMessage(FUSE_LOG, __func__, 
-               " ==> mknod(path=[%s],mode=[0%3o],dev=[%lld])", path, mode, dev);
+               ">>> FUSE_mknod: (path=[%s],mode=[0%3o],dev=[%lld])", path, mode, dev);
 
     int ret = 0;
     char fpath[PATH_MAX];
@@ -232,8 +238,7 @@ int GIGAmknod(const char *path, mode_t mode, dev_t dev)
             break;
     }
     
-    logMessage(FUSE_LOG, __func__,
-               " ==> mknod(status=[%d],%s) ", ret, strerror(ret));
+    logMessage(FUSE_LOG, __func__, "<<< FUSE_mknod: status=[%d] ", ret);
     return ret;
 }
 

@@ -270,8 +270,8 @@ void init_root_partition()
         case BACKEND_RPC_LOCALFS:
             snprintf(ldb_name, sizeof(ldb_name), "%s/0/", 
                      giga_options_t.mountpoint);
-            if (local_mkdir(ldb_name, CREATE_MODE) < 0) {
-                logMessage(LOG_FATAL, __func__, "root partition creation error.");
+            if (local_mkdir(ldb_name, DEFAULT_MODE) < 0) {
+                logMessage(LOG_FATAL, __func__, "root bucket creation error.");
                 exit(1);
             }
         case BACKEND_RPC_LEVELDB:

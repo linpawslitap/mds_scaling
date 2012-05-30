@@ -34,6 +34,7 @@ int main(int argc, char **argv)
         snprintf(path, sizeof(path), "%s/fd%d", argv[1], i);
         if (mknod(path, m, d) < 0) {
             printf ("ERR_file%d: %s\n", i, strerror(errno));
+            return -1;
         }
     }
     

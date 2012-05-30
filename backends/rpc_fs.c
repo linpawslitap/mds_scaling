@@ -98,7 +98,7 @@ retry:
     CLIENT *rpc_clnt = getConnection(server_id);
 
     logMessage(RPCFS_LOG, __func__, 
-               ">>> RPC_getattr: [path=%s-->s%d]", path, server_id);
+               ">>> RPC_getattr(%s): to s%d]", path, server_id);
 
     if (giga_rpc_getattr_1(dir_id, (char*)path, &rpc_reply, rpc_clnt) 
         != RPC_SUCCESS) {
@@ -139,7 +139,8 @@ retry:
     }
     */
 
-    logMessage(RPCFS_LOG, __func__, "<<< RPC_getattr: [status=%s]", strerror(ret));
+    logMessage(RPCFS_LOG, __func__, 
+               "<<< RPC_getattr(%s): status=[%d]%s", path, ret, strerror(ret));
     
     return ret;
 }
@@ -162,7 +163,7 @@ retry:
     CLIENT *rpc_clnt = getConnection(server_id);
 
     logMessage(RPCFS_LOG, __func__, 
-               ">>> RPC_mkdir: [path=%s-->s%d]", path, server_id);
+               ">>> RPC_mkdir(%s): to s%d]", path, server_id);
 
     if (giga_rpc_mkdir_1(dir_id, (char*)path, mode, &rpc_reply, rpc_clnt) 
         != RPC_SUCCESS) {
@@ -192,7 +193,8 @@ retry:
     }
     */
 
-    logMessage(RPCFS_LOG, __func__, "<<< RPC_mkdir: [status=%s]", strerror(ret));
+    logMessage(RPCFS_LOG, __func__, 
+               "<<< RPC_mkdir(%s): status=[%d]%s", path, ret, strerror(ret));
     
     return ret;
 }
@@ -215,7 +217,7 @@ retry:
     CLIENT *rpc_clnt = getConnection(server_id);
 
     logMessage(RPCFS_LOG, __func__, 
-               ">>> RPC_mknod: [path=%s-->s%d]", path, server_id);
+               ">>> RPC_mknod(%s): to s%d]", path, server_id);
 
     if (giga_rpc_mknod_1(dir_id, (char*)path, mode, dev, &rpc_reply, rpc_clnt) 
         != RPC_SUCCESS) {
@@ -246,7 +248,8 @@ retry:
     }
     */
 
-    logMessage(RPCFS_LOG, __func__, "<<< RPC_mknod: [status=%s]", strerror(ret));
+    logMessage(RPCFS_LOG, __func__, 
+               "<<< RPC_mknod(%s): status=[%d]%s", path, ret, strerror(ret));
     
     return ret;
 }

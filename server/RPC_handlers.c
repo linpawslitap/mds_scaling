@@ -29,13 +29,13 @@ int giga_addressing(struct giga_directory *dir,
     int server = giga_get_server_for_index(&dir->mapping, index);
     
     // (2): is this the correct server? 
-    // ---- NO = set rpc_reply (errnum=-EAGAIN and copy correct bitmap) and return
+    // ---- NO: set rpc_reply (errnum=-EAGAIN and copy server bitmap) and return
     if (server != giga_options_t.serverID) {
         memcpy(&(rpc_reply->giga_result_t_u.bitmap), 
                &dir->mapping, sizeof(dir->mapping));
         rpc_reply->errnum = -EAGAIN;
         
-        logMessage(HANDLER_LOG, __func__, "ERROR_redirect: send to s%d, not me(s%d)",
+        logMessage(HANDLER_LOG, __func__, "ERR_redirect: to s%d, not me(s%d)",
                    server, giga_options_t.serverID);
         return -1;
     }
@@ -54,7 +54,7 @@ int giga_addressing(struct giga_directory *dir,
                &dir->mapping, sizeof(dir->mapping));
         rpc_reply->errnum = -EAGAIN;
     
-        logMessage(HANDLER_LOG, __func__, "<<< RPC_mknod: [status=%d] SPLIT_p%d", 
+        logMessage(HANDLER_LOG, __func__, "ERR_retry: split_p%d [status=%d]", 
                    rpc_reply->errnum, index);
         
         return -1;
@@ -70,7 +70,7 @@ bool_t giga_rpc_init_1_svc(int rpc_req,
     (void)rqstp;
     assert(rpc_reply);
 
-    logMessage(HANDLER_LOG, __func__, "==> RPC_init_recv = %d", rpc_req);
+    logMessage(HANDLER_LOG, __func__, ">>> RPC_init [req=%d]", rpc_req);
 
     // send bitmap for the "root" directory.
     //
@@ -78,15 +78,15 @@ bool_t giga_rpc_init_1_svc(int rpc_req,
     struct giga_directory *dir = cache_fetch(&dir_id);
     if (dir == NULL) {
         rpc_reply->errnum = -EIO;
-        logMessage(HANDLER_LOG, __func__, "Dir (id=%d) not in cache!", dir_id);
+        logMessage(HANDLER_LOG, __func__, "ERR_cache: dir(%d) missing!", dir_id);
         return true;
     }
     rpc_reply->errnum = -EAGAIN;
     memcpy(&(rpc_reply->giga_result_t_u.bitmap), 
            &dir->mapping, sizeof(dir->mapping));
 
-    logMessage(HANDLER_LOG, __func__, "RPC_init_reply(%d)", rpc_reply->errnum);
-
+    logMessage(HANDLER_LOG, __func__, 
+               ">>> RPC_init: [status=%d]", rpc_reply->errnum);
     return true;
 }
 
@@ -123,7 +123,7 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
     if (dir == NULL) {
         rpc_reply->result.errnum = -EIO;
         
-        logMessage(HANDLER_LOG, __func__, "ERROR_cache: dir(%d) missing!", dir_id);
+        logMessage(HANDLER_LOG, __func__, "ERR_cache: dir(%d) missing!", dir_id);
         return true;
     }
 
@@ -138,7 +138,7 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
                &dir->mapping, sizeof(dir->mapping));
         rpc_reply->result.errnum = -EAGAIN;
         
-        logMessage(HANDLER_LOG, __func__, "ERROR_redirect: send to s%d, not me(s%d)",
+        logMessage(HANDLER_LOG, __func__, "ERR_redirect: send to s%d, not me(s%d)",
                    server, giga_options_t.serverID);
         return true;
     }
@@ -187,14 +187,14 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
     if (dir == NULL) {
         rpc_reply->errnum = -EIO;
         
-        logMessage(HANDLER_LOG, __func__, "ERROR_cache: dir(%d) missing!", dir_id);
+        logMessage(HANDLER_LOG, __func__, "ERR_cache: dir(%d) missing!", dir_id);
         return true;
     }
     
     int index;
     if (giga_addressing(dir, path, rpc_reply, &index) < 0)
         return true;
-
+    
     char path_name[MAX_LEN];
 
     switch (giga_options_t.backend_type) {
@@ -249,7 +249,7 @@ bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id,
     if (dir == NULL) {
         rpc_reply->errnum = -EIO;
         
-        logMessage(HANDLER_LOG, __func__, "ERROR_cache: dir(%d) missing!", dir_id);
+        logMessage(HANDLER_LOG, __func__, "ERR_cache: dir(%d) missing!", dir_id);
         return -1;
     }
     
@@ -301,7 +301,7 @@ bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id,
     struct giga_directory *dir = cache_fetch(&dir_id);
     if (dir == NULL) {
         rpc_reply->errnum = -EIO;
-        logMessage(HANDLER_LOG, __func__, "ERROR_cache: dir(%d) missing!", dir_id);
+        logMessage(HANDLER_LOG, __func__, "ERR_cache: dir(%d) missing!", dir_id);
         return true;
     }
 
@@ -316,7 +316,7 @@ bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id,
                &dir->mapping, sizeof(dir->mapping));
         rpc_reply->errnum = -EAGAIN;
         
-        logMessage(HANDLER_LOG, __func__, "ERROR_redirect: send to s%d, not me(s%d)",
+        logMessage(HANDLER_LOG, __func__, "ERR_redirect: send to s%d, not me(s%d)",
                    server, giga_options_t.serverID);
         return true;
     }

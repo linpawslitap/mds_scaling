@@ -48,24 +48,24 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
                                      parent_index, child_index, 
                                      split_dir_path, &min, &max);
     if (num_entries < 0) {
-        logMessage(LOG_FATAL, __func__, "ERROR_ldb: extract() FAILED!\n");
+        logMessage(LOG_FATAL, __func__, "ERR_ldb: extract() FAILED!\n");
         return ret;
     }
 
     // check if the split is a LOCAL SPLIT (move/rename) or REMOTE SPLIT (rpc)
     //
-    if (destination_server == giga_options_t.serverID) {
+    if (destination_server == giga_options_t.serverID+111) {
         
-        logMessage(HANDLER_LOG, __func__, "LOCAL_split");
+        logMessage(HANDLER_LOG, __func__, "LOCAL_split ...");
         
         if ((ret = metadb_bulkinsert(ldb_mds, split_dir_path, min, max)) < 0)  
-            logMessage(LOG_FATAL, __func__, "ERROR_ldb: bulk_insert(%s) FAILED!", 
+            logMessage(LOG_FATAL, __func__, "ERR_ldb: bulk_insert(%s) FAILED!", 
                        split_dir_path);
         else
             dir->partition_size[child_index] = num_entries; 
     }
     else {
-        logMessage(HANDLER_LOG, __func__, "RPC_split");
+        logMessage(HANDLER_LOG, __func__, "RPC_split ...");
         
         giga_result_t rpc_reply;
         CLIENT *rpc_clnt = getConnection(destination_server);
@@ -74,7 +74,7 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
                              (char*)split_dir_path, min, max, num_entries,
                              &rpc_reply, rpc_clnt) 
             != RPC_SUCCESS) {
-            logMessage(LOG_FATAL, __func__, "ERROR_rpc: rpc_split failed."); 
+            logMessage(LOG_FATAL, __func__, "ERR_rpc: rpc_split failed."); 
             clnt_perror(rpc_clnt, "(rpc_split failed)");
             exit(1);//TODO: retry again?
         }
@@ -90,11 +90,11 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
         //update_client_mapping(dir, &rpc_reply.giga_result_t_u.bitmap);
         //ret = 0;
         //
-        logMessage(HANDLER_LOG, __func__, "status: p%d(%d)-->p%d(%d) -- RETRY ...", 
+        logMessage(HANDLER_LOG, __func__, "REDIRECTING: p%d(%d)-->p%d(%d) -- RETRY ...", 
                    parent_index, dir->partition_size[parent_index], 
                    child_index, dir->partition_size[child_index]); 
     } else if (ret < 0) {
-        logMessage(HANDLER_LOG, __func__, "status: p%d(%d)-->p%d(%d) -- FAILURE!", 
+        logMessage(HANDLER_LOG, __func__, "FAILURE: p%d(%d)-->p%d(%d)", 
                    parent_index, dir->partition_size[parent_index], 
                    child_index, dir->partition_size[child_index]); 
     } else {
@@ -102,7 +102,7 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
         giga_update_mapping(&(dir->mapping), child_index);
         dir->partition_size[parent_index] -= num_entries;
 
-        logMessage(HANDLER_LOG, __func__, "status: p%d(%d)-->p%d(%d) -- SUCCESS.", 
+        logMessage(HANDLER_LOG, __func__, "SUCCESS: p%d(%d)-->p%d(%d)", 
                    parent_index, dir->partition_size[parent_index], 
                    child_index, dir->partition_size[child_index]); 
         ret = 0;
@@ -130,7 +130,7 @@ bool_t giga_rpc_split_1_svc(giga_dir_id dir_id,
     rpc_reply->errnum = metadb_bulkinsert(ldb_mds, path, min_seq, max_seq);
     
     if (rpc_reply->errnum < 0) {
-        logMessage(HANDLER_LOG, __func__, "ERROR_ldb: bulk_insert(%s) FAILED!", path);
+        logMessage(HANDLER_LOG, __func__, "ERR_ldb: bulk_insert(%s) FAILED!", path);
     }
     else { 
         struct giga_directory *dir = cache_fetch(&dir_id);
@@ -138,7 +138,7 @@ bool_t giga_rpc_split_1_svc(giga_dir_id dir_id,
             rpc_reply->errnum = -EIO;
             
             logMessage(HANDLER_LOG, __func__, 
-                       "ERROR_cache: dir(%d) missing!", dir_id);
+                       "ERR_cache: dir(%d) missing!", dir_id);
             return true;
         }
 

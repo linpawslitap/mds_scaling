@@ -8,6 +8,9 @@ include build_config.mk
 CFLAGS += -iquote ..
 LDFLAGS += `pkg-config fuse --libs` $(LEVELDBLIBRARY)
 
+ldb_fs.o : ldb_fs.c operations.h
+	$(CC) $(CFLAGS) -c ldb_fs.c ../common.a
+
 metadb_fs.o : metadb_fs.c operations.h
 	$(CC) $(CFLAGS) -c metadb_fs.c ../common.a
 

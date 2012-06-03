@@ -9,9 +9,9 @@
 
 #define NUM_BACKLOG_CONN 128
 
-struct MetaDB ldb_mds;  //TODO: make this thread-safe.
-
 static int object_id;
+
+struct MetaDB ldb_mds;  //TODO: make this thread-safe.
 
 struct giga_directory giga_dir_t;
 

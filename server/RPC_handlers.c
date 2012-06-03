@@ -17,6 +17,8 @@
 
 #define HANDLER_LOG LOG_DEBUG
 
+
+
 static
 int check_split_eligibility(struct giga_directory *dir, int index)
 {
@@ -226,7 +228,7 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
     // regular operations (if no splits)
     //
     
-    char path_name[MAX_LEN];
+    char path_name[MAX_LEN] = {0};
     
     switch (giga_options_t.backend_type) {
         case BACKEND_RPC_LOCALFS:
@@ -247,10 +249,13 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
             logMessage(HANDLER_LOG, __func__, "__ret=%d", rpc_reply->errnum);
 
             // create object entry (metadata) in levelDB
-            // object_id += 1;  //TODO: don't need this for non-dir objects 
+            object_id += 1;  //TODO: do we need this for non-dir objects?? 
+            logMessage(HANDLER_LOG, __func__, "d=%d,p=%d,o=%d,p=%s,rp=%s", 
+                       dir_id, index,object_id, path,path_name);
             rpc_reply->errnum = metadb_create(ldb_mds, dir_id, index,
                                               OBJ_MKNOD,
                                               object_id, path, path_name);
+            
             dir->partition_size[index] += 1;
             break;
         default:

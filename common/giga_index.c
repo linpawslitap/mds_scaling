@@ -454,6 +454,7 @@ void giga_print_mapping(struct giga_mapping_t *mapping)
 
 static void print_bitmap(bitmap_t bmap[])
 {
+    if (bmap[0] && 0 == 1) {
     int i;
     char bitmap_buf[MAX_BMAP_LEN] = {0};
     bitmap_buf[0] = '\0';
@@ -464,6 +465,8 @@ static void print_bitmap(bitmap_t bmap[])
         strncat(bitmap_buf, buf, strlen(buf));
     }
     logMessage(GIGA_LOG, __func__, "%s", bitmap_buf);
+
+    }
 }
 
 // From a given bitmap, find the radix for that bitmap by looking

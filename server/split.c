@@ -38,6 +38,8 @@ void* split_thread(void *arg)
         logMessage(SPLIT_LOG, __func__, "ERR_pthread: mutex failed.");
     }
 
+    object_id += 0;
+
     while (!pthread_cond_wait(&queue_cond, &queue_mutex)) {
         while (queue) {
             struct split_task *task = queue;
@@ -61,7 +63,8 @@ void process_split(DIR_handle_t dir_id, index_t index)
         logMessage(SPLIT_LOG, __func__, "ERR_cache: dir(%d) missing", dir_id);
         return;
     }
-    
+   
+    logMessage(LOG_FATAL, __func__, "during split p%d", index);
     if (split_bucket(dir, index) < 0) {
         logMessage(LOG_FATAL, __func__, "***FATAL_ERROR*** during split");
         return;    //FIXME: do somethign smarter
@@ -115,6 +118,7 @@ void issue_split(DIR_handle_t *dir_id, index_t index)
 }
 
 
+//int split_bucket(struct MetaDB ldb_mds,
 int split_bucket(struct giga_directory *dir, int partition_to_split)
 {
     int ret = -1;
@@ -130,7 +134,7 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
         
     char split_dir_path[MAX_LEN] = {0};
     snprintf(split_dir_path, sizeof(split_dir_path), 
-             "%s/split-d%d-p%d-p%d", 
+             "%s/sst-d%d-p%dp%d", 
              giga_options_t.mountpoint, dir->handle, parent_index, child_index);
 
     // FIXME: should we even do this for local splitting?? move to remote
@@ -138,9 +142,10 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
     
     // create levelDB files and return number of entries in new partition
     //
-    logMessage(SPLIT_LOG, __func__, "ldb_extract ...");
+    logMessage(SPLIT_LOG, __func__, "ldb_extract: (for d%d, p%d-->p%d) in (%s)", 
+               dir->handle, parent_index, child_index, split_dir_path);
     
-    mdb_seq_num_t min, max;
+    mdb_seq_num_t min, max = 0;
 
     int num_entries = metadb_extract(ldb_mds, dir->handle, 
                                      parent_index, child_index, 
@@ -149,6 +154,9 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
         logMessage(LOG_FATAL, __func__, "ERR_ldb: extract() FAILED!\n");
         return ret;
     }
+
+    //logMessage(SPLIT_LOG, __func__, "ldb_extract_ret: min=%d,max=%d in (%s)", 
+    //           min, max, split_dir_path);
 
     // check if the split is a LOCAL SPLIT (move/rename) or REMOTE SPLIT (rpc)
     //
@@ -163,11 +171,11 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
             dir->partition_size[child_index] = num_entries; 
     }
     else {
-        logMessage(SPLIT_LOG, __func__, "RPC_split ...");
-        
         giga_result_t rpc_reply;
         CLIENT *rpc_clnt = getConnection(target_server);
 
+        logMessage(SPLIT_LOG, __func__, ">>> RPC_split: [d%d, (p%d-->p%d)");
+        
         if (giga_rpc_split_1(dir->handle, parent_index, child_index,
                              (char*)split_dir_path, min, max, num_entries,
                              &rpc_reply, rpc_clnt) 
@@ -258,6 +266,3 @@ bool_t giga_rpc_split_1_svc(giga_dir_id dir_id,
                rpc_reply->errnum);
     return true;
 }
-
-
-

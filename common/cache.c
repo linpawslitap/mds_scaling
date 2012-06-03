@@ -9,6 +9,8 @@
 #include <errno.h>
 #include <stdio.h>
 
+#define CACHE_LOG LOG_DEBUG
+
 /* FIXME: this file is not thread safe */
 static struct giga_directory *dircache = NULL;
 
@@ -124,7 +126,8 @@ int cache_init()
     dircache->refcount = 1;
     dircache->split_flag = -1;
     //for (i=0; i < (int)sizeof(dir->partition_size); i++)
-    for (i=0; i < MAX_BMAP_LEN; i++)
+    logMessage(CACHE_LOG, __func__, "partition size arraylen = %d", ARR_LEN);
+    for (i=0; i < ARR_LEN; i++)
         dircache->partition_size[i] = 0;
 
     logMessage(LOG_TRACE, __func__, "Cache_CREATE: dir(%d)", dircache->handle);

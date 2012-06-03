@@ -17,9 +17,6 @@
 int main(int argc, char **argv)
 {
     int i = 0;
-    int num_files = atoi(argv[2]);
-    mode_t m = CREATE_MODE;
-    dev_t d = CREATE_RDEV;
 
     if (argc != 3) {
         fprintf(stdout, "*** ERROR: insufficient parameters ... \n\n");
@@ -28,10 +25,12 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    printf("Creating %d files ... \n", num_files);
+    mode_t m = CREATE_MODE;
+    dev_t d = CREATE_RDEV;
+    int num_files = atoi(argv[2]);
     for (i=0; i<num_files; i++) {
         char path[512] = {0};
-        snprintf(path, sizeof(path), "%s/fd%d", argv[1], i);
+        snprintf(path, sizeof(path), "%s/%d", argv[1], i);
         if (mknod(path, m, d) < 0) {
             printf ("ERR_file%d: %s\n", i, strerror(errno));
             return -1;

@@ -4,7 +4,7 @@ include ../backends/build_config.mk
 CFLAGS += -iquote ..
 LDFLAGS += /usr/lib/libssl.so.0.9.8 ../backends/$(LEVELDBLIBRARY)
 
-OBJS += ../backends/local_fs.o ../backends/rpc_fs.o ../backends/metadb_fs.o
+OBJS += ../backends/local_fs.o ../backends/rpc_fs.o ../backends/metadb_fs.o ../backends/ldb_fs.o
 #OBJS += ../backends/*.o
 
 TARGETS = ../giga_server

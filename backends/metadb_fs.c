@@ -180,6 +180,9 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name)
     mdb->insert_options = leveldb_writeoptions_create();
     leveldb_writeoptions_set_sync(mdb->insert_options, 1);
 
+    pthread_mutex_init(&(mdb->mtx_extract), NULL);
+    pthread_mutex_init(&(mdb->mtx_bulkload), NULL);
+
     mdb->db = leveldb_open(mdb->options, mdb_name, &err);
     metadb_error("leveldb_init", err);
 

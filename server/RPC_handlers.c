@@ -17,8 +17,6 @@
 
 #define HANDLER_LOG LOG_DEBUG
 
-
-
 static
 int check_split_eligibility(struct giga_directory *dir, int index)
 {
@@ -35,11 +33,11 @@ int check_giga_addressing(struct giga_directory *dir, giga_pathname path,
                           giga_result_t *rpc_reply,
                           giga_getattr_reply_t *stat_rpc_reply) 
 {
+    int index, server = 0;
 
     // (1): get the giga index/partition for operation
-    int index = giga_get_index_for_file(&dir->mapping, (const char*)path);
-    //*partition_id = index;
-    int server = giga_get_server_for_index(&dir->mapping, index);
+    index = giga_get_index_for_file(&dir->mapping, (const char*)path);
+    server = giga_get_server_for_index(&dir->mapping, index);
     
     // (2): is this the correct server? 
     // ---- NO: set rpc_reply (errnum=-EAGAIN and copy bitmap) and return
@@ -59,7 +57,7 @@ int check_giga_addressing(struct giga_directory *dir, giga_pathname path,
         
         logMessage(HANDLER_LOG, __func__, "ERR_redirect: to s%d, not me(s%d)",
                    server, giga_options_t.serverID);
-        return -1;
+        index = -1;
     }
 
     return index;
@@ -102,7 +100,6 @@ int giga_rpc_prog_1_freeresult(SVCXPRT *transp,
     /* TODO: add more cleanup code. */
     
     //logMessage(HANDLER_LOG, __func__, ">>> RPC_freeresult <<<\n");
-
     return 1;
 }
 
@@ -167,7 +164,6 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
             break;  
         default:
             break;
-
     }
 
     logMessage(HANDLER_LOG, __func__, 

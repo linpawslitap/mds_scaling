@@ -1,20 +1,26 @@
 #ifndef CACHE_H
 #define CACHE_H
 
+#include <pthread.h>
+
 #include "giga_index.h"
 #include "uthash.h"
 
 typedef int DIR_handle_t;
 
-#define ARR_LEN 1000
+#define MAX_NUM MAX_GIGA_PARTITIONS 
 
 struct giga_directory {
     DIR_handle_t handle;                // directory ID for directory "d"
     struct giga_mapping_t mapping;      // giga mapping for "d"
-    int partition_size[ARR_LEN];        // num dirents in each partition
+    int partition_size[MAX_NUM];        // num dirents in each partition
     int split_flag;                     // flag to store the partion id of the
                                         // partition undergoing split.
     int refcount;                       // ???
+
+    // XXX: think again??
+    //
+    pthread_mutex_t partition_mtx[MAX_NUM];        // num dirents in each partition
     //UT_hash_handle hh; //FIXME:
 };
 

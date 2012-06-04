@@ -41,6 +41,9 @@ struct MetaDB {
     leveldb_readoptions_t*  lookup_options;
     leveldb_readoptions_t*  scan_options;
     leveldb_writeoptions_t* insert_options;
+
+    pthread_mutex_t     mtx_extract;
+    pthread_mutex_t     mtx_bulkload;
 };
 
 typedef enum MetaDB_obj_type {

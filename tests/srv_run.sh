@@ -5,7 +5,8 @@ LDB="/tmp/ldb/"
 
 if [ $# -lt 1 ]
 then
-    echo "Usage : $0 [v (valgrind) | g (gdb) | n (normal)]"
+    echo "Usage : $0 <v | g | n | c>"
+    echo "where ... {v=valgridn, g=gdb, n=normal, c=cleanup}"
     exit
 fi
 
@@ -16,14 +17,24 @@ mkdir $LDB
 
 case $1 in
 
-v) valgrind --tool=memcheck --leak-check=yes ../giga_server
-   ;;
+c) # cleanup and exit
+   #
+;;
 
-g) gdb --args ../giga_server
-   ;;
+v) # valgrind execution mode
+   #
+valgrind --tool=memcheck --leak-check=yes ../giga_server
+;;
 
-n) ../giga_server
-   ;;
+g) # GDB execution
+   #
+gdb --args ../giga_server
+;;
+
+n) # normal server execution
+   #
+../giga_server
+;;
 
 *) echo "Invalid option: <$1>"
    exit

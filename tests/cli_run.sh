@@ -7,16 +7,17 @@ if [ $# -lt 1 ]
 then
     ## 'f' foreground or 'n' normal
     ##
-    echo "Usage : $0 <f (foreground) | n (normal)> [n (FUSE instances)]"   
+    echo "Usage : $0 <f | n | c > [m (FUSE instances)]"   
+    echo "where ... {f=foreground, n=normal, c=cleanup}"
     exit
 fi
 
 
-## clean up all mountpoints by looking under the client directory.
+## clean up all giga_client mountpoints 
 ##
-for dir in $MNT/*
+for dir in `cat /proc/mounts | grep 'giga_client' | cut -d' ' -f2`
 do
-    echo "Cleanup (unmount and remove) $dir ..."
+    echo "Cleanup (unmount and delete) $dir ..."
     fusermount -u -z $dir
     rm -rf $dir
 done
@@ -25,6 +26,10 @@ rm -rf /tmp/dbg.log.c.*
 ## look at the command-line arguments and take appropriate action
 ##
 case $1 in
+
+c)  # cleanup and exit
+    #
+;;
 
 f)  # debugging mode (only single client)
     #

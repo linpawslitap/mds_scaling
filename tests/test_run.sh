@@ -21,9 +21,9 @@ then
     do
         echo "test instance $i ..."
         dir=${MNT}/${i}
-        ./mknod_test ${dir} $1 &
+        time ./mknod_test ${dir} $1 &
     done
 else
-    ./mknod_test ${MNT} $1 &
+    time ./mknod_test ${MNT} $1 &
 fi
 

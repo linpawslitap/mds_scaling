@@ -19,6 +19,18 @@
 
 #define SPLIT_LOG LOG_DEBUG
 
+#define ACQUIRE_MUTEX(x,y)  {                           \
+        logMessage(SPLIT_LOG, "ACQUIRE:","[%s]", y);    \
+        pthread_mutex_lock(x);                          \
+        logMessage(SPLIT_LOG, "SUCCESS:","[%s]", y);    \
+                            }
+
+#define RELEASE_MUTEX(x,y)  {                           \
+        logMessage(SPLIT_LOG, "RELEASE:","[%s]", y);    \
+        pthread_mutex_unlock(x);                        \
+        logMessage(SPLIT_LOG, "SUCCESS:","[%s]", y);    \
+                            }
+
 struct split_task {
     DIR_handle_t dir_id;
     index_t index;
@@ -29,6 +41,171 @@ struct split_task {
 struct split_task *queue = NULL;
 pthread_cond_t queue_cond = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+int split_bucket(struct giga_directory *dir, int partition_to_split)
+{
+    int ret = -1;
+    int parent_index = partition_to_split;
+    
+    int child_index = giga_index_for_splitting(&(dir->mapping), parent_index);
+    //int target_server = child_index % giga_options_t.num_servers;
+    int target_server = giga_get_server_for_index(&dir->mapping, child_index);
+
+    logMessage(SPLIT_LOG, __func__,  "[p%d_on_s%d] ---> [p%d_on_s%d]", 
+               parent_index, giga_options_t.serverID, 
+               child_index, target_server); 
+        
+    char split_dir_path[MAX_LEN] = {0};
+    snprintf(split_dir_path, sizeof(split_dir_path), 
+             "%s/sst-d%d-p%dp%d", 
+             giga_options_t.mountpoint, dir->handle, parent_index, child_index);
+
+    // FIXME: should we even do this for local splitting?? move to remote
+    // split??
+    
+    // create levelDB files and return number of entries in new partition
+    //
+    logMessage(SPLIT_LOG, __func__, "ldb_extract: (for d%d, p%d-->p%d) in (%s)", 
+               dir->handle, parent_index, child_index, split_dir_path);
+
+    ACQUIRE_MUTEX(&ldb_mds.mtx_extract, "split_extract");
+
+    mdb_seq_num_t min, max = 0;
+
+    int num_entries = metadb_extract(ldb_mds, dir->handle, 
+                                     parent_index, child_index, 
+                                     split_dir_path, &min, &max);
+    if (num_entries < 0) {
+        logMessage(LOG_FATAL, __func__, "ERR_ldb: extract() FAILED!\n");
+        return ret;
+    }
+
+    //logMessage(SPLIT_LOG, __func__, "ldb_extract_ret: min=%d,max=%d in (%s)", 
+    //           min, max, split_dir_path);
+
+    // check if the split is a LOCAL SPLIT (move/rename) or REMOTE SPLIT (rpc)
+    //
+    if (target_server == giga_options_t.serverID+111) {
+        
+        logMessage(SPLIT_LOG, __func__, "LOCAL_split ...");
+        
+        ACQUIRE_MUTEX(&ldb_mds.mtx_bulkload, "local_split_bulkload");
+        
+        if ((ret = metadb_bulkinsert(ldb_mds, split_dir_path, min, max)) < 0)  
+            logMessage(LOG_FATAL, __func__, "ERR_ldb: bulk_insert(%s) FAILED!", 
+                       split_dir_path);
+        else
+            dir->partition_size[child_index] = num_entries; 
+        
+        RELEASE_MUTEX(&ldb_mds.mtx_bulkload, "local_split_bulkload");
+    }
+    else {
+        giga_result_t rpc_reply;
+        CLIENT *rpc_clnt = getConnection(target_server);
+
+        logMessage(SPLIT_LOG, __func__, ">>> RPC_split: [d%d, (p%d-->p%d)");
+        
+        if (giga_rpc_split_1(dir->handle, parent_index, child_index,
+                             (char*)split_dir_path, min, max, num_entries,
+                             &rpc_reply, rpc_clnt) 
+            != RPC_SUCCESS) {
+            logMessage(LOG_FATAL, __func__, "ERR_rpc: rpc_split failed."); 
+            clnt_perror(rpc_clnt, "(rpc_split failed)");
+            exit(1);//TODO: retry again?
+        }
+        ret = rpc_reply.errnum;
+    }
+   
+    // check return condition 
+    //
+    if (ret == -EAGAIN) {
+        //TODO: optimization follows -- exchange bitmap on splits
+        //
+        //update_client_mapping(dir, &rpc_reply.giga_result_t_u.bitmap);
+        //ret = 0;
+        //
+        logMessage(SPLIT_LOG, __func__, "RETRYING: p%d(%d)-->p%d(%d)",
+                   parent_index, dir->partition_size[parent_index], 
+                   child_index, dir->partition_size[child_index]); 
+    } else if (ret < 0) {
+        logMessage(SPLIT_LOG, __func__, "FAILURE: p%d(%d)-->p%d(%d)", 
+                   parent_index, dir->partition_size[parent_index], 
+                   child_index, dir->partition_size[child_index]); 
+    } else {
+        // update bitmap and partition size
+        giga_update_mapping(&(dir->mapping), child_index);
+        dir->partition_size[parent_index] -= num_entries;
+
+        logMessage(SPLIT_LOG, __func__, "SUCCESS: p%d(%d)-->p%d(%d)", 
+                   parent_index, dir->partition_size[parent_index], 
+                   child_index, dir->partition_size[child_index]); 
+        ret = 0;
+    }
+    
+    RELEASE_MUTEX(&ldb_mds.mtx_extract, "split_extract");
+
+    return ret;
+}
+
+bool_t giga_rpc_split_1_svc(giga_dir_id dir_id, 
+                            int parent_index, int child_index,
+                            giga_pathname path, 
+                            uint64_t min_seq, uint64_t max_seq, int num_entries,
+                            giga_result_t *rpc_reply, 
+                            struct svc_req *rqstp)
+{
+    (void)rqstp;
+    assert(rpc_reply);
+    assert(path);
+
+    logMessage(SPLIT_LOG, __func__, ">>> RPC_split: [dir%d:p%d-->p%d,path=%s]",
+               dir_id, parent_index, child_index, path);
+  
+    object_id += 0; //dummy FIXME
+
+    ACQUIRE_MUTEX(&ldb_mds.mtx_bulkload, "split_bulkload");
+    
+    rpc_reply->errnum = metadb_bulkinsert(ldb_mds, path, min_seq, max_seq);
+    
+    if (rpc_reply->errnum < 0) {
+        logMessage(SPLIT_LOG, __func__, "ERR_ldb: bulk_insert(%s) FAILED!", 
+                   path);
+    }
+    else { 
+        struct giga_directory *dir = cache_fetch(&dir_id);
+        if (dir == NULL) {
+            rpc_reply->errnum = -EIO;
+            
+            logMessage(SPLIT_LOG, __func__, 
+                       "ERR_cache: dir(%d) missing!", dir_id);
+            return true;
+        }
+
+        // update bitmap and partition size
+        giga_update_mapping(&(dir->mapping), child_index);
+        dir->partition_size[child_index] = num_entries; 
+        
+        logMessage(SPLIT_LOG, __func__, "p%d: %d entries and updated bitmap.", 
+                   child_index, dir->partition_size[child_index]); 
+        
+        //TODO: optimization follows -- exchange bitmap on splits
+        //
+        //memcpy(&(rpc_reply->result.giga_result_t_u.bitmap), 
+        //       &dir->mapping, sizeof(dir->mapping));
+        //rpc_reply->errnum = -EAGAIN;  
+    }
+    
+    RELEASE_MUTEX(&ldb_mds.mtx_bulkload, "split_bulkload");
+
+    logMessage(SPLIT_LOG, __func__, "<<< RPC_split: [status=%d]", 
+               rpc_reply->errnum);
+    return true;
+}
+
+/*
+ * XXX: WORK IN PROGRESS
+ *
+ */
 
 void* split_thread(void *arg)
 {
@@ -118,151 +295,3 @@ void issue_split(DIR_handle_t *dir_id, index_t index)
 }
 
 
-//int split_bucket(struct MetaDB ldb_mds,
-int split_bucket(struct giga_directory *dir, int partition_to_split)
-{
-    int ret = -1;
-    int parent_index = partition_to_split;
-    
-    int child_index = giga_index_for_splitting(&(dir->mapping), parent_index);
-    //int target_server = child_index % giga_options_t.num_servers;
-    int target_server = giga_get_server_for_index(&dir->mapping, child_index);
-
-    logMessage(SPLIT_LOG, __func__,  "[p%d_on_s%d] ---> [p%d_on_s%d]", 
-               parent_index, giga_options_t.serverID, 
-               child_index, target_server); 
-        
-    char split_dir_path[MAX_LEN] = {0};
-    snprintf(split_dir_path, sizeof(split_dir_path), 
-             "%s/sst-d%d-p%dp%d", 
-             giga_options_t.mountpoint, dir->handle, parent_index, child_index);
-
-    // FIXME: should we even do this for local splitting?? move to remote
-    // split??
-    
-    // create levelDB files and return number of entries in new partition
-    //
-    logMessage(SPLIT_LOG, __func__, "ldb_extract: (for d%d, p%d-->p%d) in (%s)", 
-               dir->handle, parent_index, child_index, split_dir_path);
-    
-    mdb_seq_num_t min, max = 0;
-
-    int num_entries = metadb_extract(ldb_mds, dir->handle, 
-                                     parent_index, child_index, 
-                                     split_dir_path, &min, &max);
-    if (num_entries < 0) {
-        logMessage(LOG_FATAL, __func__, "ERR_ldb: extract() FAILED!\n");
-        return ret;
-    }
-
-    //logMessage(SPLIT_LOG, __func__, "ldb_extract_ret: min=%d,max=%d in (%s)", 
-    //           min, max, split_dir_path);
-
-    // check if the split is a LOCAL SPLIT (move/rename) or REMOTE SPLIT (rpc)
-    //
-    if (target_server == giga_options_t.serverID+111) {
-        
-        logMessage(SPLIT_LOG, __func__, "LOCAL_split ...");
-        
-        if ((ret = metadb_bulkinsert(ldb_mds, split_dir_path, min, max)) < 0)  
-            logMessage(LOG_FATAL, __func__, "ERR_ldb: bulk_insert(%s) FAILED!", 
-                       split_dir_path);
-        else
-            dir->partition_size[child_index] = num_entries; 
-    }
-    else {
-        giga_result_t rpc_reply;
-        CLIENT *rpc_clnt = getConnection(target_server);
-
-        logMessage(SPLIT_LOG, __func__, ">>> RPC_split: [d%d, (p%d-->p%d)");
-        
-        if (giga_rpc_split_1(dir->handle, parent_index, child_index,
-                             (char*)split_dir_path, min, max, num_entries,
-                             &rpc_reply, rpc_clnt) 
-            != RPC_SUCCESS) {
-            logMessage(LOG_FATAL, __func__, "ERR_rpc: rpc_split failed."); 
-            clnt_perror(rpc_clnt, "(rpc_split failed)");
-            exit(1);//TODO: retry again?
-        }
-        ret = rpc_reply.errnum;
-    }
-   
-    // check return condition 
-    //
-    if (ret == -EAGAIN) {
-        //TODO: optimization follows -- exchange bitmap on splits
-        //
-        //update_client_mapping(dir, &rpc_reply.giga_result_t_u.bitmap);
-        //ret = 0;
-        //
-        logMessage(SPLIT_LOG, __func__, "RETRYING: p%d(%d)-->p%d(%d)",
-                   parent_index, dir->partition_size[parent_index], 
-                   child_index, dir->partition_size[child_index]); 
-    } else if (ret < 0) {
-        logMessage(SPLIT_LOG, __func__, "FAILURE: p%d(%d)-->p%d(%d)", 
-                   parent_index, dir->partition_size[parent_index], 
-                   child_index, dir->partition_size[child_index]); 
-    } else {
-        // update bitmap and partition size
-        giga_update_mapping(&(dir->mapping), child_index);
-        dir->partition_size[parent_index] -= num_entries;
-
-        logMessage(SPLIT_LOG, __func__, "SUCCESS: p%d(%d)-->p%d(%d)", 
-                   parent_index, dir->partition_size[parent_index], 
-                   child_index, dir->partition_size[child_index]); 
-        ret = 0;
-    }
-
-    return ret;
-}
-
-bool_t giga_rpc_split_1_svc(giga_dir_id dir_id, 
-                            int parent_index, int child_index,
-                            giga_pathname path, 
-                            uint64_t min_seq, uint64_t max_seq, int num_entries,
-                            giga_result_t *rpc_reply, 
-                            struct svc_req *rqstp)
-{
-    (void)rqstp;
-    assert(rpc_reply);
-    assert(path);
-
-    logMessage(SPLIT_LOG, __func__, ">>> RPC_split: [dir%d:p%d-->p%d,path=%s]",
-               dir_id, parent_index, child_index, path);
-  
-    object_id += 0; //dummy FIXME
-
-    rpc_reply->errnum = metadb_bulkinsert(ldb_mds, path, min_seq, max_seq);
-    
-    if (rpc_reply->errnum < 0) {
-        logMessage(SPLIT_LOG, __func__, "ERR_ldb: bulk_insert(%s) FAILED!", 
-                   path);
-    }
-    else { 
-        struct giga_directory *dir = cache_fetch(&dir_id);
-        if (dir == NULL) {
-            rpc_reply->errnum = -EIO;
-            
-            logMessage(SPLIT_LOG, __func__, 
-                       "ERR_cache: dir(%d) missing!", dir_id);
-            return true;
-        }
-
-        // update bitmap and partition size
-        giga_update_mapping(&(dir->mapping), child_index);
-        dir->partition_size[child_index] = num_entries; 
-        
-        logMessage(SPLIT_LOG, __func__, "p%d: %d entries and updated bitmap.", 
-                   child_index, dir->partition_size[child_index]); 
-        
-        //TODO: optimization follows -- exchange bitmap on splits
-        //
-        //memcpy(&(rpc_reply->result.giga_result_t_u.bitmap), 
-        //       &dir->mapping, sizeof(dir->mapping));
-        //rpc_reply->errnum = -EAGAIN;  
-    }
-
-    logMessage(SPLIT_LOG, __func__, "<<< RPC_split: [status=%d]", 
-               rpc_reply->errnum);
-    return true;
-}

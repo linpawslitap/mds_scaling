@@ -17,6 +17,8 @@ typedef int index_t;                    // Index is the position in the bitmap
 #define MAX_RADIX 8 
 #define MIN_RADIX 0
 
+#define MAX_GIGA_PARTITIONS  (1<<MAX_RADIX)
+
 // Support different modes of splitting in GIGA+
 //
 #define SPLIT_T_NO_BOUND            1111

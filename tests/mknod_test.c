@@ -40,7 +40,8 @@ int main(int argc, char **argv)
     int i = 0;
     for (i=0; i<num_files; i++) {
         char path[512] = {0};
-        snprintf(path, sizeof(path), "%s/%s_%d.%d", argv[1], hostname, pid, i);
+        snprintf(path, sizeof(path), "%s/%s_p%d_f%d", 
+                 argv[1], hostname, pid, i);
         if (mknod(path, m, d) < 0) {
             printf ("ERR_mknod(%s): %s\n", path, strerror(errno));
             return -1;

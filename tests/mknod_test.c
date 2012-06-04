@@ -16,8 +16,6 @@
 
 int main(int argc, char **argv)
 {
-    int i = 0;
-
     if (argc != 3) {
         fprintf(stdout, "*** ERROR: insufficient parameters ... \n\n");
         fprintf(stdout, "USAGE: %s <dir_name> <num_files>\n", argv[0]);
@@ -27,15 +25,28 @@ int main(int argc, char **argv)
 
     mode_t m = CREATE_MODE;
     dev_t d = CREATE_RDEV;
+    
     int num_files = atoi(argv[2]);
+   
+    char hostname[64] = {0};
+    if (gethostname(hostname, sizeof(hostname)) < 0) {
+        printf("ERROR during gethostname(): %s", strerror(errno));
+        return -1;
+    }
+
+    int pid = (int)getpid();
+
+    printf("Creating %d files from test_%d ... \n", num_files, pid);
+    int i = 0;
     for (i=0; i<num_files; i++) {
         char path[512] = {0};
-        snprintf(path, sizeof(path), "%s/%d", argv[1], i);
+        snprintf(path, sizeof(path), "%s/%s_%d.%d", argv[1], hostname, pid, i);
         if (mknod(path, m, d) < 0) {
-            printf ("ERR_file%d: %s\n", i, strerror(errno));
+            printf ("ERR_mknod(%s): %s\n", path, strerror(errno));
             return -1;
         }
     }
     
     return 0;
 }
+

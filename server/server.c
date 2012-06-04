@@ -353,8 +353,12 @@ int main(int argc, char **argv)
     */
 
     signal(SIGINT, sig_handler);    // handling SIGINT
+   
+    // initialize logging
+    char log_fd[MAX_LEN] = {0};
+    snprintf(log_fd, sizeof(log_fd), "%s.s", DEFAULT_LOG_FILE_PATH);
+    logOpen(log_fd, DEFAULT_LOG_LEVEL);
     
-    logOpen(DEFAULT_LOG_FILE_LOCATIONs, DEFAULT_LOG_LEVEL); // init logging.
     initGIGAsetting(GIGA_SERVER, DEFAULT_CONF_FILE);    // init GIGA+ options.
 
     if (giga_options_t.serverID == -1){

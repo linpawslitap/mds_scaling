@@ -1,6 +1,8 @@
 #!/bin/bash
 
-sh umount.sh
+fusermount -u /tmp/fuse
+ps -ef | grep "giga" | grep -v grep | cut -c 9-15 |xargs kill -9
+
 
 rm -rf /tmp/ldb
 rm -rf /tmp/fuse

@@ -1,0 +1,1 @@
+LEVELDBLIBRARY=./leveldb/libleveldb.a

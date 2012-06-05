@@ -98,7 +98,7 @@ retry:
     CLIENT *rpc_clnt = getConnection(server_id);
 
     logMessage(RPCFS_LOG, __func__, 
-               ">>> RPC_getattr(%s): to s%d]", path, server_id);
+               ">>> RPC_getattr(%s): to s[%d]", path, server_id);
 
     if (giga_rpc_getattr_1(dir_id, (char*)path, &rpc_reply, rpc_clnt) 
         != RPC_SUCCESS) {

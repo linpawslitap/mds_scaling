@@ -124,6 +124,7 @@ void parse_serverlist_file(const char *serverlist_file)
                    giga_options_t.serverlist[giga_options_t.num_servers-1]); 
     }
 
+    //giga_options_t.num_servers = 1;
     logMessage(LOG_TRACE, __func__, "NUM_SERVERS=%d",giga_options_t.num_servers);
 
     fclose(conf_fp);

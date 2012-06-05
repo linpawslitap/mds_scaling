@@ -153,7 +153,7 @@ void GIGAdestroy(void * unused)
 int GIGAgetattr(const char *path, struct stat *statbuf)
 {
     logMessage(FUSE_LOG, __func__,
-               ">>> FUSE_getattr: (path=[%s],statbuf=0x%08x)", path, statbuf);
+               ">>> FUSE_getattr(p=[%s]): stat=[0x%08x]", path, statbuf);
 
     int ret = 0;
     char fpath[MAX_LEN] = {0};
@@ -185,11 +185,13 @@ int GIGAgetattr(const char *path, struct stat *statbuf)
             //TODO: convert "dir" to "dir_id"
             ret = rpc_getattr(dir_id, file, statbuf);
             ret = FUSE_ERROR(ret);
+            break;
         default:
             break;
     }
 
-    logMessage(FUSE_LOG, __func__, "<<< FUSE_getattr: status=[%d]", ret);
+    logMessage(FUSE_LOG, __func__, 
+               "<<< FUSE_getattr(p=%s): ret=[%d]", path, ret);
     /*
     if (ret == 0) {
         logMessage(FUSE_LOG, __func__,
@@ -203,8 +205,7 @@ int GIGAgetattr(const char *path, struct stat *statbuf)
 int GIGAmkdir(const char *path, mode_t mode)
 {
     logMessage(FUSE_LOG, __func__, 
-               ">>> FUSE_mkdir: (path=[%s],mode=[%lo])", path, (unsigned long)mode);
-               //">>> FUSE_mkdir: (path=[%s],mode=[0%3o])", path, mode);
+               ">>> FUSE_mkdir(p=[%s]): mode=[%lo]", path, (unsigned long)mode);
 
     int ret = 0;
     char fpath[MAX_LEN] = {0};
@@ -240,7 +241,8 @@ int GIGAmkdir(const char *path, mode_t mode)
             break;
     }
     
-    logMessage(FUSE_LOG, __func__, "<<< FUSE_mkdir: status=[%d] ", ret);
+    logMessage(FUSE_LOG, __func__, 
+               "<<< FUSE_mkdir(p=%s): status=[%d] ", path, ret);
     return ret;
 }
 
@@ -248,7 +250,7 @@ int GIGAmkdir(const char *path, mode_t mode)
 int GIGAmknod(const char *path, mode_t mode, dev_t dev)
 {
     logMessage(FUSE_LOG, __func__, 
-               ">>> FUSE_mknod: (path=[%s],mode=[0%3o],dev=[%lld])", path, mode, dev);
+               ">>> FUSE_mknod(p=[%s]): mode=[0%3o],dev=[%lld]", path, mode, dev);
 
     int ret = 0;
     char fpath[PATH_MAX];
@@ -281,7 +283,8 @@ int GIGAmknod(const char *path, mode_t mode, dev_t dev)
             break;
     }
     
-    logMessage(FUSE_LOG, __func__, "<<< FUSE_mknod: status=[%d] ", ret);
+    logMessage(FUSE_LOG, __func__, 
+               "<<< FUSE_mknod(p=%s): status=[%d] ", path, ret);
     return ret;
 }
 

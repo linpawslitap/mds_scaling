@@ -202,13 +202,19 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
     
     // check for splits.
     //
-    if (check_split_eligibility(dir, index) == true) {
+    if ((check_split_eligibility(dir, index) == true) &&
+        (dir->split_flag != index)) {
         logMessage(HANDLER_LOG, __func__, 
                    "SPLIT p%d (%d dirents)", index, dir->partition_size[index]);
-        
-        if ((rpc_reply->errnum = split_bucket(dir, index)) < 0) {
-            logMessage(LOG_FATAL, __func__, "***FATAL_ERROR*** during split");
-            exit(1);    //FIXME: do somethign smarter
+       
+        // don't split an already splitting bucket, just try again
+        if (dir->split_flag != index) {
+            dir->split_flag = index;
+            if ((rpc_reply->errnum = split_bucket(dir, index)) < 0) {
+                logMessage(LOG_FATAL, __func__, "**FATAL_ERROR** during split");
+                exit(1);    //TODO: do something smarter???
+            }
+            dir->split_flag = -1;
         }
 
         memcpy(&(rpc_reply->giga_result_t_u.bitmap), 
@@ -230,9 +236,12 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
         case BACKEND_RPC_LOCALFS:
             snprintf(path_name, sizeof(path_name), 
                      "%s/%d/%s", giga_options_t.mountpoint, index, path);
-            rpc_reply->errnum = local_mknod(path_name, mode, dev);
-            
-            dir->partition_size[index] += 1;
+            //rpc_reply->errnum = local_mknod(path_name, mode, dev);
+            if((rpc_reply->errnum = local_mknod(path_name, mode, dev)) < 0)
+                logMessage(LOG_FATAL, __func__, "ERR_mknod(%s): [%s]",
+                           path_name, strerror(rpc_reply->errnum));
+            else
+                dir->partition_size[index] += 1;
             break;
         case BACKEND_RPC_LEVELDB:
             // create object in the underlying file system
@@ -240,8 +249,13 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
             //       for symlink creation (for PanFS)
             snprintf(path_name, sizeof(path_name), 
                      "%s/%s", giga_options_t.mountpoint, path);
-            rpc_reply->errnum = local_mknod(path_name, mode, dev); 
-           
+            //rpc_reply->errnum = local_mknod(path_name, mode, dev);
+            if((rpc_reply->errnum = local_mknod(path_name, mode, dev)) < 0) {
+                logMessage(LOG_FATAL, __func__, "ERR_mknod(%s): [%s]",
+                           path_name, strerror(rpc_reply->errnum));
+                break;
+            }
+
             logMessage(HANDLER_LOG, __func__, "__ret=%d", rpc_reply->errnum);
 
             // create object entry (metadata) in levelDB
@@ -251,8 +265,11 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
             rpc_reply->errnum = metadb_create(ldb_mds, dir_id, index,
                                               OBJ_MKNOD,
                                               object_id, path, path_name);
-            
-            dir->partition_size[index] += 1;
+            if (rpc_reply->errnum < 0)
+                logMessage(LOG_FATAL, __func__, "ERR_mdb_create: (d%d:%s) p%d",
+                           dir_id, path, index);
+            else
+                dir->partition_size[index] += 1;
             break;
         default:
             break;

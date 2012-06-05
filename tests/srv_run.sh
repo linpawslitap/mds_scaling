@@ -1,7 +1,9 @@
 #!/bin/bash
 
-GIGA="/tmp/giga_s/"
-LDB="/tmp/ldb/"
+#MNT="/tmp"
+MNT="/m/pvfs"
+GIGA="${MNT}/giga_s/"
+LDB="${MNT}/ldb/"
 
 if [ $# -lt 1 ]
 then
@@ -10,15 +12,17 @@ then
     exit
 fi
 
-rm -rf $GIGA 
-rm -rf $LDB
-mkdir $GIGA
-mkdir $LDB
+killall giga_server
 
 case $1 in
 
 c) # cleanup and exit
    #
+rm -rf $GIGA 
+rm -rf $LDB
+mkdir $GIGA
+mkdir $LDB
+exit
 ;;
 
 v) # valgrind execution mode
@@ -41,3 +45,4 @@ n) # normal server execution
    ;;
 esac
 
+exit

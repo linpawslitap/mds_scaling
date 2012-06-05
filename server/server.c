@@ -251,6 +251,8 @@ void init_root_partition()
                        "mountpoint(%s) exists.", giga_options_t.mountpoint);
         }
         else if (errno == ENOENT) {
+            logMessage(LOG_DEBUG, __func__, 
+                       "mountpoint(%s) setup.", giga_options_t.mountpoint);
             if (mkdir(giga_options_t.mountpoint, DEFAULT_MODE) < 0) {
                 logMessage(LOG_FATAL, __func__, 
                            "root creation error: %s", strerror(errno));
@@ -274,6 +276,7 @@ void init_root_partition()
                 logMessage(LOG_FATAL, __func__, "root bucket creation error.");
                 exit(1);
             }
+            break;
         case BACKEND_RPC_LEVELDB:
             //TODO: leveldb setup and initialization
             object_id = 0;
@@ -282,12 +285,14 @@ void init_root_partition()
                      DEFAULT_LEVELDB_DIR, giga_options_t.serverID,
                      DEFAULT_LEVELDB_PREFIX);
             metadb_init(&ldb_mds, ldb_name);
-            if (metadb_create(ldb_mds, 
-                              ROOT_DIR_ID, 0,
-                              OBJ_DIR, 
-                              object_id, "/", giga_options_t.mountpoint) < 0) {
-                logMessage(LOG_FATAL, __func__, "root entry creation error.");
-                exit(1);
+            if (giga_options_t.serverID == 0) {
+                if (metadb_create(ldb_mds, 
+                                  ROOT_DIR_ID, 0,
+                                  OBJ_DIR, 
+                                  object_id, "/", giga_options_t.mountpoint) < 0) {
+                    logMessage(LOG_FATAL, __func__, "root entry creation error.");
+                    exit(1);
+                }
             }
             
             break;
@@ -384,7 +389,7 @@ int main(int argc, char **argv)
 
     // FIXME: we sleep 15 seconds here to let the other servers startup.  This
     // mechanism needs to be replaced by an intelligent reconnection system.
-    //sleep(15);
+    sleep(10);
     if (giga_options_t.num_servers >= 1) {
         if (rpcConnect() < 0) {
             logMessage(LOG_FATAL, __func__, "Error making RPC conns: exit .");

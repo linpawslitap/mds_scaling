@@ -60,7 +60,7 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
              "%s/sst-d%d-p%dp%d", 
              giga_options_t.mountpoint, dir->handle, parent_index, child_index);
 
-    // FIXME: should we even do this for local splitting?? move to remote
+    // TODO: should we even do this for local splitting?? move to remote
     // split??
     
     // create levelDB files and return number of entries in new partition
@@ -80,8 +80,8 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
         return ret;
     }
 
-    //logMessage(SPLIT_LOG, __func__, "ldb_extract_ret: min=%d,max=%d in (%s)", 
-    //           min, max, split_dir_path);
+    logMessage(SPLIT_LOG, __func__, "ldb_extract_ret: min=%d,max=%d in (%s)", 
+               min, max, split_dir_path);
 
     // check if the split is a LOCAL SPLIT (move/rename) or REMOTE SPLIT (rpc)
     //
@@ -103,7 +103,10 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
         giga_result_t rpc_reply;
         CLIENT *rpc_clnt = getConnection(target_server);
 
-        logMessage(SPLIT_LOG, __func__, ">>> RPC_split: [d%d, (p%d-->p%d)");
+        logMessage(SPLIT_LOG, __func__, 
+                   ">>> RPC_split_send: [d%d, (p%d-->p%d), (%d,%d)=%d files] in %s",
+                   dir->handle, parent_index, child_index, 
+                   min, max, num_entries, split_dir_path);
         
         if (giga_rpc_split_1(dir->handle, parent_index, child_index,
                              (char*)split_dir_path, min, max, num_entries,
@@ -114,6 +117,9 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
             exit(1);//TODO: retry again?
         }
         ret = rpc_reply.errnum;
+    
+        logMessage(SPLIT_LOG, __func__, "<<< RPC_split_send: [status=%d]", ret);
+
     }
    
     // check return condition 
@@ -143,7 +149,7 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
     }
     
     RELEASE_MUTEX(&ldb_mds.mtx_extract, "split_extract");
-
+    
     return ret;
 }
 
@@ -158,7 +164,7 @@ bool_t giga_rpc_split_1_svc(giga_dir_id dir_id,
     assert(rpc_reply);
     assert(path);
 
-    logMessage(SPLIT_LOG, __func__, ">>> RPC_split: [dir%d:p%d-->p%d,path=%s]",
+    logMessage(SPLIT_LOG, __func__, ">>> RPC_split_recv: [dir%d:p%d-->p%d,path=%s]",
                dir_id, parent_index, child_index, path);
   
     object_id += 0; //dummy FIXME
@@ -197,7 +203,7 @@ bool_t giga_rpc_split_1_svc(giga_dir_id dir_id,
     
     RELEASE_MUTEX(&ldb_mds.mtx_bulkload, "split_bulkload");
 
-    logMessage(SPLIT_LOG, __func__, "<<< RPC_split: [status=%d]", 
+    logMessage(SPLIT_LOG, __func__, "<<< RPC_split_recv: [status=%d]", 
                rpc_reply->errnum);
     return true;
 }

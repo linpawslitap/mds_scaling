@@ -21,7 +21,9 @@ do
     fusermount -u -z $dir
     rm -rf $dir
 done
+
 rm -rf /tmp/dbg.log.c.*
+mkdir -p $MNT
 
 ## look at the command-line arguments and take appropriate action
 ##
@@ -53,6 +55,9 @@ then
             mkdir -p $dir
             ../giga_client $dir
         done
+    else 
+        echo "Start client at $MNT ..."
+        ../giga_client $MNT
     fi
 else
     ../giga_client $MNT

@@ -23,7 +23,8 @@
 #define DEFAULT_NUM_OF_SERVERS  1               /* server list size */
 #define DEFAULT_SERVER_NUMBER   0               /* server number for self */
 #define DEFAULT_CLI_MNT_POINT   "/tmp/giga_c/" /* FUSE mount point @ client */
-#define DEFAULT_SRV_BACKEND     "/tmp/giga_s/" /* Backend @ server */
+/*#define DEFAULT_SRV_BACKEND     "/tmp/giga_s/"*/ /* Backend @ server */
+#define DEFAULT_SRV_BACKEND     "/m/pvfs/giga_s/" /* Backend @ server */
 #define DEFAULT_BACKEND_TYPE    0               /* Backend type = local */
 
 #define DEFAULT_PORT            55677           /* Server's port number */
@@ -34,10 +35,11 @@
 
 #define DEFAULT_CONF_FILE       "/tmp/test_conf_file"
 
-#define DEFAULT_LEVELDB_DIR     "/tmp/ldb"
+/*#define DEFAULT_LEVELDB_DIR     "/tmp/ldb"*/
+#define DEFAULT_LEVELDB_DIR     "/m/pvfs/ldb/"
 #define DEFAULT_LEVELDB_PREFIX  "ldb-giga"
 
-#define DEFAULT_SPLIT_THRESHOLD 2000000
+#define DEFAULT_SPLIT_THRESHOLD 800
 
 #define ROOT_DIR_ID 0
 

@@ -48,7 +48,10 @@ int main(int argc, char *argv[])
     int ret = -1;;
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 
-    logOpen(DEFAULT_LOG_FILE_LOCATIONc, DEFAULT_LOG_LEVEL);
+    char log_fd[MAX_LEN] = {0};
+    snprintf(log_fd, sizeof(log_fd), "%s.c.%d", 
+             DEFAULT_LOG_FILE_PATH, (int)getpid());
+    logOpen(log_fd, DEFAULT_LOG_LEVEL);
     
     memset(&giga_options_t, 0, sizeof(struct giga_options));
     initGIGAsetting(GIGA_CLIENT, DEFAULT_CONF_FILE);

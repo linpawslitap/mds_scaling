@@ -31,7 +31,6 @@ int local_mkdir(const char *path, mode_t mode)
     int ret = 0;
 
     if ((ret = mkdir(path, mode)) < 0) {
-    //if ((ret = mknod(path, mode, CREATE_RDEV)) < 0) {
         logMessage(LOG_FATAL, __func__,
                    "mkdir(%s) failed: %s", path, strerror(errno));
         ret = errno;
@@ -91,6 +90,7 @@ int local_mknod(const char *path, mode_t mode, dev_t dev)
 {
     int ret = 0;
 
+    /*
     // On Linux this could just be 'mknod(path, mode, rdev)' but this
     //  is more portable
     if (S_ISREG(mode)) {
@@ -121,6 +121,13 @@ int local_mknod(const char *path, mode_t mode, dev_t dev)
             ret = (errno);
         }
 	}
+    */
+
+    if ((ret = mknod(path, mode, dev)) < 0) {
+        logMessage(LOG_FATAL, __func__,
+                   "mknod(%s) failed: %s", path, strerror(errno));
+        ret = (errno);
+    }
 
     return ret;
 }

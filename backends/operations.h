@@ -7,6 +7,7 @@
 
 #include "./leveldb/include/leveldb/c.h"
 #include "common/giga_index.h"
+#include "common/defaults.h"
 
 /*
  * Operations for local file system as the backend.
@@ -40,6 +41,9 @@ struct MetaDB {
     leveldb_readoptions_t*  lookup_options;
     leveldb_readoptions_t*  scan_options;
     leveldb_writeoptions_t* insert_options;
+
+    pthread_mutex_t     mtx_extract;
+    pthread_mutex_t     mtx_bulkload;
 };
 
 typedef enum MetaDB_obj_type {
@@ -118,5 +122,57 @@ void metadb_test_put_and_get(struct MetaDB mdb,
                              const metadb_inode_t dir_id,
                              const int partition_id,
                              const char *path);
+
+/* SVP: trying new leveldb code as is ... */
+/******************************************/
+
+struct LevelDB {
+    leveldb_t* db;              // DB instance
+    leveldb_comparator_t* cmp;  // Compartor object that allows user-defined
+                                // object comparions functions.
+    leveldb_cache_t* cache;     // Cache object: If set, individual blocks 
+                                // (of levelDB files) are cached using LRU.
+    leveldb_env_t* env;
+    
+    leveldb_options_t* options;
+
+    leveldb_readoptions_t*  roptions;
+    leveldb_writeoptions_t* woptions;
+};
+
+struct LevelDB ldb;
+
+struct LevelDB_key {
+    int dir_id;
+    int partition_id;
+    char obj_name[MAX_LEN];
+};
+
+struct LevelDB_val {
+    struct stat statbuf;
+    char realpath[MAX_LEN];
+};
+
+
+int leveldb_init(const char* ldb_name, struct LevelDB level_db);
+
+int leveldb_create(struct LevelDB ldb,
+                   const int dir_id, const int partition_id,
+                   const char *obj_name, const char *link_path);
+
+int leveldb_lookup(struct LevelDB ldb,
+                   const int dir_id, const int partition_id,
+                   const char *obj_name, struct stat *stbuf);
+
+
+/*
+void leveldb_mkdir(struct LevelDB level_db, 
+                   int if_exists_flag);
+int leveldb_create(struct LevelDB level_db, 
+                   const char *path, mode_t mode);
+int leveldb_lookup(struct LevelDB level_db, 
+                   const char *path, struct stat *stbuf);
+*/
+
 
 #endif /* OPERATIONS_H */

@@ -203,16 +203,20 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
     if (index < 0)
         return true;
     
+    ACQUIRE_MUTEX(&dir->partition_mtx[index], "mknod_op");
+   
     // check for splits.
     //
     if ((check_split_eligibility(dir, index) == true) &&
         (dir->split_flag != index)) {
         logMessage(HANDLER_LOG, __func__, 
-                   "SPLIT p%d (%d dirents)", index, dir->partition_size[index]);
+                   "SPLIT p%d[%d dirents]", index, dir->partition_size[index]);
        
         // don't split an already splitting bucket, just try again
         if (dir->split_flag != index) {
             dir->split_flag = index;
+            logMessage(HANDLER_LOG, __func__, 
+                       "SPLIT p%d (fd=%s)", index, path);
             if ((rpc_reply->errnum = split_bucket(dir, index)) < 0) {
                 logMessage(LOG_FATAL, __func__, "**FATAL_ERROR** during split");
                 exit(1);    //TODO: do something smarter???
@@ -225,7 +229,9 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
         rpc_reply->errnum = -EAGAIN;
     
         logMessage(HANDLER_LOG, __func__, "ERR_retry: split_p%d [status=%d]", 
-                   rpc_reply->errnum, index);
+                   index, rpc_reply->errnum);
+        
+        RELEASE_MUTEX(&dir->partition_mtx[index], "mknod_op");
         
         return true;
     }
@@ -278,6 +284,7 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
             break;
 
     }
+    RELEASE_MUTEX(&dir->partition_mtx[index], "mknod_op");
 
     logMessage(HANDLER_LOG, __func__, 
                "<<< RPC_mknod(d=%d,p=%s): status=[%d]", dir_id, path,

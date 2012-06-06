@@ -19,17 +19,6 @@
 
 #define SPLIT_LOG LOG_DEBUG
 
-#define ACQUIRE_MUTEX(x,y)  {                           \
-        logMessage(SPLIT_LOG, "ACQUIRE:","[%s]", y);    \
-        pthread_mutex_lock(x);                          \
-        logMessage(SPLIT_LOG, "SUCCESS:","[%s]", y);    \
-                            }
-
-#define RELEASE_MUTEX(x,y)  {                           \
-        logMessage(SPLIT_LOG, "RELEASE:","[%s]", y);    \
-        pthread_mutex_unlock(x);                        \
-        logMessage(SPLIT_LOG, "SUCCESS:","[%s]", y);    \
-                            }
 
 struct split_task {
     DIR_handle_t dir_id;

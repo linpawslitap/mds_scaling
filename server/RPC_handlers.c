@@ -38,6 +38,9 @@ int check_giga_addressing(struct giga_directory *dir, giga_pathname path,
     // (1): get the giga index/partition for operation
     index = giga_get_index_for_file(&dir->mapping, (const char*)path);
     server = giga_get_server_for_index(&dir->mapping, index);
+        
+    logMessage(HANDLER_LOG, __func__, "[%s]-->(p%d,s%d)", 
+               path, index, server);
     
     // (2): is this the correct server? 
     // ---- NO: set rpc_reply (errnum=-EAGAIN and copy bitmap) and return
@@ -167,7 +170,7 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
     }
 
     logMessage(HANDLER_LOG, __func__, 
-               "<<< RPC_getattr(d=%d,path=%s): status=[%d]", 
+               "<<< RPC_getattr(d=%d,p=%s): status=[%d]", 
                dir_id, path, rpc_reply->result.errnum);
     return true;
 }
@@ -182,7 +185,7 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
     assert(path);
 
     logMessage(HANDLER_LOG, __func__, 
-               ">>> RPC_mknod(d=%d,p=%s,m=0%3o)", dir_id, path, mode);
+               ">>> RPC_mknod(d=%d,p=%s): m=[0%3o]", dir_id, path, mode);
 
     bzero(rpc_reply, sizeof(giga_result_t));
 
@@ -293,7 +296,7 @@ bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id,
     assert(path);
 
     logMessage(HANDLER_LOG, __func__, 
-               ">>> RPC_mkdir: [path=%s,mode=0%3o]", path, mode);
+               ">>> RPC_mkdir(d=%d,p=%s): mode=[0%3o]", dir_id, path, mode);
 
     bzero(rpc_reply, sizeof(giga_result_t));
 
@@ -345,25 +348,33 @@ bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id,
             break;
         case BACKEND_RPC_LEVELDB:
             // create object in the underlying file system
-            // TODO: assume partitioned sub-dirs, and randomly pick a sub-dir
-            //       for symlink creation (for PanFS)
+            // FIXME: we need it for NON-directory objects only. 
             snprintf(path_name, sizeof(path_name), 
                      "%s/%s", giga_options_t.mountpoint, path);
-            rpc_reply->errnum = local_mkdir(path_name, mode); 
+            if ((rpc_reply->errnum = local_mkdir(path_name, mode)) < 0) {
+                logMessage(LOG_FATAL, __func__, "ERR_mkdir(%s): [%s]",
+                           path_name, strerror(rpc_reply->errnum));
+                break;
+            }
             
             // create object entry (metadata) in levelDB
             object_id += 1; 
             rpc_reply->errnum = metadb_create(ldb_mds, dir_id, index,
                                               OBJ_DIR,
                                               object_id, path, path_name);
+            if (rpc_reply->errnum < 0)
+                logMessage(LOG_FATAL, __func__, "ERR_mdb_create: (d%d:%s) p%d",
+                           dir_id, path, index);
+            else
+                dir->partition_size[index] += 1;
             break;
         default:
             break;
 
     }
 
-    logMessage(HANDLER_LOG, __func__, "<<< RPC_mkdir: [status=%d]", 
-               rpc_reply->errnum);
+    logMessage(HANDLER_LOG, __func__, "<<< RPC_mkdir(d=%d,p=%d): status=[%d]", 
+               dir_id, path, rpc_reply->errnum);
 
     return true;
 }

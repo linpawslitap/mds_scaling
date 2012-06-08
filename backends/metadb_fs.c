@@ -261,12 +261,12 @@ int metadb_lookup(struct MetaDB mdb,
     } else {
         if (mdb.extraction->in_extraction) {
 
-            ACQUIRE_MUTEX(&mdb.mtx_extract, "metadb_extract_lookup");
+            //ACQUIRE_MUTEX(&mdb.mtx_extract, "metadb_extract_lookup");
             if (mdb.extraction->in_extraction) {
                 val = leveldb_get(mdb.extraction->extract_db,mdb.lookup_options,
                       (const char*) &mobj_key, METADB_KEY_LEN, &val_len, &err);
             }
-            RELEASE_MUTEX(&mdb.mtx_extract, "metadb_extract_lookup");
+            //RELEASE_MUTEX(&mdb.mtx_extract, "metadb_extract_lookup");
 
             if ((err == NULL) && (val_len != 0)) {
                 mobj = (metadb_obj_t*)val;
@@ -392,7 +392,7 @@ int metadb_extract_begin(struct MetaDB mdb,
                          const int new_partition_id,
                          const char* dir_with_new_partition) {
     int ret = 0;
-    ACQUIRE_MUTEX(&mdb.mtx_extract, "metadb_extract_begin");
+    //ACQUIRE_MUTEX(&mdb.mtx_extract, "metadb_extract_begin");
     mdb.extraction->dir_id = dir_id;
     mdb.extraction->old_partition_id = old_partition_id;
     mdb.extraction->new_partition_id = new_partition_id;
@@ -401,7 +401,7 @@ int metadb_extract_begin(struct MetaDB mdb,
         ret = mkdir(dir_with_new_partition, DEFAULT_MODE);
     }
     mdb.extraction->in_extraction = 1;
-    RELEASE_MUTEX(&mdb.mtx_extract, "metadb_extract_begin");
+    //RELEASE_MUTEX(&mdb.mtx_extract, "metadb_extract_begin");
     return ret;
 }
 
@@ -509,13 +509,13 @@ int metadb_extract_end(struct MetaDB mdb) {
     //Remove directories
     //Close extractdb
     //Remove extractdb
-    ACQUIRE_MUTEX(&mdb.mtx_extract, "metadb_extract_end");
+    //ACQUIRE_MUTEX(&mdb.mtx_extract, "metadb_extract_end");
     mdb.extraction->in_extraction = 0;
     leveldb_close(mdb.extraction->extract_db);
     leveldb_destroy_db(mdb.options,
                        mdb.extraction->dir_with_new_partition,
                        &err);
-    RELEASE_MUTEX(&mdb.mtx_extract, "metadb_extract_end");
+    //RELEASE_MUTEX(&mdb.mtx_extract, "metadb_extract_end");
     return ret;
 }
 

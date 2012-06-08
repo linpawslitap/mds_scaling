@@ -17,6 +17,9 @@
 
 #define HANDLER_LOG LOG_DEBUG
 
+#define LOG_MSG(format, ...) \
+    logMessage(HANDLER_LOG, __func__, format, __VA_ARGS__); 
+
 static
 int check_split_eligibility(struct giga_directory *dir, int index)
 {
@@ -39,8 +42,9 @@ int check_giga_addressing(struct giga_directory *dir, giga_pathname path,
     index = giga_get_index_for_file(&dir->mapping, (const char*)path);
     server = giga_get_server_for_index(&dir->mapping, index);
         
-    logMessage(HANDLER_LOG, __func__, "[%s]-->(p%d,s%d)", 
-               path, index, server);
+    //logMessage(HANDLER_LOG, __func__, "[%s]-->(p%d,s%d)", 
+    //           path, index, server);
+    LOG_MSG("[%s]-->(p%d,s%d)", path, index, server);
     
     // (2): is this the correct server? 
     // ---- NO: set rpc_reply (errnum=-EAGAIN and copy bitmap) and return
@@ -207,13 +211,15 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
    
     // check for splits.
     //
-    if ((check_split_eligibility(dir, index) == true) &&
-        (dir->split_flag != index)) {
+    //if ((check_split_eligibility(dir, index) == true) &&
+    //    (dir->split_flag != index)) {
+    if ((check_split_eligibility(dir, index) == true)) {
         logMessage(HANDLER_LOG, __func__, 
                    "SPLIT p%d[%d dirents]", index, dir->partition_size[index]);
        
         // don't split an already splitting bucket, just try again
-        if (dir->split_flag != index) {
+        //if (dir->split_flag != index) 
+        {
             dir->split_flag = index;
             logMessage(HANDLER_LOG, __func__, 
                        "SPLIT p%d (fd=%s)", index, path);
@@ -231,10 +237,11 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
         logMessage(HANDLER_LOG, __func__, "ERR_retry: split_p%d [status=%d]", 
                    index, rpc_reply->errnum);
         
-        RELEASE_MUTEX(&dir->partition_mtx[index], "mknod_op");
+        //RELEASE_MUTEX(&dir->partition_mtx[index], "mknod_op");
         
         return true;
     }
+    RELEASE_MUTEX(&dir->partition_mtx[index], "mknod_op");
    
     // regular operations (if no splits)
     //
@@ -284,7 +291,6 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
             break;
 
     }
-    RELEASE_MUTEX(&dir->partition_mtx[index], "mknod_op");
 
     logMessage(HANDLER_LOG, __func__, 
                "<<< RPC_mknod(d=%d,p=%s): status=[%d]", dir_id, path,

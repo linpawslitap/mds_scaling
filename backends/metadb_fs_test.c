@@ -6,14 +6,14 @@
 
 #define MAX_FILENAME_LEN 1024
 #define MAX_NUM_ENTRIES 10000
-#define FILE_FORMAT "%016llx"
+#define FILE_FORMAT "%016lx"
 
 int num_print_entries;
 char* entry_list[MAX_NUM_ENTRIES];
 
 static
 void print_meta_obj_key(metadb_key_t *mkey) {
-//    printf("%ld, %ld, ", mkey->parent_id, mkey->partition_id);
+    printf("%ld, %ld, ", mkey->parent_id, mkey->partition_id);
     int i;
     for (i = 0; i < HASH_LEN; ++i)
         printf("%c", mkey->name_hash[i]);
@@ -26,7 +26,6 @@ void print_entries(void* buf, metadb_key_t* iter_key, metadb_obj_t* iter_obj) {
         memcpy(entry_list[num_print_entries], iter_key, sizeof(metadb_key_t));
     }
     ++num_print_entries;
-
     if (iter_obj != NULL && buf == NULL)
         print_meta_obj_key(iter_key);
 }
@@ -91,13 +90,19 @@ void run_test(int nargs, char* args[]) {
     printf("moved entries: %d \n", num_migrated_entries);
 
     uint64_t min_seq, max_seq;
-    int ret =
-        metadb_extract(mdb, dir_id, partition_id, new_partition_id,
-                       extname, &min_seq, &max_seq);
+    int ret = metadb_extract_begin(mdb, dir_id, partition_id,
+                                   new_partition_id, extname);
+    assert(ret == 0);
 
+    ret = metadb_extract_do(mdb, &min_seq, &max_seq);
+    printf("ret: %d\n", ret);
     assert(num_migrated_entries == ret);
 
+    printf("extname: %s\n", extname);
     assert(metadb_bulkinsert(mdb2, extname, min_seq, max_seq) == 0);
+
+    ret = metadb_extract_end(mdb);
+    assert(ret == 0);
 
     num_print_entries = 0;
     int k = 0;
@@ -105,6 +110,8 @@ void run_test(int nargs, char* args[]) {
         entry_list[k] = (char *) malloc(sizeof(metadb_key_t));
 
     assert(metadb_readdir(mdb2, dir_id, new_partition_id, NULL, print_entries) == 0);
+
+    printf("%d, %d, %ld\n", num_migrated_entries, num_print_entries, max_seq);
     assert(num_migrated_entries == num_print_entries);
 
     num_print_entries = 0;
@@ -122,7 +129,6 @@ void run_test(int nargs, char* args[]) {
         snprintf(filename, MAX_FILENAME_LEN, FILE_FORMAT, i);
 
         init_meta_obj_key(&testkey, dir_id, new_partition_id, filename);
-//        printf("Num %02ld: ", i);
         print_meta_obj_key(&testkey);
 
         ret = metadb_lookup(mdb2, dir_id, new_partition_id, filename, &statbuf);

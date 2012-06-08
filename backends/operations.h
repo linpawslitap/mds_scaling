@@ -27,25 +27,6 @@ int rpc_getattr(int dir_id, const char *path, struct stat *statbuf);
 int rpc_mkdir(int dir_id, const char *path, mode_t mode);
 int rpc_mknod(int dir_ID, const char *path, mode_t mode, dev_t dev);
 
-/*
- * LevelDB specific definitions
- */
-struct MetaDB {
-    leveldb_t* db;              // DB instance
-    leveldb_comparator_t* cmp;  // Compartor object that allows user-defined
-                                // object comparions functions.
-    leveldb_cache_t* cache;     // Cache object: If set, individual blocks 
-                                // (of levelDB files) are cached using LRU.
-    leveldb_env_t* env;
-    leveldb_options_t* options;
-    leveldb_readoptions_t*  lookup_options;
-    leveldb_readoptions_t*  scan_options;
-    leveldb_writeoptions_t* insert_options;
-
-    pthread_mutex_t     mtx_extract;
-    pthread_mutex_t     mtx_bulkload;
-};
-
 typedef enum MetaDB_obj_type {
     OBJ_DIR,
     OBJ_FILE,
@@ -71,6 +52,39 @@ typedef struct MetaDB_obj {
     size_t realpath_len;
     char* realpath;
 } metadb_obj_t;
+
+typedef struct Extract {
+    metadb_inode_t dir_id;
+    int old_partition_id;
+    int new_partition_id;
+    char dir_with_new_partition[MAX_LEN];
+
+    leveldb_t* extract_db;
+    int in_extraction;
+} metadb_extract_t;
+
+/*
+ * LevelDB specific definitions
+ */
+struct MetaDB {
+    leveldb_t* db;              // DB instance
+    leveldb_comparator_t* cmp;  // Compartor object that allows user-defined
+                                // object comparions functions.
+    leveldb_cache_t* cache;     // Cache object: If set, individual blocks 
+                                // (of levelDB files) are cached using LRU.
+    leveldb_env_t* env;
+    leveldb_options_t* options;
+    leveldb_readoptions_t*  lookup_options;
+    leveldb_readoptions_t*  scan_options;
+    leveldb_writeoptions_t* insert_options;
+    leveldb_writeoptions_t* ext_insert_options;
+
+    metadb_extract_t*  extraction;
+
+    pthread_mutex_t     mtx_extract_flag;
+    pthread_mutex_t     mtx_extract;
+    pthread_mutex_t     mtx_bulkload;
+};
 
 typedef void (*fill_dir_t)(void* buf, metadb_key_t* iter_key, metadb_obj_t* iter_obj);
 
@@ -105,13 +119,19 @@ int metadb_readdir(struct MetaDB mdb,
                    const int partition_id,
                    void *buf, fill_dir_t filler);
 
-int metadb_extract(struct MetaDB mdb,
-                   const metadb_inode_t dir_id,
-                   const int old_partition_id,
-                   const int new_partition_id,
-                   const char* dir_with_new_partition,
-                   uint64_t *min_sequence_number,
-                   uint64_t *max_sequence_number);
+int metadb_extract_begin(struct MetaDB mdb,
+                         const metadb_inode_t dir_id,
+                         const int old_partition_id,
+                         const int new_partition_id,
+                         const char* dir_with_new_partition);
+
+
+int metadb_extract_do(struct MetaDB mdb,
+                      uint64_t *min_sequence_number,
+                      uint64_t *max_sequence_number);
+
+int metadb_extract_end(struct MetaDB mdb);
+
 
 int metadb_bulkinsert(struct MetaDB mdb,
                       const char* dir_with_new_partition,

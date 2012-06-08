@@ -60,10 +60,16 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
     ACQUIRE_MUTEX(&ldb_mds.mtx_extract, "split_extract");
 
     mdb_seq_num_t min, max = 0;
+    ret = metadb_extract_begin(ldb_mds, dir->handle, 
+                               parent_index, child_index, 
+                               split_dir_path);
+    if (ret < 0) {
+        logMessage(LOG_FATAL, __func__, "ERR_ldb: extract_begin() FAILED!\n");
+        return ret;
+    }
 
-    int num_entries = metadb_extract(ldb_mds, dir->handle, 
-                                     parent_index, child_index, 
-                                     split_dir_path, &min, &max);
+    int num_entries = metadb_extract_do(ldb_mds, &min, &max);
+
     if (num_entries < 0) {
         logMessage(LOG_FATAL, __func__, "ERR_ldb: extract() FAILED!\n");
         return ret;
@@ -136,7 +142,10 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
                    child_index, dir->partition_size[child_index]); 
         ret = 0;
     }
+
+    metadb_extract_end(ldb_mds);
     
+    //TODO: DO WE NEED SPLIT EXTRACT?
     RELEASE_MUTEX(&ldb_mds.mtx_extract, "split_extract");
     
     return ret;

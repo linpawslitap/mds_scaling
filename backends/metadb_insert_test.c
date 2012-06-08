@@ -20,9 +20,6 @@ void run_test(int nargs, char* args[]) {
     }
 
     char* dbname = args[1];
-    int pid;
-    sscanf(args[3], "%d", &pid);
-
     struct MetaDB mdb;
     metadb_init(&mdb, dbname);
 

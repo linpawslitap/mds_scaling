@@ -58,4 +58,22 @@ void logClose(void);
 
 void logMessage(log_level_t lev, const char *location, const char *format, ...);
 
+/*
+ * Macros for mutex debugging.
+ */
+
+#define ACQUIRE_MUTEX(lock, msg)  \
+{                                 \
+        logMessage(DEFAULT_LOG_LEVEL, "ACQUIRE:","[%s]", msg);    \
+        pthread_mutex_lock(lock);                         \
+        logMessage(DEFAULT_LOG_LEVEL, "SUCCESS:","[%s]", msg);    \
+}
+
+#define RELEASE_MUTEX(lock, msg)  \
+{                                 \
+        logMessage(DEFAULT_LOG_LEVEL, "RELEASE:","[%s]", msg);    \
+        pthread_mutex_unlock(lock);                       \
+        logMessage(DEFAULT_LOG_LEVEL, "SUCCESS:","[%s]", msg);    \
+}
+
 #endif /* DEBUGGING_H */

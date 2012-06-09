@@ -76,4 +76,25 @@ void logMessage(log_level_t lev, const char *location, const char *format, ...);
         logMessage(DEFAULT_LOG_LEVEL, "UNLOCK_DONE_", format, __VA_ARGS__);     \
 }
 
+#define ACQUIRE_RWLOCK_READ(lock, msg)  \
+{                                 \
+        logMessage(DEFAULT_LOG_LEVEL, "ACQUIRE READLOCK:","[%s]", msg);    \
+        pthread_rwlock_rdlock(lock);                         \
+        logMessage(DEFAULT_LOG_LEVEL, "SUCCESS READLOCK:","[%s]", msg);    \
+}
+
+#define ACQUIRE_RWLOCK_WRITE(lock, msg)  \
+{                                 \
+        logMessage(DEFAULT_LOG_LEVEL, "ACQUIRE WRITELOCK:","[%s]", msg);    \
+        pthread_rwlock_wrlock(lock);                         \
+        logMessage(DEFAULT_LOG_LEVEL, "SUCCESS: WRITELOCK","[%s]", msg);    \
+}
+
+#define RELEASE_RWLOCK(lock, msg)  \
+{                                 \
+        logMessage(DEFAULT_LOG_LEVEL, "RELEASE RWLOCK:","[%s]", msg);    \
+        pthread_rwlock_unlock(lock);                       \
+        logMessage(DEFAULT_LOG_LEVEL, "SUCCESS RWLOCK:","[%s]", msg);    \
+}
+
 #endif /* DEBUGGING_H */

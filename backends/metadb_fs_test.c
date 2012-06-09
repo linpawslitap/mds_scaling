@@ -90,18 +90,17 @@ void run_test(int nargs, char* args[]) {
     printf("moved entries: %d \n", num_migrated_entries);
 
     uint64_t min_seq, max_seq;
-    int ret = metadb_extract_begin(mdb, dir_id, partition_id,
-                                   new_partition_id, extname);
-    assert(ret == 0);
-
-    ret = metadb_extract_do(mdb, &min_seq, &max_seq);
+    int ret = metadb_extract_do(mdb, dir_id, partition_id,
+                                new_partition_id, extname,
+                                &min_seq, &max_seq);
     printf("ret: %d\n", ret);
     assert(num_migrated_entries == ret);
 
     printf("extname: %s\n", extname);
     assert(metadb_bulkinsert(mdb2, extname, min_seq, max_seq) == 0);
 
-    ret = metadb_extract_end(mdb);
+    ret = metadb_extract_clean(mdb);
+    printf("ret: %d\n", ret);
     assert(ret == 0);
 
     num_print_entries = 0;

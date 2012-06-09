@@ -1570,6 +1570,9 @@ Status DBImpl::MigrateLevel0Table(const std::string& fname,
       new_fname.c_str(),
       s.ToString().c_str());
   pending_outputs_.erase(meta.number);
+  if (!s.ok()) {
+      return s;
+  }
 
 
   // Note that if file_size is zero, the file has been deleted and
@@ -1577,9 +1580,17 @@ Status DBImpl::MigrateLevel0Table(const std::string& fname,
   Iterator* iter = table_cache_->NewIterator(
           ReadOptions(), meta.number, meta.file_size);
   iter->SeekToFirst();
-  meta.smallest.DecodeFrom(iter->key());
+  if (iter->Valid()) {
+    meta.smallest.DecodeFrom(iter->key());
+  } else {
+    return Status::IOError("Cannot get smallest key from bulkinserted files");
+  }
   iter->SeekToLast();
-  meta.largest.DecodeFrom(iter->key());
+  if (iter->Valid()) {
+    meta.largest.DecodeFrom(iter->key());
+  } else {
+    return Status::IOError("Cannot get largest key from bulkinserted files");
+  }
   delete iter;
 
   int level = 0;
@@ -1593,10 +1604,6 @@ Status DBImpl::MigrateLevel0Table(const std::string& fname,
                   meta.smallest, meta.largest);
   }
 
-  CompactionStats stats;
-  stats.micros = env_->NowMicros() - start_micros;
-  stats.bytes_written = meta.file_size;
-  stats_[level].Add(stats);
   return s;
 }
 

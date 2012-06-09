@@ -15,18 +15,21 @@
 #include <errno.h>
 #include <stdbool.h>
 
-#define HANDLER_LOG LOG_DEBUG
+#define _LEVEL_     LOG_DEBUG
 
-#define LOG_MSG(format, ...) \
-    logMessage(HANDLER_LOG, __func__, format, __VA_ARGS__); 
+#define LOG_MSG(format, ...) logMessage(_LEVEL_, __func__, format, __VA_ARGS__); 
+
+#define IS_SET(x) ( ((x) == 0) ? 0 : 1);
 
 static
 int check_split_eligibility(struct giga_directory *dir, int index)
 {
-    if (dir->partition_size[index] < giga_options_t.split_threshold)
-        return false;
+    if ((dir->partition_size[index] >= giga_options_t.split_threshold) &&
+        (dir->split_flag == 0)) { 
+        return true;
+    }
 
-    return true;
+    return false;
 }
 
 // returns "index" on correct or "-1" on error
@@ -42,8 +45,6 @@ int check_giga_addressing(struct giga_directory *dir, giga_pathname path,
     index = giga_get_index_for_file(&dir->mapping, (const char*)path);
     server = giga_get_server_for_index(&dir->mapping, index);
         
-    //logMessage(HANDLER_LOG, __func__, "[%s]-->(p%d,s%d)", 
-    //           path, index, server);
     LOG_MSG("[%s]-->(p%d,s%d)", path, index, server);
     
     // (2): is this the correct server? 
@@ -62,8 +63,8 @@ int check_giga_addressing(struct giga_directory *dir, giga_pathname path,
             stat_rpc_reply->result.errnum = -EAGAIN;
         }
         
-        logMessage(HANDLER_LOG, __func__, "ERR_redirect: to s%d, not me(s%d)",
-                   server, giga_options_t.serverID);
+        LOG_MSG("ERR_redirect: to s%d, not me(s%d)",
+                server, giga_options_t.serverID);
         index = -1;
     }
 
@@ -77,7 +78,7 @@ bool_t giga_rpc_init_1_svc(int rpc_req,
     (void)rqstp;
     assert(rpc_reply);
 
-    logMessage(HANDLER_LOG, __func__, ">>> RPC_init [req=%d]", rpc_req);
+    LOG_MSG(">>> RPC_init [req=%d]", rpc_req);
 
     // send bitmap for the "root" directory.
     //
@@ -85,15 +86,15 @@ bool_t giga_rpc_init_1_svc(int rpc_req,
     struct giga_directory *dir = cache_fetch(&dir_id);
     if (dir == NULL) {
         rpc_reply->errnum = -EIO;
-        logMessage(HANDLER_LOG, __func__, "ERR_cache: dir(%d) missing", dir_id);
+        LOG_MSG("ERR_cache: dir(%d) missing", dir_id);
         return true;
     }
     rpc_reply->errnum = -EAGAIN;
     memcpy(&(rpc_reply->giga_result_t_u.bitmap), 
            &dir->mapping, sizeof(dir->mapping));
 
-    logMessage(HANDLER_LOG, __func__, 
-               ">>> RPC_init: [status=%d]", rpc_reply->errnum);
+    LOG_MSG(">>> RPC_init: [status=%d]", rpc_reply->errnum);
+
     return true;
 }
 
@@ -106,7 +107,7 @@ int giga_rpc_prog_1_freeresult(SVCXPRT *transp,
 
     /* TODO: add more cleanup code. */
     
-    //logMessage(HANDLER_LOG, __func__, ">>> RPC_freeresult <<<\n");
+    //LOG_MSG(">>> RPC_freeresult <<<\n");
     return 1;
 }
 
@@ -115,11 +116,11 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
                               struct svc_req *rqstp)
 {
     (void)rqstp;
+    
     assert(rpc_reply);
     assert(path);
 
-    logMessage(HANDLER_LOG, __func__, 
-               ">>> RPC_getattr(d=%d,p=%s)", dir_id, path);
+    LOG_MSG(">>> RPC_getattr(d=%d,p=%s)", dir_id, path);
 
     bzero(rpc_reply, sizeof(giga_getattr_reply_t));
 
@@ -127,28 +128,10 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
     if (dir == NULL) {
         rpc_reply->result.errnum = -EIO;
         
-        logMessage(HANDLER_LOG, __func__, "ERR_cache: dir(%d) missing", dir_id);
+        LOG_MSG("ERR_cache: dir(%d) missing", dir_id);
         return true;
     }
 
-    /*
-    // (1): get the giga index/partition for operation
-    int index = giga_get_index_for_file(&dir->mapping, (const char*)path);
-    int server = giga_get_server_for_index(&dir->mapping, index);
-    
-    // (2): is this the correct server? 
-    // ---- NO: set rpc_reply (errnum=-EAGAIN and copy bitmap) and return
-    if (server != giga_options_t.serverID) {
-        memcpy(&(rpc_reply->result.giga_result_t_u.bitmap), 
-               &dir->mapping, sizeof(dir->mapping));
-        rpc_reply->result.errnum = -EAGAIN;
-        
-        logMessage(HANDLER_LOG, __func__, "ERR_redirect: to s%d, not me(s%d)",
-                   server, giga_options_t.serverID);
-        return true;
-    }
-    */
-    
     // check for giga specific addressing checks.
     //
     int index = check_giga_addressing(dir, path, NULL, rpc_reply);
@@ -173,9 +156,8 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
             break;
     }
 
-    logMessage(HANDLER_LOG, __func__, 
-               "<<< RPC_getattr(d=%d,p=%s): status=[%d]", 
-               dir_id, path, rpc_reply->result.errnum);
+    LOG_MSG("<<< RPC_getattr(d=%d,p=%s): status=[%d]", 
+            dir_id, path, rpc_reply->result.errnum);
     return true;
 }
 
@@ -188,8 +170,7 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
     assert(rpc_reply);
     assert(path);
 
-    logMessage(HANDLER_LOG, __func__, 
-               ">>> RPC_mknod(d=%d,p=%s): m=[0%3o]", dir_id, path, mode);
+    LOG_MSG(">>> RPC_mknod(d=%d,p=%s): m=[0%3o]", dir_id, path, mode);
 
     bzero(rpc_reply, sizeof(giga_result_t));
 
@@ -197,7 +178,7 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
     if (dir == NULL) {
         rpc_reply->errnum = -EIO;
         
-        logMessage(HANDLER_LOG, __func__, "ERR_cache: dir(%d) missing", dir_id);
+        LOG_MSG("ERR_cache: dir(%d) missing", dir_id);
         return true;
     }
   
@@ -207,44 +188,32 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
     if (index < 0)
         return true;
     
-    ACQUIRE_MUTEX(&dir->partition_mtx[index], "mknod_op");
+    ACQUIRE_MUTEX(&dir->partition_mtx[index], "mknod(%d)", path);
    
     // check for splits.
-    //
-    //if ((check_split_eligibility(dir, index) == true) &&
-    //    (dir->split_flag != index)) {
     if ((check_split_eligibility(dir, index) == true)) {
-        logMessage(HANDLER_LOG, __func__, 
-                   "SPLIT p%d[%d dirents]", index, dir->partition_size[index]);
+        LOG_MSG("SPLIT p%d (due to fd=[%s])", index, path);
        
-        // don't split an already splitting bucket, just try again
-        //if (dir->split_flag != index) 
-        {
-            dir->split_flag = index;
-            logMessage(HANDLER_LOG, __func__, 
-                       "SPLIT p%d (fd=%s)", index, path);
-            if ((rpc_reply->errnum = split_bucket(dir, index)) < 0) {
-                logMessage(LOG_FATAL, __func__, "**FATAL_ERROR** during split");
-                exit(1);    //TODO: do something smarter???
-            }
-            dir->split_flag = -1;
+        dir->split_flag = index;
+
+        rpc_reply->errnum = split_bucket(dir, index);
+        if (rpc_reply->errnum == -EAGAIN) {
+            LOG_MSG("ERR_retry: split_p%d", index);
+        } else if (rpc_reply->errnum < 0) {
+            logMessage(LOG_FATAL, __func__, "**FATAL_ERROR** during split");
+            exit(1);    //TODO: do something smarter???
+        } else {
+            memcpy(&(rpc_reply->giga_result_t_u.bitmap), 
+                   &dir->mapping, sizeof(dir->mapping));
+            rpc_reply->errnum = -EAGAIN;
         }
 
-        memcpy(&(rpc_reply->giga_result_t_u.bitmap), 
-               &dir->mapping, sizeof(dir->mapping));
-        rpc_reply->errnum = -EAGAIN;
-    
-        logMessage(HANDLER_LOG, __func__, "ERR_retry: split_p%d [status=%d]", 
-                   index, rpc_reply->errnum);
-        
-        //RELEASE_MUTEX(&dir->partition_mtx[index], "mknod_op");
-        
-        return true;
+        dir->split_flag = -1;
+       
+        goto exit_func;
     }
-    RELEASE_MUTEX(&dir->partition_mtx[index], "mknod_op");
    
     // regular operations (if no splits)
-    //
     
     char path_name[MAX_LEN] = {0};
     
@@ -252,8 +221,7 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
         case BACKEND_RPC_LOCALFS:
             snprintf(path_name, sizeof(path_name), 
                      "%s/%d/%s", giga_options_t.mountpoint, index, path);
-            //rpc_reply->errnum = local_mknod(path_name, mode, dev);
-            if((rpc_reply->errnum = local_mknod(path_name, mode, dev)) < 0)
+            if ((rpc_reply->errnum = local_mknod(path_name, mode, dev)) < 0)
                 logMessage(LOG_FATAL, __func__, "ERR_mknod(%s): [%s]",
                            path_name, strerror(rpc_reply->errnum));
             else
@@ -265,19 +233,18 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
             //       for symlink creation (for PanFS)
             snprintf(path_name, sizeof(path_name), 
                      "%s/%s", giga_options_t.mountpoint, path);
-            //rpc_reply->errnum = local_mknod(path_name, mode, dev);
-            if((rpc_reply->errnum = local_mknod(path_name, mode, dev)) < 0) {
+            if ((rpc_reply->errnum = local_mknod(path_name, mode, dev)) < 0) {
                 logMessage(LOG_FATAL, __func__, "ERR_mknod(%s): [%s]",
                            path_name, strerror(rpc_reply->errnum));
                 break;
             }
 
-            logMessage(HANDLER_LOG, __func__, "__ret=%d", rpc_reply->errnum);
+            LOG_MSG("__ret=%d", rpc_reply->errnum);
 
             // create object entry (metadata) in levelDB
             object_id += 1;  //TODO: do we need this for non-dir objects?? 
-            logMessage(HANDLER_LOG, __func__, "d=%d,p=%d,o=%d,p=%s,rp=%s", 
-                       dir_id, index,object_id, path,path_name);
+            LOG_MSG("d=%d,p=%d,o=%d,p=%s,rp=%s", 
+                    dir_id, index,object_id, path,path_name);
             rpc_reply->errnum = metadb_create(ldb_mds, dir_id, index,
                                               OBJ_MKNOD,
                                               object_id, path, path_name);
@@ -289,12 +256,14 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
             break;
         default:
             break;
-
     }
 
-    logMessage(HANDLER_LOG, __func__, 
-               "<<< RPC_mknod(d=%d,p=%s): status=[%d]", dir_id, path,
-               rpc_reply->errnum);
+exit_func:
+
+    RELEASE_MUTEX(&dir->partition_mtx[index], "mknod(%d)", path);
+
+    LOG_MSG("<<< RPC_mknod(d=%d,p=%s): status=[%d]", dir_id, path,
+            rpc_reply->errnum);
     return true;
 }
 
@@ -308,8 +277,7 @@ bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id,
     assert(rpc_reply);
     assert(path);
 
-    logMessage(HANDLER_LOG, __func__, 
-               ">>> RPC_mkdir(d=%d,p=%s): mode=[0%3o]", dir_id, path, mode);
+    LOG_MSG(">>> RPC_mkdir(d=%d,p=%s): mode=[0%3o]", dir_id, path, mode);
 
     bzero(rpc_reply, sizeof(giga_result_t));
 
@@ -317,7 +285,7 @@ bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id,
     if (dir == NULL) {
         rpc_reply->errnum = -EIO;
         
-        logMessage(HANDLER_LOG, __func__, "ERR_cache: dir(%d) missing", dir_id);
+        LOG_MSG("ERR_cache: dir(%d) missing", dir_id);
         return true;
     }
     
@@ -330,8 +298,7 @@ bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id,
     // check for splits.
     //
     if (check_split_eligibility(dir, index) == true) {
-        logMessage(HANDLER_LOG, __func__, 
-                   "SPLIT p%d (%d dirents)", index, dir->partition_size[index]);
+        LOG_MSG("SPLIT p%d (%d dirents)", index, dir->partition_size[index]);
         
         if ((rpc_reply->errnum = split_bucket(dir, index)) < 0) {
             logMessage(LOG_FATAL, __func__, "***FATAL_ERROR*** during split");
@@ -342,8 +309,7 @@ bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id,
                &dir->mapping, sizeof(dir->mapping));
         rpc_reply->errnum = -EAGAIN;
     
-        logMessage(HANDLER_LOG, __func__, "ERR_retry: split_p%d [status=%d]", 
-                   rpc_reply->errnum, index);
+        LOG_MSG("ERR_retry: split_p%d [status=%d]", rpc_reply->errnum, index);
         
         return true;
     }
@@ -386,8 +352,8 @@ bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id,
 
     }
 
-    logMessage(HANDLER_LOG, __func__, "<<< RPC_mkdir(d=%d,p=%d): status=[%d]", 
-               dir_id, path, rpc_reply->errnum);
+    LOG_MSG("<<< RPC_mkdir(d=%d,p=%d): status=[%d]", 
+            dir_id, path, rpc_reply->errnum);
 
     return true;
 }
@@ -401,7 +367,7 @@ bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id,
     struct giga_directory *dir = cache_fetch(&dir_id);
     if (dir == NULL) {
         rpc_reply->errnum = -EIO;
-        logMessage(HANDLER_LOG, __func__, "ERR_cache: dir(%d) missing!", dir_id);
+        LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
         return true;
     }
 
@@ -416,15 +382,14 @@ bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id,
                &dir->mapping, sizeof(dir->mapping));
         rpc_reply->errnum = -EAGAIN;
         
-        logMessage(HANDLER_LOG, __func__, "ERR_redirect: send to s%d, not me(s%d)",
+        LOG_MSG("ERR_redirect: send to s%d, not me(s%d)",
                    server, giga_options_t.serverID);
         return true;
     }
 
     // (3): check for splits.
     if (dir->partition_size[index] > SPLIT_THRESHOLD) {
-        logMessage(HANDLER_LOG, __func__, 
-                   "SPLIT: p%d has %d entries!.", index, dir->partition_size[index]);
+        LOG_MSG("SPLIT: p%d has %d entries", index, dir->partition_size[index]);
         
         if ((rpc_reply->errnum = split_bucket(dir, index)) < 0) {
             logMessage(LOG_FATAL, __func__, "***FATAL_ERROR*** during split");
@@ -435,8 +400,7 @@ bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id,
                &dir->mapping, sizeof(dir->mapping));
         rpc_reply->errnum = -EAGAIN;
     
-        logMessage(HANDLER_LOG, __func__, "<<< RPC_mknod: [status=%d] SPLIT_p%d", 
-                   rpc_reply->errnum, index);
+        LOG_MSG("<<< RPC_mknod: [ret=%d] SPLIT_p%d", rpc_reply->errnum, index);
         
         return true;
     }

@@ -2,8 +2,8 @@
 
 #MNT="/tmp"
 MNT="/m/pvfs"
-GIGA="${MNT}/giga_s/"
-LDB="${MNT}/ldb/"
+GIGA="${MNT}/giga_srv/"
+LDB="${MNT}/giga_ldb/"
 
 if [ $# -lt 1 ]
 then

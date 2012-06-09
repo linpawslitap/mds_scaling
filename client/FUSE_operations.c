@@ -17,7 +17,10 @@
 #include <rpc/rpc.h>
 #include <unistd.h>
 
-#define FUSE_LOG LOG_DEBUG
+//#define FUSE_LOG LOG_DEBUG
+#define _LEVEL_     LOG_DEBUG
+
+#define LOG_MSG(format, ...) logMessage(_LEVEL_, __func__, format, __VA_ARGS__); 
 
 static struct MetaDB ldb_mds;
 static uint64_t object_id = 0;
@@ -70,9 +73,8 @@ static int parse_path_components(const char *path, char *file, char *dir)
 			dir[(int)(p - path)] = '\0';
 		}
 	}
-    
-    logMessage(FUSE_LOG, __func__,
-               "parsed [%s] to {file=[%s],dir=[%s]}", path, file, dir);
+
+    LOG_MSG("parsed [%s] to {file=[%s],dir=[%s]}", path, file, dir);
 	return 0;
 }
 
@@ -86,14 +88,14 @@ static void get_full_path(char fpath[MAX_LEN], const char *path)
             giga_options_t.mountpoint, strlen(giga_options_t.mountpoint)+1);  
     strncat(fpath, path, MAX_LEN);          //XXX: long path names with break!
 
-    logMessage(FUSE_LOG, __func__, "converted [%s] to [%s]", path, fpath);
+    LOG_MSG("converted [%s] to [%s]", path, fpath);
 
     return;
 }
 
 void* GIGAinit(struct fuse_conn_info *conn)
 {
-    logMessage(FUSE_LOG, __func__, ">>> FUSE_init()");
+    LOG_MSG(">>> FUSE_init(%d)", ROOT_DIR_ID);
 
     (void)conn;
 
@@ -124,7 +126,7 @@ void* GIGAinit(struct fuse_conn_info *conn)
             }
             
             if (rpc_init() < 0) {
-                logMessage(FUSE_LOG, __func__, "RPC_init_err!!!");
+                LOG_MSG("RPC_init_err(%s)", ROOT_DIR_ID);
                 exit(1);
             }  
             
@@ -133,7 +135,7 @@ void* GIGAinit(struct fuse_conn_info *conn)
             break;
     }
     
-    logMessage(FUSE_LOG, __func__, "<<< FUSE_init()");
+    LOG_MSG("<<< FUSE_init(%d)", ROOT_DIR_ID);
     return NULL;
 }
 
@@ -143,7 +145,7 @@ void GIGAdestroy(void * unused)
 
     logClose();
     
-    logMessage(FUSE_LOG, __func__, ">>> FUSE_destroy() <<<");
+    LOG_MSG(">>> FUSE_destroy(%d) <<<", ROOT_DIR_ID);
 
     // FIXME: check cleanup code.
     //rpc_disconnect();
@@ -152,8 +154,7 @@ void GIGAdestroy(void * unused)
 
 int GIGAgetattr(const char *path, struct stat *statbuf)
 {
-    logMessage(FUSE_LOG, __func__,
-               ">>> FUSE_getattr(p=[%s]): stat=[0x%08x]", path, statbuf);
+    LOG_MSG(">>> FUSE_getattr(p=[%s]): stat=[0x%08x]", path, statbuf);
 
     int ret = 0;
     char fpath[MAX_LEN] = {0};
@@ -190,8 +191,7 @@ int GIGAgetattr(const char *path, struct stat *statbuf)
             break;
     }
 
-    logMessage(FUSE_LOG, __func__, 
-               "<<< FUSE_getattr(p=%s): ret=[%d]", path, ret);
+    LOG_MSG("<<< FUSE_getattr(p=%s): ret=[%d]", path, ret);
     /*
     if (ret == 0) {
         logMessage(FUSE_LOG, __func__,
@@ -204,8 +204,7 @@ int GIGAgetattr(const char *path, struct stat *statbuf)
 
 int GIGAmkdir(const char *path, mode_t mode)
 {
-    logMessage(FUSE_LOG, __func__, 
-               ">>> FUSE_mkdir(p=[%s]): mode=[%lo]", path, (unsigned long)mode);
+    LOG_MSG(">>> FUSE_mkdir(p=[%s]): mode=[%lo]", path, (unsigned long)mode);
 
     int ret = 0;
     char fpath[MAX_LEN] = {0};
@@ -241,16 +240,14 @@ int GIGAmkdir(const char *path, mode_t mode)
             break;
     }
     
-    logMessage(FUSE_LOG, __func__, 
-               "<<< FUSE_mkdir(p=%s): status=[%d] ", path, ret);
+    LOG_MSG("<<< FUSE_mkdir(p=%s): status=[%d] ", path, ret);
     return ret;
 }
 
     
 int GIGAmknod(const char *path, mode_t mode, dev_t dev)
 {
-    logMessage(FUSE_LOG, __func__, 
-               ">>> FUSE_mknod(p=[%s]): mode=[0%3o],dev=[%lld]", path, mode, dev);
+    LOG_MSG(">>> FUSE_mknod(p=[%s]): mode=[0%3o],dev=[%lld]", path, mode, dev);
 
     int ret = 0;
     char fpath[PATH_MAX];
@@ -283,8 +280,7 @@ int GIGAmknod(const char *path, mode_t mode, dev_t dev)
             break;
     }
     
-    logMessage(FUSE_LOG, __func__, 
-               "<<< FUSE_mknod(p=%s): status=[%d] ", path, ret);
+    LOG_MSG("<<< FUSE_mknod(p=%s): status=[%d] ", path, ret);
     return ret;
 }
 
@@ -295,8 +291,7 @@ int GIGAmknod(const char *path, mode_t mode, dev_t dev)
 
 int GIGAsymlink(const char *path, const char *link)
 {
-    logMessage(FUSE_LOG, __func__,
-               " ==> symlink(path=[%s], link=[%s])", path, link);
+    LOG_MSG(" ==> symlink(path=[%s], link=[%s])", path, link);
 
     int ret = 0;
     char flink[MAX_LEN] = {0};
@@ -319,8 +314,7 @@ int GIGAsymlink(const char *path, const char *link)
 
 int GIGAreadlink(const char *path, char *link, size_t size)
 {
-    logMessage(FUSE_LOG, __func__,
-               " ==> readlink(path=[%s],link=[%s],size[%d])", path, link, size);
+    LOG_MSG(" ==> readlink(path=[%s],link=[%s],size[%d])", path, link, size);
     
     int ret = 0;
     char fpath[MAX_LEN] = {0};
@@ -337,16 +331,14 @@ int GIGAreadlink(const char *path, char *link, size_t size)
             break;
     }
     
-    logMessage(FUSE_LOG, __func__,
-               "ret_readlink(link=[%s], size[%d])", path, link, strlen(link));
+    LOG_MSG("ret_readlink(link=[%s], size[%d])", path, link, strlen(link));
     
     return ret;
 }
 
 int GIGAopen(const char *path, struct fuse_file_info *fi)
 {
-    logMessage(FUSE_LOG, __func__, 
-               " ==> open(path=[%s], fi=[0x%08x])", path, fi);
+    LOG_MSG(" ==> open(path=[%s], fi=[0x%08x])", path, fi);
     
     int ret = 0;
     char fpath[MAX_LEN] = {0};
@@ -375,8 +367,7 @@ int GIGAopen(const char *path, struct fuse_file_info *fi)
     fi->fh = fd;
     */
 
-    logMessage(FUSE_LOG, __func__, 
-               " ret_open(path=[%s], fi=[%d])", path, fi->fh);
+    LOG_MSG(" ret_open(path=[%s], fi=[%d])", path, fi->fh);
     
     return ret;
 }

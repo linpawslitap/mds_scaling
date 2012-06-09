@@ -13,17 +13,15 @@
 #include "split.h"
 
 #include <assert.h>
+#include <dirent.h>
 #include <errno.h>
 #include <pthread.h>
 #include <stdbool.h>
 
-#define SPLIT_LOG LOG_DEBUG
 
-#define LOG_MSG(format, ...) \
-{ \
-    logMessage(SPLIT_LOG, __func__, format, __VA_ARGS__); \
-}
+#define _LEVEL_     LOG_DEBUG
 
+#define LOG_MSG(format, ...) logMessage(_LEVEL_, __func__, format, __VA_ARGS__); 
 
 struct split_task {
     DIR_handle_t dir_id;
@@ -36,19 +34,71 @@ struct split_task *queue = NULL;
 pthread_cond_t queue_cond = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-int split_bucket(struct giga_directory *dir, int partition_to_split)
+static
+int split_in_localFS(struct giga_directory *dir, 
+                     int parent_index, int parent_srv,
+                     int child_index, int child_srv)
 {
     int ret = -1;
-    int parent_index = partition_to_split;
-    
-    int child_index = giga_index_for_splitting(&(dir->mapping), parent_index);
-    //int target_server = child_index % giga_options_t.num_servers;
-    int target_server = giga_get_server_for_index(&dir->mapping, child_index);
 
-    LOG_MSG("[p%d_on_s%d] ---> [p%d_on_s%d]", 
-            parent_index, giga_options_t.serverID, 
-            child_index, target_server); 
+    // check if the split is a LOCAL SPLIT (move/rename) or REMOTE SPLIT (rpc)
+    //
+    if (child_srv == parent_srv) {
         
+        LOG_MSG("LOCAL_split ... p[%d] of d%d", parent_index, dir->handle);
+    }
+    else {
+        LOG_MSG("REMOTE_split ... p[%d] of d%d", parent_index, dir->handle);
+       
+        /*
+        char child_path[MAX_LEN] = {0}
+        snprintf(child_path, sizeof(child_path), 
+                 "%s/%d/", giga_options_t.mountpoint, child_index);
+
+        if (local_mkdir(child_path, mode) < 0) {
+            LOG_MSG("***ERROR*** split bkt creation @ %s", child_path);
+            return ret;
+        }
+        */
+
+        char parent_path[MAX_LEN] = {0};
+        snprintf(parent_path, sizeof(parent_path), 
+                 "%s/%d/", giga_options_t.mountpoint, parent_index);
+
+        LOG_MSG("readdir(%s)--->move_to--->srv(%d)", parent_path, child_srv);
+
+        DIR *d_ptr;
+        struct dirent *d_ent;
+
+        if ((d_ptr = opendir(parent_path)) == NULL) {
+            LOG_MSG("ERR_parent_opendir(%s): %s", parent_path, strerror(errno));
+            return -1;
+        }
+
+        for (d_ent = readdir(d_ptr); d_ent != NULL; d_ent = readdir(d_ptr)) {
+            if ((strcmp(d_ent->d_name, ".") == 0) || 
+                (strcmp(d_ent->d_name, "..") == 0))
+                continue;
+
+            if (giga_file_migration_status(d_ent->d_name, child_index) == 0) {
+                LOG_MSG("--- [%s] _stays_", d_ent->d_name);
+                continue;
+            }
+            LOG_MSG("--- [%s] _moves_", d_ent->d_name);
+        }
+
+    }
+
+    return ret;
+}
+
+static
+int split_in_levelDB(struct giga_directory *dir, 
+                     int parent_index, int parent_srv,
+                     int child_index, int child_srv)
+{
+    int ret = -1;
+
     char split_dir_path[MAX_LEN] = {0};
     snprintf(split_dir_path, sizeof(split_dir_path), 
              "%s/sst-d%d-p%dp%d", 
@@ -62,7 +112,6 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
     LOG_MSG("ldb_extract: (for d%d, p%d-->p%d) in (%s)", 
             dir->handle, parent_index, child_index, split_dir_path);
 
-
     mdb_seq_num_t min, max = 0;
     ret = metadb_extract_begin(ldb_mds, dir->handle, 
                                parent_index, child_index, 
@@ -72,42 +121,45 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
         return ret;
     }
 
-    ACQUIRE_MUTEX(&ldb_mds.mtx_extract, "split_extract");
-    int num_entries = metadb_extract_do(ldb_mds, &min, &max);
-
-    if (num_entries < 0) {
+    ACQUIRE_MUTEX(&ldb_mds.mtx_extract, "extract(%d,%d)", min, max);
+    
+    //int num_entries = metadb_extract_do(ldb_mds, &min, &max);
+    ret = metadb_extract_do(ldb_mds, &min, &max);
+    if (ret < 0) {
         logMessage(LOG_FATAL, __func__, "ERR_ldb: extract() FAILED!\n");
-        return ret;
+        goto exit_func;
     }
-
-    LOG_MSG("ldb_extract_ret: min=%d,max=%d in (%s)", min, max, split_dir_path);
 
     // check if the split is a LOCAL SPLIT (move/rename) or REMOTE SPLIT (rpc)
     //
-    if (target_server == giga_options_t.serverID+111) {
+    if (child_srv == parent_srv+111) {
         
         LOG_MSG("LOCAL_split ... p[%d]", child_index);
         
-        ACQUIRE_MUTEX(&ldb_mds.mtx_bulkload, "local_split_bulkload");
+        ACQUIRE_MUTEX(&ldb_mds.mtx_bulkload, "bulkload(%s)", split_dir_path);
         
-        if ((ret = metadb_bulkinsert(ldb_mds, split_dir_path, min, max)) < 0)  
-            logMessage(LOG_FATAL, __func__, "ERR_ldb: bulk_insert(%s) FAILED!", 
+        if (metadb_bulkinsert(ldb_mds, split_dir_path, min, max) < 0) { 
+            logMessage(LOG_FATAL, __func__, "ERR_ldb: bulkload(%s) FAILED!", 
                        split_dir_path);
-        else
-            dir->partition_size[child_index] = num_entries; 
+            ret = -1;
+        }
+        else {
+            dir->partition_size[child_index] = ret; 
+        }
         
-        RELEASE_MUTEX(&ldb_mds.mtx_bulkload, "local_split_bulkload");
+        RELEASE_MUTEX(&ldb_mds.mtx_bulkload, "bulkload(%s)", split_dir_path);
+        
     }
     else {
         giga_result_t rpc_reply;
-        CLIENT *rpc_clnt = getConnection(target_server);
+        CLIENT *rpc_clnt = getConnection(child_srv);
 
-        LOG_MSG(">>> RPC_split_send: [d%d, (p%d-->p%d), (%d,%d)=%d files] in %s",
+        LOG_MSG(">>> RPC_split_send: [d%d, (p%d-->p%d), (%d,%d)=%d fds] in %s",
                 dir->handle, parent_index, child_index, 
-                min, max, num_entries, split_dir_path);
+                min, max, ret, split_dir_path);
         
         if (giga_rpc_split_1(dir->handle, parent_index, child_index,
-                             (char*)split_dir_path, min, max, num_entries,
+                             (char*)split_dir_path, min, max, ret,
                              &rpc_reply, rpc_clnt) 
             != RPC_SUCCESS) {
             logMessage(LOG_FATAL, __func__, "ERR_rpc: rpc_split failed."); 
@@ -117,9 +169,40 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
         ret = rpc_reply.errnum;
     
         LOG_MSG("<<< RPC_split_send: [status=%d]", ret);
-
     }
-   
+    
+    metadb_extract_end(ldb_mds);
+
+exit_func:
+    RELEASE_MUTEX(&ldb_mds.mtx_extract, "extract(%d,%d)", min, max);
+
+    return ret;
+} 
+
+int split_bucket(struct giga_directory *dir, int partition_to_split)
+{
+    int ret = -1;
+
+    int parent = partition_to_split;
+    int parent_srv = giga_options_t.serverID; 
+
+    int child = giga_index_for_splitting(&(dir->mapping), parent);
+    //int child_srv = child % giga_options_t.num_servers;
+    int child_srv = giga_get_server_for_index(&dir->mapping, child);
+
+    LOG_MSG("[p%d_s%d] ---> [p%d_s%d]", parent, parent_srv, child, child_srv); 
+    
+    switch (giga_options_t.backend_type) {
+        case BACKEND_RPC_LOCALFS:
+            ret = split_in_localFS(dir, parent, parent_srv, child, child_srv);
+            break;
+        case BACKEND_RPC_LEVELDB:
+            ret = split_in_levelDB(dir, parent, parent_srv, child, child_srv);
+            break;
+        default:
+            break;
+    }
+        
     // check return condition 
     //
     if (ret == -EAGAIN) {
@@ -129,28 +212,23 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
         //ret = 0;
         //
         LOG_MSG("RETRYING: p%d(%d)-->p%d(%d)",
-                parent_index, dir->partition_size[parent_index], 
-                child_index, dir->partition_size[child_index]); 
+                parent, dir->partition_size[parent], 
+                child, dir->partition_size[child]); 
     } else if (ret < 0) {
         LOG_MSG("FAILURE: p%d(%d)-->p%d(%d)", 
-                parent_index, dir->partition_size[parent_index], 
-                child_index, dir->partition_size[child_index]); 
+                parent, dir->partition_size[parent], 
+                child, dir->partition_size[child]); 
     } else {
         // update bitmap and partition size
-        giga_update_mapping(&(dir->mapping), child_index);
-        dir->partition_size[parent_index] -= num_entries;
+        giga_update_mapping(&(dir->mapping), child);
+        dir->partition_size[parent] -= ret;
 
         LOG_MSG("SUCCESS: p%d(%d)-->p%d(%d)", 
-                parent_index, dir->partition_size[parent_index], 
-                child_index, dir->partition_size[child_index]); 
+                parent, dir->partition_size[parent], 
+                child, dir->partition_size[child]); 
         ret = 0;
     }
 
-    metadb_extract_end(ldb_mds);
-    
-    //TODO: DO WE NEED SPLIT EXTRACT?
-    RELEASE_MUTEX(&ldb_mds.mtx_extract, "split_extract");
-    
     return ret;
 }
 
@@ -170,7 +248,7 @@ bool_t giga_rpc_split_1_svc(giga_dir_id dir_id,
   
     object_id += 0; //dummy FIXME
 
-    ACQUIRE_MUTEX(&ldb_mds.mtx_bulkload, "split_bulkload");
+    ACQUIRE_MUTEX(&ldb_mds.mtx_bulkload, "bulkload(from=%s)", path);
     
     rpc_reply->errnum = metadb_bulkinsert(ldb_mds, path, min_seq, max_seq);
     
@@ -200,7 +278,7 @@ bool_t giga_rpc_split_1_svc(giga_dir_id dir_id,
         //rpc_reply->errnum = -EAGAIN;  
     }
     
-    RELEASE_MUTEX(&ldb_mds.mtx_bulkload, "split_bulkload");
+    RELEASE_MUTEX(&ldb_mds.mtx_bulkload, "bulkload(from=%s)", path);
 
     LOG_MSG("<<< RPC_split_recv: [status=%d]", rpc_reply->errnum);
     return true;

@@ -6,5 +6,6 @@
 # Description:
 #########################################################################
 
+mkdir /tmp/fuse
 ../giga_client /tmp/fuse
-./mknod_test /tmp/fuse/ 1000000
+./mknod_test /tmp/fuse/ 10000

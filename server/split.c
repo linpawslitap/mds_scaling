@@ -64,16 +64,11 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
 
 
     mdb_seq_num_t min, max = 0;
-    ret = metadb_extract_begin(ldb_mds, dir->handle, 
-                               parent_index, child_index, 
-                               split_dir_path);
-    if (ret < 0) {
-        logMessage(LOG_FATAL, __func__, "ERR_ldb: extract_begin() FAILED!\n");
-        return ret;
-    }
-
-    ACQUIRE_MUTEX(&ldb_mds.mtx_extract, "split_extract");
-    int num_entries = metadb_extract_do(ldb_mds, &min, &max);
+    int num_entries = metadb_extract_do(ldb_mds,
+                                        dir->handle,
+                                        parent_index, child_index,
+                                        split_dir_path,
+                                        &min, &max);
 
     if (num_entries < 0) {
         logMessage(LOG_FATAL, __func__, "ERR_ldb: extract() FAILED!\n");
@@ -87,8 +82,6 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
     if (target_server == giga_options_t.serverID+111) {
         
         LOG_MSG("LOCAL_split ... p[%d]", child_index);
-        
-        ACQUIRE_MUTEX(&ldb_mds.mtx_bulkload, "local_split_bulkload");
         
         if ((ret = metadb_bulkinsert(ldb_mds, split_dir_path, min, max)) < 0)  
             logMessage(LOG_FATAL, __func__, "ERR_ldb: bulk_insert(%s) FAILED!", 
@@ -146,11 +139,8 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
         ret = 0;
     }
 
-    metadb_extract_end(ldb_mds);
-    
-    //TODO: DO WE NEED SPLIT EXTRACT?
-    RELEASE_MUTEX(&ldb_mds.mtx_extract, "split_extract");
-    
+    metadb_extract_clean(ldb_mds);
+
     return ret;
 }
 

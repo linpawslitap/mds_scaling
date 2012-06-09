@@ -81,8 +81,7 @@ struct MetaDB {
 
     metadb_extract_t*  extraction;
 
-    pthread_mutex_t     mtx_extract_flag;
-    pthread_mutex_t     mtx_extract;
+    pthread_rwlock_t    rwlock_extract;
     pthread_mutex_t     mtx_bulkload;
 };
 
@@ -119,18 +118,15 @@ int metadb_readdir(struct MetaDB mdb,
                    const int partition_id,
                    void *buf, fill_dir_t filler);
 
-int metadb_extract_begin(struct MetaDB mdb,
-                         const metadb_inode_t dir_id,
-                         const int old_partition_id,
-                         const int new_partition_id,
-                         const char* dir_with_new_partition);
-
-
 int metadb_extract_do(struct MetaDB mdb,
+                      const metadb_inode_t dir_id,
+                      const int old_partition_id,
+                      const int new_partition_id,
+                      const char* dir_with_new_partition,
                       uint64_t *min_sequence_number,
                       uint64_t *max_sequence_number);
 
-int metadb_extract_end(struct MetaDB mdb);
+int metadb_extract_clean(struct MetaDB mdb);
 
 
 int metadb_bulkinsert(struct MetaDB mdb,

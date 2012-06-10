@@ -188,7 +188,7 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
     if (index < 0)
         return true;
     
-    ACQUIRE_MUTEX(&dir->partition_mtx[index], "mknod(%d)", path);
+    ACQUIRE_MUTEX(&dir->partition_mtx[index], "mknod(%s)", path);
    
     // check for splits.
     if ((check_split_eligibility(dir, index) == true)) {
@@ -260,7 +260,7 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
 
 exit_func:
 
-    RELEASE_MUTEX(&dir->partition_mtx[index], "mknod(%d)", path);
+    RELEASE_MUTEX(&dir->partition_mtx[index], "mknod(%s)", path);
 
     LOG_MSG("<<< RPC_mknod(d=%d,p=%s): status=[%d]", dir_id, path,
             rpc_reply->errnum);

@@ -47,11 +47,10 @@ typedef enum log_level {
 
 #define MAX_ERR_BUF_SIZE    512
 
-#define TIMESTAMP_ENABLED   1
+#define TIMESTAMP_ENABLED   0 
 
 log_level_t sys_log_level;          /* Log level */
 FILE *log_fp;                       /* Log file stream */
-
 
 void logOpen(const char *logFilename, log_level_t level);
 void logClose(void);
@@ -64,37 +63,37 @@ void logMessage(log_level_t lev, const char *location, const char *format, ...);
 
 #define ACQUIRE_MUTEX(lock, format, ...)  \
 {                                 \
-        logMessage(DEFAULT_LOG_LEVEL, "LOCK_TRY_", format, __VA_ARGS__);     \
+        logMessage(LOG_DEBUG, "LOCK_TRY", format, __VA_ARGS__);     \
         pthread_mutex_lock(lock);                         \
-        logMessage(DEFAULT_LOG_LEVEL, "LOCK_DONE_", format, __VA_ARGS__);    \
+        logMessage(LOG_DEBUG, "LOCK_DONE", format, __VA_ARGS__);    \
 }
 
 #define RELEASE_MUTEX(lock, format, ...)  \
 {                                 \
-        logMessage(DEFAULT_LOG_LEVEL, "UNLOCK_TRY_", format, __VA_ARGS__);     \
+        logMessage(LOG_DEBUG, "UNLOCK_TRY", format, __VA_ARGS__);     \
         pthread_mutex_unlock(lock);                       \
-        logMessage(DEFAULT_LOG_LEVEL, "UNLOCK_DONE_", format, __VA_ARGS__);     \
+        logMessage(LOG_DEBUG, "UNLOCK_DONE", format, __VA_ARGS__);     \
 }
 
-#define ACQUIRE_RWLOCK_READ(lock, msg)  \
+#define ACQUIRE_RWLOCK_READ(lock, format, ...)  \
 {                                 \
-        logMessage(DEFAULT_LOG_LEVEL, "ACQUIRE READLOCK:","[%s]", msg);    \
+        logMessage(LOG_DEBUG, "LOCK_RD_TRY", format, __VA_ARGS__);    \
         pthread_rwlock_rdlock(lock);                         \
-        logMessage(DEFAULT_LOG_LEVEL, "SUCCESS READLOCK:","[%s]", msg);    \
+        logMessage(LOG_DEBUG, "LOCK_RD_DONE", format, __VA_ARGS__);    \
 }
 
-#define ACQUIRE_RWLOCK_WRITE(lock, msg)  \
+#define ACQUIRE_RWLOCK_WRITE(lock, format, ...)  \
 {                                 \
-        logMessage(DEFAULT_LOG_LEVEL, "ACQUIRE WRITELOCK:","[%s]", msg);    \
+        logMessage(LOG_DEBUG, "LOCK_WR_TRY", format, __VA_ARGS__);    \
         pthread_rwlock_wrlock(lock);                         \
-        logMessage(DEFAULT_LOG_LEVEL, "SUCCESS: WRITELOCK","[%s]", msg);    \
+        logMessage(LOG_DEBUG, "LOCK_WR_DONE", format, __VA_ARGS__);    \
 }
 
-#define RELEASE_RWLOCK(lock, msg)  \
+#define RELEASE_RWLOCK(lock, format, ...)  \
 {                                 \
-        logMessage(DEFAULT_LOG_LEVEL, "RELEASE RWLOCK:","[%s]", msg);    \
+        logMessage(LOG_DEBUG, "UNLOCK_RW_TRY", format, __VA_ARGS__);    \
         pthread_rwlock_unlock(lock);                       \
-        logMessage(DEFAULT_LOG_LEVEL, "SUCCESS RWLOCK:","[%s]", msg);    \
+        logMessage(LOG_DEBUG, "UNLOCK_RW_DONE", format, __VA_ARGS__);    \
 }
 
 #endif /* DEBUGGING_H */

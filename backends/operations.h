@@ -83,6 +83,7 @@ struct MetaDB {
 
     pthread_rwlock_t    rwlock_extract;
     pthread_mutex_t     mtx_bulkload;
+    pthread_mutex_t     mtx_extload;
 };
 
 typedef void (*fill_dir_t)(void* buf, metadb_key_t* iter_key, metadb_obj_t* iter_obj);

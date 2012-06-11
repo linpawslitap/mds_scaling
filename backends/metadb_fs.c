@@ -412,7 +412,7 @@ int metadb_extract_do(struct MetaDB mdb,
     int ret = 0;
     char* err = NULL;
 
-    ACQUIRE_RWLOCK_WRITE(&(mdb.rwlock_extract), "metadb_extract(p%d->p%d)", 
+    ACQUIRE_RWLOCK_WRITE(&(mdb.rwlock_extract), "metadb_extract(p%d->p%d)",
                          old_partition_id, new_partition_id);
 
     metadb_extract_t* extraction = mdb.extraction;
@@ -531,7 +531,7 @@ int metadb_extract_do(struct MetaDB mdb,
     leveldb_iter_destroy(iter);
 
     if (ret < 0) {
-        // commented by SVP: 
+        // commented by SVP:
         // FIXME?? what if this condition is false?? where do you release this lock 
         //
         RELEASE_RWLOCK(&(mdb.rwlock_extract),  "metadb_extract(p%d->p%d)", old_partition_id, new_partition_id);
@@ -708,7 +708,7 @@ int metadb_bulkinsert(struct MetaDB mdb,
     char sstable_filename[MAX_FILENAME_LEN];
     char* err = NULL;
 
-    ACQUIRE_RWLOCK_READ(&(mdb.rwlock_extract), "metadb_bulkinsert(%s)", dir_with_new_partition);
+    ACQUIRE_RWLOCK_WRITE(&(mdb.rwlock_extract), "metadb_bulkinsert(%s)", dir_with_new_partition);
 
     DIR* dp = opendir(dir_with_new_partition);
     if (dp != NULL) {

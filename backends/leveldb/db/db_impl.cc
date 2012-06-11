@@ -1160,6 +1160,9 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* my_batch) {
     WriteBatchInternal::SetSequence(updates, last_sequence + 1);
     last_sequence += WriteBatchInternal::Count(updates);
 
+    //TODO: Is it right?
+    versions_->SetLastSequence(last_sequence);
+
     // Add to log and apply to memtable.  We can release the lock
     // during this phase since &w is currently responsible for logging
     // and protects against concurrent loggers and concurrent writes
@@ -1177,7 +1180,6 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* my_batch) {
     }
     if (updates == tmp_batch_) tmp_batch_->Clear();
 
-    versions_->SetLastSequence(last_sequence);
   }
 
   while (true) {

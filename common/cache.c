@@ -125,6 +125,7 @@ int cache_init()
     giga_init_mapping(&dircache->mapping, -1, zeroth_srv, giga_options_t.num_servers);
     dircache->refcount = 1;
     dircache->split_flag = 0;
+    pthread_mutex_init(&dircache->split_mtx, NULL);
     //for (i=0; i < (int)sizeof(dir->partition_size); i++)
     logMessage(CACHE_LOG, __func__, "init %d  partitions ...", MAX_NUM);
     for (i=0; i < MAX_NUM; i++) {

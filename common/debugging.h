@@ -47,7 +47,7 @@ typedef enum log_level {
 
 #define MAX_ERR_BUF_SIZE    512
 
-#define TIMESTAMP_ENABLED   0 
+//#define TIMESTAMP_ENABLED   0 
 
 log_level_t sys_log_level;          /* Log level */
 FILE *log_fp;                       /* Log file stream */

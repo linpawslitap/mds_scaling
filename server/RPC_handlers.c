@@ -15,11 +15,10 @@
 #include <errno.h>
 #include <stdbool.h>
 
+
 #define _LEVEL_     LOG_DEBUG
 
 #define LOG_MSG(format, ...) logMessage(_LEVEL_, __func__, format, __VA_ARGS__); 
-
-#define IS_SET(x) ( ((x) == 0) ? 0 : 1);
 
 static
 int check_split_eligibility(struct giga_directory *dir, int index)
@@ -181,21 +180,32 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
         LOG_MSG("ERR_cache: dir(%d) missing", dir_id);
         return true;
     }
-  
+
+    int index = 0;
+
+start:
     // check for giga specific addressing checks.
     //
-    int index = check_giga_addressing(dir, path, rpc_reply, NULL);
-    if (index < 0)
+    if ((index = check_giga_addressing(dir, path, rpc_reply, NULL)) < 0)
         return true;
     
     ACQUIRE_MUTEX(&dir->partition_mtx[index], "mknod(%s)", path);
-   
+    
+    if(check_giga_addressing(dir, path, rpc_reply, NULL) != index) {
+        RELEASE_MUTEX(&dir->partition_mtx[index], "mknod(%s)", path);
+        LOG_MSG("RECOMPUTE_INDEX: mknod(%s) for p(%d) changed.", path, index);
+        goto start;
+    }
+    
     // check for splits.
     if ((check_split_eligibility(dir, index) == true)) {
-        LOG_MSG("SPLIT p%d (due to fd=[%s])", index, path);
+        ACQUIRE_MUTEX(&dir->split_mtx, "set_split(p%d)", index);
+        dir->split_flag = 1;
+        RELEASE_MUTEX(&dir->split_mtx, "set_split(p%d)", index);
+        
+        LOG_MSG("SPLIT p%d[%d entries] (caused_by=[%s])", 
+                index, dir->partition_size[index], path);
        
-        dir->split_flag = index;
-
         rpc_reply->errnum = split_bucket(dir, index);
         if (rpc_reply->errnum == -EAGAIN) {
             LOG_MSG("ERR_retry: split_p%d", index);
@@ -208,7 +218,9 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
             rpc_reply->errnum = -EAGAIN;
         }
 
-        dir->split_flag = -1;
+        ACQUIRE_MUTEX(&dir->split_mtx, "reset_split(p%d)", index);
+        dir->split_flag = 0;
+        RELEASE_MUTEX(&dir->split_mtx, "reset_split(p%d)", index);
        
         goto exit_func;
     }

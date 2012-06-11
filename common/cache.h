@@ -14,7 +14,9 @@ struct giga_directory {
     DIR_handle_t handle;                // directory ID for directory "d"
     struct giga_mapping_t mapping;      // giga mapping for "d"
     int partition_size[MAX_NUM];        // num dirents in each partition
-    int split_flag;                     // flag to store the partion id of the
+   
+    pthread_mutex_t split_mtx;
+    int             split_flag;         // flag to store the partion id of the
                                         // partition undergoing split.
     int refcount;                       // ???
 

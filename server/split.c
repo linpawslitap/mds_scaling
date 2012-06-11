@@ -263,6 +263,8 @@ bool_t giga_rpc_split_1_svc(giga_dir_id dir_id,
         giga_update_mapping(&(dir->mapping), child_index);
         dir->partition_size[child_index] = num_entries; 
         
+        rpc_reply->errnum = num_entries; 
+        
         LOG_MSG("p%d: %d entries and updated bitmap.", 
                 child_index, dir->partition_size[child_index]); 
         

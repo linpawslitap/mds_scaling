@@ -37,9 +37,9 @@
 
 /*#define DEFAULT_LEVELDB_DIR     "/tmp/ldb"*/
 #define DEFAULT_LEVELDB_DIR     "/m/pvfs/giga_ldb/"
-#define DEFAULT_LEVELDB_PREFIX  "ldb-giga"
+/*#define DEFAULT_LEVELDB_PREFIX  "ldb-giga" */
 
-#define DEFAULT_SPLIT_THRESHOLD 800
+#define DEFAULT_SPLIT_THRESHOLD 8000
 
 #define ROOT_DIR_ID 0
 

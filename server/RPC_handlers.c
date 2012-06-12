@@ -243,6 +243,8 @@ start:
             // create object in the underlying file system
             // TODO: assume partitioned sub-dirs, and randomly pick a dir
             //       for symlink creation (for PanFS)
+            //
+            /*
             snprintf(path_name, sizeof(path_name), 
                      "%s/%s", giga_options_t.mountpoint, path);
             if ((rpc_reply->errnum = local_mknod(path_name, mode, dev)) < 0) {
@@ -250,8 +252,8 @@ start:
                            path_name, strerror(rpc_reply->errnum));
                 break;
             }
-
             LOG_MSG("__ret=%d", rpc_reply->errnum);
+            */
 
             // create object entry (metadata) in levelDB
             object_id += 1;  //TODO: do we need this for non-dir objects?? 

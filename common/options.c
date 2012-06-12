@@ -34,17 +34,31 @@ void init_default_backends()
     giga_options_t.backend_type = BACKEND_RPC_LEVELDB;
     //giga_options_t.backend_type = BACKEND_RPC_LOCALFS;
 
-    giga_options_t.mountpoint = (char*)malloc(sizeof(char)*MAX_LEN);
+    giga_options_t.mountpoint = (char*)malloc(sizeof(char) * MAX_LEN);
     if (giga_options_t.mountpoint == NULL) {
         logMessage(LOG_FATAL, __func__, "malloc_err: %s", strerror(errno));
         exit(1);
     }
-    if (giga_proc_type == GIGA_CLIENT) 
+
+    if (giga_proc_type == GIGA_CLIENT) { 
         strncpy(giga_options_t.mountpoint, 
                 DEFAULT_CLI_MNT_POINT, strlen(DEFAULT_CLI_MNT_POINT)+1);
-    else if (giga_proc_type == GIGA_SERVER)
-        strncpy(giga_options_t.mountpoint, 
-                DEFAULT_SRV_BACKEND, strlen(DEFAULT_SRV_BACKEND)+1);
+    }
+    else if (giga_proc_type == GIGA_SERVER) {
+        //strncpy(giga_options_t.mountpoint, 
+        //        DEFAULT_SRV_BACKEND, strlen(DEFAULT_SRV_BACKEND)+1);
+        snprintf(giga_options_t.mountpoint, MAX_LEN, 
+                 "%s/s%d/", DEFAULT_SRV_BACKEND, giga_options_t.serverID); 
+        logMessage(LOG_TRACE, __func__, 
+                   "backend_check(%s)", giga_options_t.mountpoint);
+        if (mkdir(giga_options_t.mountpoint, DEFAULT_MODE) < 0) {
+            if (errno != EEXIST) {
+                logMessage(LOG_FATAL, __func__, "ERR_mkdir(%s): [%s]", 
+                           giga_options_t.mountpoint, strerror(errno));
+                exit(1);
+            }
+        }
+    }
 
     logMessage(LOG_TRACE, __func__, "BACKEND_TYPE=%s", 
                backends_str[giga_options_t.backend_type]);
@@ -104,6 +118,9 @@ void parse_serverlist_file(const char *serverlist_file)
 
     logMessage(LOG_TRACE, __func__, "SERVER_LIST=...");
     while (fgets(ip_addr, MAX_LEN, conf_fp) != NULL) {
+        if (ip_addr[0] == '#')
+            continue;
+
         ip_addr[strlen(ip_addr)-1]='\0';
 
         int i = giga_options_t.num_servers;
@@ -185,9 +202,9 @@ void initGIGAsetting(int process_type, const char *serverlist_file)
 {
     giga_proc_type = process_type;  // client or server flag
 
-    init_default_backends();
     init_self_network_IDs();
     parse_serverlist_file(serverlist_file);
+    init_default_backends();
 
     print_settings();
 }

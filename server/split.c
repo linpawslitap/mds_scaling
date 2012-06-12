@@ -125,7 +125,7 @@ int split_in_levelDB(struct giga_directory *dir,
 
     // check if the split is a LOCAL SPLIT (move/rename) or REMOTE SPLIT (rpc)
     //
-    if (child_srv == parent_srv+111) {
+    if (child_srv == parent_srv) {
         
         LOG_MSG("LOCAL_split ... p[%d]", child_index);
         

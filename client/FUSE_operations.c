@@ -103,10 +103,8 @@ void* GIGAinit(struct fuse_conn_info *conn)
 
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_LEVELDB:
-            snprintf(ldb_name, sizeof(ldb_name),
-                     "%s/%d-%s",
-                     DEFAULT_LEVELDB_DIR, 0,
-                     DEFAULT_LEVELDB_PREFIX);
+            snprintf(ldb_name, sizeof(ldb_name), "%s/l%d", 
+                     DEFAULT_LEVELDB_DIR, 0);
             metadb_init(&ldb_mds, ldb_name);
             object_id = 0;
             if (metadb_create(ldb_mds,

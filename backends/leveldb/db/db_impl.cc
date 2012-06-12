@@ -39,7 +39,9 @@ namespace leveldb {
 struct DBImpl::Writer {
   Status status;
   WriteBatch* batch;
+  uint64_t new_sequence;
   bool sync;
+  bool update_sequence;
   bool done;
   port::CondVar cv;
 
@@ -1140,6 +1142,7 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* my_batch) {
   Writer w(&mutex_);
   w.batch = my_batch;
   w.sync = options.sync;
+  w.update_sequence = false;
   w.done = false;
 
   MutexLock l(&mutex_);
@@ -1153,15 +1156,12 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* my_batch) {
 
   // May temporarily unlock and wait.
   Status status = MakeRoomForWrite(my_batch == NULL);
-  uint64_t last_sequence = versions_->LastSequence();
   Writer* last_writer = &w;
   if (status.ok() && my_batch != NULL) {  // NULL batch is for compactions
     WriteBatch* updates = BuildBatchGroup(&last_writer);
+    uint64_t last_sequence = versions_->LastSequence();
     WriteBatchInternal::SetSequence(updates, last_sequence + 1);
     last_sequence += WriteBatchInternal::Count(updates);
-
-    //TODO: Is it right?
-    versions_->SetLastSequence(last_sequence);
 
     // Add to log and apply to memtable.  We can release the lock
     // during this phase since &w is currently responsible for logging
@@ -1180,6 +1180,7 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* my_batch) {
     }
     if (updates == tmp_batch_) tmp_batch_->Clear();
 
+    versions_->SetLastSequence(last_sequence);
   }
 
   while (true) {
@@ -1226,6 +1227,9 @@ WriteBatch* DBImpl::BuildBatchGroup(Writer** last_writer) {
     Writer* w = *iter;
     if (w->sync && !first->sync) {
       // Do not include a sync write into a batch handled by a non-sync write.
+      break;
+    }
+    if (w->update_sequence) {
       break;
     }
 
@@ -1617,44 +1621,63 @@ Status DBImpl::BulkInsert(const WriteOptions& write_opt,
   FileMetaData meta;
   env_->GetFileSize(fname, &meta.file_size);
 
-  TEST_CompactMemTable(); // TODO(kair): Skip if memtable does not overlap
-  MutexLock l(&mutex_);
+  Writer w(&mutex_);
+  w.batch = NULL;
+  w.sync = false;
+  w.update_sequence = true;
+  w.new_sequence = max_sequence_number;
+  w.done = false;
+  writers_.push_back(&w);
+  while (!w.done && &w != writers_.front()) {
+    w.cv.Wait();
+  }
 
   Status s;
-
-  if (!shutting_down_.Acquire_Load()) {
-
-    VersionEdit edit;
-    Version* base = versions_->current();
-    base->Ref();
-    s = MigrateLevel0Table(fname, meta, &edit, base);
-    base->Unref();
-
-    if (s.ok() && shutting_down_.Acquire_Load()) {
-      s = Status::IOError("Deleting DB during sstable bulk-insertion");
-    }
-
-    // Replace immutable memtable with the generated Table
-    if (s.ok()) {
-      edit.SetPrevLogNumber(0);
-      edit.SetLogNumber(logfile_number_);  // Earlier logs no longer needed
-      //TODO: simply update last_sequence by
-      //      max(max_sequence_number, old_seq)
-      //      Not consider snapshot
-      if (max_sequence_number > versions_->LastSequence())
-          versions_->SetLastSequence(max_sequence_number);
-
-      s = versions_->LogAndApply(&edit, &mutex_);
-    }
-
-    // TODO:
-    if (s.ok()) {
-      // Commit to the new state
-      DeleteObsoleteFiles();
-    }
-  } else {
-    s = Status::IOError("Deleting DB during sstable bulk-insertion");
+  if (w.done) {
+      s = Status::IOError("Fail to grep writer lock for bulkinsert");
   }
+
+  MutexLock l(&mutex_);
+  if (s.ok()) {
+      if (!shutting_down_.Acquire_Load()) {
+        VersionEdit edit;
+        Version* base = versions_->current();
+        base->Ref();
+        s = MigrateLevel0Table(fname, meta, &edit, base);
+        base->Unref();
+
+        if (s.ok() && shutting_down_.Acquire_Load()) {
+          s = Status::IOError("Deleting DB during sstable bulk-insertion");
+        }
+
+        // Replace immutable memtable with the generated Table
+        if (s.ok()) {
+          //TODO: simply update last_sequence by
+          //      max(max_sequence_number, old_seq)
+          //      Not consider snapshot
+
+          edit.SetPrevLogNumber(0);
+          edit.SetLogNumber(logfile_number_);  // Earlier logs no longer needed
+          s = versions_->LogAndApply(&edit, &mutex_);
+          if (s.ok()) {
+              DeleteObsoleteFiles();
+          }
+
+          if (w.new_sequence > versions_->LastSequence())
+            versions_->SetLastSequence(w.new_sequence);
+
+        }
+      } else {
+        s = Status::IOError("Deleting DB during sstable bulk-insertion");
+      }
+  }
+
+  writers_.pop_front();
+  // Notify new head of write queue
+  if (!writers_.empty()) {
+    writers_.front()->cv.Signal();
+  }
+
   return s;
 }
 

@@ -187,6 +187,8 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name)
 
     pthread_rwlock_init(&(mdb->rwlock_extract), NULL);
     pthread_mutex_init(&(mdb->mtx_bulkload), NULL);
+    pthread_mutex_init(&(mdb->mtx_leveldb), NULL);
+    pthread_mutex_init(&(mdb->mtx_extload), NULL);
 
     mdb->db = leveldb_open(mdb->options, mdb_name, &err);
     metadb_error("leveldb_init", err);
@@ -253,12 +255,11 @@ int metadb_lookup(struct MetaDB mdb,
 
     init_meta_obj_key(&mobj_key, dir_id, partition_id, path);
 
-    ACQUIRE_RWLOCK_READ(&(mdb.rwlock_extract), "metadb_lookup(%s)", path);
+    ACQUIRE_MUTEX(&(mdb.mtx_leveldb), "metadb_lookup(%s)", path);
 
     val = leveldb_get(mdb.db, mdb.lookup_options,
                       (const char*) &mobj_key, METADB_KEY_LEN, &val_len, &err);
 
-    RELEASE_RWLOCK(&(mdb.rwlock_extract), "metadb_lookup(%s)", path);
 
     if ((err == NULL) && (val_len != 0)) {
         mobj = (metadb_obj_t*)val;
@@ -287,6 +288,9 @@ int metadb_lookup(struct MetaDB mdb,
         ret = ENOENT;
     }
 
+
+    RELEASE_MUTEX(&(mdb.mtx_leveldb), "metadb_lookup(%s)", path);
+
     return ret;
 }
 
@@ -312,12 +316,12 @@ int metadb_remove(struct MetaDB mdb,
 
     init_meta_obj_key(&mobj_key, dir_id, partition_id, path);
 
-    ACQUIRE_RWLOCK_READ(&(mdb.rwlock_extract), "metadb_remove(%s)", path);
+    ACQUIRE_MUTEX(&(mdb.mtx_leveldb), "metadb_remove(%s)", path);
     leveldb_delete(mdb.db, mdb.insert_options,
             (char *) &mobj_key, METADB_KEY_LEN,
             &err);
-    RELEASE_RWLOCK(&(mdb.rwlock_extract), "metadb_remove(%s)", path);
 
+    RELEASE_MUTEX(&(mdb.mtx_leveldb), "metadb_remove(%s)", path);
     if (err == NULL) {
         return 0;
     } else {
@@ -334,8 +338,8 @@ int metadb_readdir(struct MetaDB mdb,
 
   init_meta_obj_seek_key(&mobj_key, dir_id, partition_id);
 
-  ACQUIRE_RWLOCK_READ(&(mdb.rwlock_extract), 
-                      "metadb_readdir(p[%d])", partition_id);
+  ACQUIRE_MUTEX(&(mdb.mtx_leveldb), 
+                "metadb_readdir(p[%d])", partition_id);
 
   leveldb_iterator_t* iter = leveldb_create_iterator(mdb.db, mdb.scan_options);
   leveldb_iter_seek(iter, (char *) &mobj_key, METADB_KEY_LEN);
@@ -360,8 +364,8 @@ int metadb_readdir(struct MetaDB mdb,
   }
   leveldb_iter_destroy(iter);
 
-  RELEASE_RWLOCK(&(mdb.rwlock_extract), 
-                 "metadb_readdir(p[%d])", partition_id);
+  RELEASE_MUTEX(&(mdb.mtx_leveldb),
+                "metadb_readdir(p[%d])", partition_id);
 
   return ret;
 }
@@ -412,8 +416,15 @@ int metadb_extract_do(struct MetaDB mdb,
     int ret = 0;
     char* err = NULL;
 
-    ACQUIRE_RWLOCK_WRITE(&(mdb.rwlock_extract), "metadb_extract(p%d->p%d)",
-                         old_partition_id, new_partition_id);
+    ACQUIRE_MUTEX(&(mdb.mtx_leveldb), "metadb_extract(p%d->p%d)",
+                    old_partition_id, new_partition_id);
+
+    ACQUIRE_MUTEX(&(mdb.mtx_extload), "metadb_extract(p%d->p%d)",
+                    old_partition_id, new_partition_id);
+
+
+    //ACQUIRE_RWLOCK_WRITE(&(mdb.rwlock_extract), "metadb_extract(p%d->p%d)",
+    //                     old_partition_id, new_partition_id);
 
     metadb_extract_t* extraction = mdb.extraction;
     //mdb.extraction->in_extraction = 1;
@@ -424,10 +435,19 @@ int metadb_extract_do(struct MetaDB mdb,
     if (!directory_exists(dir_with_new_partition)) {
         mkdir(dir_with_new_partition, DEFAULT_MODE);
     }
+
     if (ret < 0) {
-        RELEASE_RWLOCK(&(mdb.rwlock_extract),  "metadb_extract(p%d->p%d)", old_partition_id, new_partition_id);
+//        RELEASE_RWLOCK(&(mdb.rwlock_extract),  "metadb_extract(p%d->p%d)", old_partition_id, new_partition_id);
+
+        RELEASE_MUTEX(&(mdb.mtx_extload), "metadb_extract(p%d->p%d)",
+                    old_partition_id, new_partition_id);
+
+        RELEASE_MUTEX(&(mdb.mtx_leveldb), "metadb_extract(p%d->p%d)",
+                  old_partition_id, new_partition_id);
+
         return ret;
     }
+
 
     metadb_key_t mobj_key;
     init_meta_obj_seek_key(&mobj_key, dir_id, old_partition_id);
@@ -534,8 +554,14 @@ int metadb_extract_do(struct MetaDB mdb,
         // commented by SVP:
         // FIXME?? what if this condition is false?? where do you release this lock 
         //
-        RELEASE_RWLOCK(&(mdb.rwlock_extract),  "metadb_extract(p%d->p%d)", old_partition_id, new_partition_id);
+ //       RELEASE_RWLOCK(&(mdb.rwlock_extract),  "metadb_extract(p%d->p%d)", old_partition_id, new_partition_id);
+        RELEASE_MUTEX(&(mdb.mtx_leveldb), "metadb_extract(p%d->p%d)",
+                      old_partition_id, new_partition_id);
     }
+
+
+    RELEASE_MUTEX(&(mdb.mtx_extload), "metadb_extract(p%d->p%d)",
+                    old_partition_id, new_partition_id);
 
     return ret;
 }
@@ -684,7 +710,10 @@ int metadb_extract_clean(struct MetaDB mdb) {
     //                   &err);
 
     ret = rmdir(mdb.extraction->dir_with_new_partition);
-    RELEASE_RWLOCK(&(mdb.rwlock_extract), "metadb_extract(ret=%d)", ret);
+//    RELEASE_RWLOCK(&(mdb.rwlock_extract), "metadb_extract(ret=%d)", ret);
+
+    RELEASE_MUTEX(&(mdb.mtx_leveldb), "metadb_extract_clean", "");
+
     return ret;
 }
 
@@ -708,7 +737,10 @@ int metadb_bulkinsert(struct MetaDB mdb,
     char sstable_filename[MAX_FILENAME_LEN];
     char* err = NULL;
 
-    ACQUIRE_RWLOCK_WRITE(&(mdb.rwlock_extract), "metadb_bulkinsert(%s)", dir_with_new_partition);
+//    ACQUIRE_RWLOCK_WRITE(&(mdb.rwlock_extract), "metadb_bulkinsert(%s)", dir_with_new_partition);
+
+    ACQUIRE_MUTEX(&(mdb.mtx_leveldb), "metadb_bulkinsert(%s)",
+                    dir_with_new_partition);
 
     DIR* dp = opendir(dir_with_new_partition);
     if (dp != NULL) {
@@ -729,7 +761,11 @@ int metadb_bulkinsert(struct MetaDB mdb,
         closedir(dp);
     }
 
-    RELEASE_RWLOCK(&(mdb.rwlock_extract), "metadb_bulkinsert(%s)", dir_with_new_partition);
+//    RELEASE_RWLOCK(&(mdb.rwlock_extract), "metadb_bulkinsert(%s)", dir_with_new_partition);
+
+    RELEASE_MUTEX(&(mdb.mtx_leveldb), "metadb_bulkinsert(%s)",
+                    dir_with_new_partition);
+
     return ret;
 }
 

@@ -41,7 +41,6 @@ int get_server_for_file(struct giga_directory *dir, const char *name)
     //return giga_get_server_for_file(&dir->mapping, name);
 }
 
-
 int rpc_init()
 {
     int ret = 0;

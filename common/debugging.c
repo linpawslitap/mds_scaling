@@ -11,6 +11,7 @@
 #include "debugging.h"
 #include "defaults.h"
 
+/*
 static char *log_level_str[5] = {
     "LOG_FATAL",
     "LOG_ERR",
@@ -18,6 +19,7 @@ static char *log_level_str[5] = {
     "LOG_DEBUG",
     "LOG_TRACE"
 };
+*/
 
 static int log_msg(FILE *fp, const char *location, const char *format, va_list ap);
 
@@ -82,37 +84,29 @@ void logMessage(log_level_t level, const char *location, const char *format, ...
 
 /* Open the log file 'logFilename' */
 
-void logOpen(const char *logFilename, log_level_t level)
+int logOpen(const char *logFilename, log_level_t level)
 {
     mode_t m;
 
     m = umask(077);
-    log_fp = fopen(logFilename, "w+");
-    if (log_fp == NULL) {
-        fprintf(stdout, 
-                "ERROR: creating log file(%s): %s\n", logFilename, strerror(errno));
-        exit(1);
-    }
+    if ((log_fp = fopen(logFilename, "w+")) == NULL)
+        return errno;
     umask(m);
 
-    /* If opening the log fails we can't display a message... */
-
-    if (log_fp == NULL)
-        exit(EXIT_FAILURE);
-
     sys_log_level = level;
-    setbuf(log_fp, NULL);                    /* Disable stdio buffering */
+    setbuf(log_fp, NULL);   // Disable stdio buffering
 
-    fprintf(log_fp, "[mode=%s] Opened log file(%s). ##### \n.", 
-            log_level_str[(int)sys_log_level], logFilename);
+    //fprintf(log_fp, "[mode=%s] Opened log file(%s). ##### \n.", 
+    //        log_level_str[(int)sys_log_level], logFilename);
+    return 0;
 }
 
 /* Close the log file */
 
 void logClose(void)
 {
-    fprintf(log_fp, "[mode=%s] Closed log file.######### \n", 
-            log_level_str[(int)sys_log_level]);
+    //fprintf(log_fp, "[mode=%s] Closed log file.######### \n", 
+    //        log_level_str[(int)sys_log_level]);
     fclose(log_fp);
 }
 

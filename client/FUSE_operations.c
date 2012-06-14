@@ -17,7 +17,6 @@
 #include <rpc/rpc.h>
 #include <unistd.h>
 
-//#define FUSE_LOG LOG_DEBUG
 #define _LEVEL_     LOG_DEBUG
 
 #define LOG_MSG(format, ...) logMessage(_LEVEL_, __func__, format, __VA_ARGS__); 
@@ -116,18 +115,14 @@ void* GIGAinit(struct fuse_conn_info *conn)
             }
             break;
         case BACKEND_RPC_LOCALFS:
-            ;
+            break;
         case BACKEND_RPC_LEVELDB:
-            if (rpcConnect() < 0) {
-                logMessage(LOG_FATAL, __func__, "RPC_conn_err:%s", strerror(errno));
-                exit(1);
-            }
-            
+            rpcInit();
+            //rpcConnect();     //FIXME: I don't need this 
             if (rpc_init() < 0) {
                 LOG_MSG("RPC_init_err(%s)", ROOT_DIR_ID);
                 exit(1);
             }  
-            
             break;
         default:
             break;

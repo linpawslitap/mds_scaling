@@ -52,7 +52,7 @@ typedef enum log_level {
 log_level_t sys_log_level;          /* Log level */
 FILE *log_fp;                       /* Log file stream */
 
-void logOpen(const char *logFilename, log_level_t level);
+int logOpen(const char *logFilename, log_level_t level);
 void logClose(void);
 
 void logMessage(log_level_t lev, const char *location, const char *format, ...);

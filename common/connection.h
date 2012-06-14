@@ -7,7 +7,8 @@
 extern char *my_hostname;
 
 CLIENT *getConnection(int serverid);
-int rpcConnect(void);
+void rpcInit();
+void rpcConnect(void);
 void rpcDisconnect(void);
 
 void getHostIPAddress(char *ip_addr, int ip_addr_len);

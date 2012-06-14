@@ -50,6 +50,6 @@ struct giga_options {
 
 extern struct giga_options giga_options_t;
 
-void initGIGAsetting(int process_type, const char *serverlist_file);
+void initGIGAsetting(int cli_or_srv, char *mnt_dir, const char *srv_list_file);
 
 #endif

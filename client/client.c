@@ -45,16 +45,25 @@ static struct fuse_operations giga_oper = {
 
 int main(int argc, char *argv[])
 {
-    int ret = -1;;
+    int ret = 0;
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 
-    char log_fd[MAX_LEN] = {0};
-    snprintf(log_fd, sizeof(log_fd), "%s.c.%d", 
-             DEFAULT_LOG_FILE_PATH, (int)getpid());
-    logOpen(log_fd, DEFAULT_LOG_LEVEL);
+    // initialize logging
+    char log_file[MAX_LEN] = {0};
+    snprintf(log_file, sizeof(log_file), 
+             "%s.c.%d", DEFAULT_LOG_FILE_PATH, (int)getpid());
+    if ((ret = logOpen(log_file, DEFAULT_LOG_LEVEL)) < 0) {
+        fprintf(stdout, "***ERROR*** during opening log(%s) : [%s]\n",
+                log_file, strerror(ret));
+        return ret;
+    }
+    //char log_fd[MAX_LEN] = {0};
+    //snprintf(log_fd, sizeof(log_fd), "%s.c.%d", 
+    //         DEFAULT_LOG_FILE_PATH, (int)getpid());
+    //logOpen(log_fd, DEFAULT_LOG_LEVEL);
     
     memset(&giga_options_t, 0, sizeof(struct giga_options));
-    initGIGAsetting(GIGA_CLIENT, DEFAULT_CONF_FILE);
+    initGIGAsetting(GIGA_CLIENT, argv[1], DEFAULT_CONF_FILE);
 
     if (fuse_opt_parse(&args, &giga_options_t, giga_opts, NULL) == -1)
         return -1;

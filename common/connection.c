@@ -14,54 +14,76 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-static CLIENT **rpc_clients;
+#define LOG_ERR(format, ...) \
+    logMessage(LOG_DEBUG, __func__, format, __VA_ARGS__) 
+
+static CLIENT **rpc_clnts;
 
 static int rpc_host_connect(CLIENT **rpc_client, const char *host);
 
 char *my_hostname = NULL;
-//char *my_hostname = NULL;
 
-CLIENT *getConnection(int serverid)
+CLIENT *getConnection(int srv_id)
 {
-    assert(serverid >= 0 && serverid < giga_options_t.num_servers);
+    assert(srv_id >= 0 && srv_id < giga_options_t.num_servers);
 
-    return rpc_clients[serverid];
-}
-
-int rpcConnect(void)
-{
-    int i;
-
-    rpc_clients = malloc(sizeof(CLIENT *)*giga_options_t.num_servers);
-    if (!rpc_clients)
-        return -ENOMEM;
-
-    for (i = 0; i < giga_options_t.num_servers; i++) { 
-        int ret = rpc_host_connect(&rpc_clients[i], giga_options_t.serverlist[i]);
-        if (ret < 0) {
-            //TODO: print error msg
-            return ret;
+    if (rpc_clnts[srv_id] == NULL) {
+        LOG_ERR("Trying connection for server[%d] ...", srv_id);
+        if (rpc_host_connect(&rpc_clnts[srv_id], 
+                             giga_options_t.serverlist[srv_id]) < 0) {
+            LOG_ERR("ERROR connecting to server [%d]", srv_id);
+            return NULL;
         }
-    }
-    for (i = 0; i < giga_options_t.num_servers; i++) {
 	    struct timeval to;
         to.tv_sec = 60;
         to.tv_usec = 0;
-	    clnt_control(rpc_clients[i], CLSET_TIMEOUT, (char*)&to);
+	    clnt_control(rpc_clnts[srv_id], CLSET_TIMEOUT, (char*)&to);
+    }
+
+    return rpc_clnts[srv_id];
+}
+
+void rpcInit()
+{
+    int i = 0;
+
+    rpc_clnts = malloc(sizeof(CLIENT*) * giga_options_t.num_servers);
+    if (rpc_clnts == NULL) {
+        LOG_ERR("ERR_malloc(): %d rpc conns", giga_options_t.num_servers);
+        exit(1);
+    }
+
+    for (i = 0; i < giga_options_t.num_servers; i++)  
+        rpc_clnts[i] = NULL;
+}
+
+void rpcConnect(void)
+{
+    int i;
+
+    for (i = 0; i < giga_options_t.num_servers; i++) { 
+        if (rpc_host_connect(&rpc_clnts[i], giga_options_t.serverlist[i]) < 0) 
+            LOG_ERR("CONN_ERROR: -> s[%d]", i);
+        else {
+            struct timeval to;
+            to.tv_sec = 60;
+            to.tv_usec = 0;
+            clnt_control(rpc_clnts[i], CLSET_TIMEOUT, (char*)&to);
+            LOG_ERR("CONN_SETUP: -> s[%d]", i);
+        }
     }
     
-    return 0;
 }
 
 void rpcDisconnect(void)
 {
     int i;
-
     for (i = 0; i < giga_options_t.num_servers; i++)
-        clnt_destroy (rpc_clients[i]);
+        clnt_destroy (rpc_clnts[i]);
 }
 
-static int rpc_host_connect(CLIENT **rpc_client, const char *host)
+static 
+int rpc_host_connect(CLIENT **rpc_client, const char *host)
 {
     int sock = RPC_ANYSOCK;
 
@@ -70,17 +92,18 @@ static int rpc_host_connect(CLIENT **rpc_client, const char *host)
     addr.sin_family = AF_INET;
     addr.sin_port = htons(DEFAULT_PORT);
 
-    he = gethostbyname(host);
-    if (!he) {
-        //FIXME:
-        //err_ret("unable to resolve %s\n", host);
+    if ((he = gethostbyname(host)) == NULL) {
+        LOG_ERR("ERR_gethostbyname(%s): %s", host, hstrerror(h_errno));
         return -1;
     }
+
     memcpy(&addr.sin_addr, he->h_addr_list[0], he->h_length);
 
-    *rpc_client = clnttcp_create (&addr, GIGA_RPC_PROG, GIGA_RPC_VERSION, &sock, 0, 0);
+    *rpc_client = clnttcp_create(&addr, 
+                                 GIGA_RPC_PROG, GIGA_RPC_VERSION, 
+                                 &sock, 0, 0);
     if (*rpc_client == NULL) {
-        clnt_pcreateerror (NULL);
+        LOG_ERR("ERR_rpc_conn: %s", clnt_spcreateerror((char*)host));
         return -1;
     }
 

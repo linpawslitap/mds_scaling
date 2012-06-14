@@ -30,6 +30,15 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#define SRV_LOG     LOG_DEBUG
+
+#define LOG_MSG(format, ...) \
+    logMessage(SRV_LOG, __func__, format, __VA_ARGS__);
+
+#define LOG_ERR(format, ...) \
+    logMessage(LOG_FATAL, __func__, format, __VA_ARGS__); 
+
+
 static pthread_t listen_tid;    // connection listener thread
 static pthread_t split_tid;     // giga splitting thread
 
@@ -238,12 +247,7 @@ void server_socket()
 static 
 void init_root_partition()
 {
-    logMessage(LOG_DEBUG, __func__, "root partition at.");
-    //TODO
-    //
-    
-    // check if server's backend directory is created.
-    //
+    /*
     struct stat stbuf;
     if (lstat(giga_options_t.mountpoint, &stbuf) < 0) {
         if (errno == EEXIST) {
@@ -264,16 +268,24 @@ void init_root_partition()
                        "init root partition error: %s", strerror(errno));
         }
     }
+    */
+    
+    // check if server's backend directory is created.
+    if (mkdir(giga_options_t.mountpoint, DEFAULT_MODE) < 0) {
+        if (errno != EEXIST) {
+            LOG_ERR("ERR_mkdir(%s): [%s]", 
+                    giga_options_t.mountpoint, strerror(errno));
+            exit(1);
+        }
+    }
 
     // initialize backend based on the type of backend.
-    //
     char ldb_name[MAX_LEN] = {0};
     switch (giga_options_t.backend_type) {
         case BACKEND_RPC_LOCALFS:
             snprintf(ldb_name, sizeof(ldb_name), "%s/0/", 
                      giga_options_t.mountpoint);
             if (local_mkdir(ldb_name, DEFAULT_MODE) < 0) {
-                logMessage(LOG_FATAL, __func__, "root bucket creation error.");
                 exit(1);
             }
             break;
@@ -283,20 +295,16 @@ void init_root_partition()
             snprintf(ldb_name, sizeof(ldb_name), 
                      "%s/l%d", DEFAULT_LEVELDB_DIR, giga_options_t.serverID);
             metadb_init(&ldb_mds, ldb_name);
-            //if (giga_options_t.serverID == 0) {
-                if (metadb_create(ldb_mds, 
-                                  ROOT_DIR_ID, 0,
-                                  OBJ_DIR, 
-                                  object_id, "/", giga_options_t.mountpoint) < 0) {
-                    logMessage(LOG_FATAL, __func__, "root entry creation error.");
+            if (giga_options_t.serverID == 0) {
+                if (metadb_create(ldb_mds, ROOT_DIR_ID, 0, OBJ_DIR, object_id, 
+                                  "/", giga_options_t.mountpoint) < 0) {
+                    LOG_ERR("mdb_create(%s): error creating root", ldb_name);
                     exit(1);
                 }
-            //}
-            
+            }
             break;
         default:
             break;
-
     }
 
     return;
@@ -323,6 +331,8 @@ void init_giga_mapping()
 
 int main(int argc, char **argv)
 {
+    int ret = 0;
+
     if (argc == 2) {
         printf("usage: %s -p <port_number> -f <server_list_config>\n",argv[0]);
         exit(EXIT_FAILURE);
@@ -358,19 +368,17 @@ int main(int argc, char **argv)
     signal(SIGINT, sig_handler);    // handling SIGINT
    
     // initialize logging
-    char log_fd[MAX_LEN] = {0};
-    snprintf(log_fd, sizeof(log_fd), "%s.s", DEFAULT_LOG_FILE_PATH);
-    logOpen(log_fd, DEFAULT_LOG_LEVEL);
-    
-    initGIGAsetting(GIGA_SERVER, DEFAULT_CONF_FILE);    // init GIGA+ options.
-
-    if (giga_options_t.serverID == -1){
-        logMessage(LOG_FATAL, __func__, 
-                   "ERROR: server hostname does not match any server in list.");
-        exit(1);
+    char log_file[MAX_LEN] = {0};
+    snprintf(log_file, sizeof(log_file), "%s.s", DEFAULT_LOG_FILE_PATH);
+    if ((ret = logOpen(log_file, DEFAULT_LOG_LEVEL)) < 0) {
+        fprintf(stdout, "***ERROR*** during opening log(%s) : [%s]\n",
+                log_file, strerror(ret));
+        return ret;
     }
-    
-    // FIXME: do we need to check for serverID (if 0 or something else)?
+
+    // init GIGA+ options.
+    memset(&giga_options_t, 0, sizeof(struct giga_options));
+    initGIGAsetting(GIGA_SERVER, NULL, DEFAULT_CONF_FILE);    
 
     init_root_partition();  // init root partition on each server.
     init_giga_mapping();    // init GIGA+ mapping structure.
@@ -389,13 +397,11 @@ int main(int argc, char **argv)
     // mechanism needs to be replaced by an intelligent reconnection system.
     sleep(10);
     if (giga_options_t.num_servers >= 1) {
-        if (rpcConnect() < 0) {
-            logMessage(LOG_FATAL, __func__, "Error making RPC conns: exit .");
-            exit(1);
-        }
+        rpcInit();
+        rpcConnect();
     }
 
-    logMessage(LOG_DEBUG, __func__, "Server %d up!", giga_options_t.serverID);
+    LOG_ERR("### server[%d] up ...", giga_options_t.serverID);
 
     void *retval;
 

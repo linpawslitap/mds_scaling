@@ -14,6 +14,7 @@ fi
 ## cli=`cat ${NUM_FUSE_CLI}`   # read from a file that "cli_run.sh" wrote to
 
 cli=`cat ${NUM_FUSE_CLI} | wc -l`
+host=`hostname | cut -d'.' -f 1`
 
 if [ $cli -gt 1 ]
 then
@@ -21,9 +22,13 @@ then
     do
         echo "test instance $i ..."
         dir=${MNT}/${i}
-        time ./mknod_test ${dir} $1 &
+        out="~/_perf/$host.$i"
+        ( time ./mknod_test ${dir} $1 ) > ~/_perf/$host.$i 2>&1 &
     done
 else
-    time ./mknod_test ${MNT} $1 &
+    out="~/_perf/$host.0"
+    ( time ./mknod_test ${MNT} $1 ) > ~/_perf/$host.$i 2>&1 &
 fi
+
+
 

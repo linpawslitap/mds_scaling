@@ -4,6 +4,7 @@
 #include "common/defaults.h"
 #include "common/options.h"
 
+#include <assert.h>
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -12,6 +13,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+#define LOG_MSG(format, ...) logMessage(LOG_FATAL, NULL, format, __VA_ARGS__); 
 
 static char* backends_str[] = {
     /* Non-networked, local backends */
@@ -26,43 +29,37 @@ static char* backends_str[] = {
 static int giga_proc_type;
 
 static 
-void init_default_backends()
+void init_default_backends(const char *cli_mnt)
 {
-    //logOpen(DEFAULT_LOG_FILE_LOCATIONc, LOG_WARN);
-
     //giga_options_t.backend_type = BACKEND_LOCAL_LEVELDB;
     giga_options_t.backend_type = BACKEND_RPC_LEVELDB;
     //giga_options_t.backend_type = BACKEND_RPC_LOCALFS;
 
     giga_options_t.mountpoint = (char*)malloc(sizeof(char) * MAX_LEN);
     if (giga_options_t.mountpoint == NULL) {
-        logMessage(LOG_FATAL, __func__, "malloc_err: %s", strerror(errno));
+        LOG_MSG("ERR_malloc: %s", strerror(errno));
         exit(1);
     }
 
     if (giga_proc_type == GIGA_CLIENT) { 
-        strncpy(giga_options_t.mountpoint, 
-                DEFAULT_CLI_MNT_POINT, strlen(DEFAULT_CLI_MNT_POINT)+1);
+        //strncpy(giga_options_t.mountpoint, 
+        //        DEFAULT_CLI_MNT_POINT, strlen(DEFAULT_CLI_MNT_POINT)+1);
+        snprintf(giga_options_t.mountpoint, MAX_LEN, "%s/", cli_mnt); 
     }
     else if (giga_proc_type == GIGA_SERVER) {
-        //strncpy(giga_options_t.mountpoint, 
-        //        DEFAULT_SRV_BACKEND, strlen(DEFAULT_SRV_BACKEND)+1);
         snprintf(giga_options_t.mountpoint, MAX_LEN, 
                  "%s/s%d/", DEFAULT_SRV_BACKEND, giga_options_t.serverID); 
-        logMessage(LOG_TRACE, __func__, 
-                   "backend_check(%s)", giga_options_t.mountpoint);
+        /*
         if (mkdir(giga_options_t.mountpoint, DEFAULT_MODE) < 0) {
             if (errno != EEXIST) {
-                logMessage(LOG_FATAL, __func__, "ERR_mkdir(%s): [%s]", 
-                           giga_options_t.mountpoint, strerror(errno));
+                LOG_MSG("ERR_mkdir(%s): [%s]", 
+                        giga_options_t.mountpoint, strerror(errno));
                 exit(1);
             }
         }
+        */
     }
 
-    logMessage(LOG_TRACE, __func__, "BACKEND_TYPE=%s", 
-               backends_str[giga_options_t.backend_type]);
-    logMessage(LOG_TRACE, __func__, "BACKEND_MNT=%s", giga_options_t.mountpoint);
 }
 
 
@@ -74,24 +71,21 @@ void init_self_network_IDs()
     giga_options_t.port_num = DEFAULT_PORT;
     
     if ((giga_options_t.ip_addr = malloc(sizeof(char*)*MAX_LEN)) == NULL) {
-        logMessage(LOG_FATAL, __func__, "malloc_err: %s", strerror(errno));
+        LOG_MSG("ERR_malloc: %s", strerror(errno));
         exit(1);
     }
     
     getHostIPAddress(giga_options_t.ip_addr, MAX_LEN);
 
     if ((giga_options_t.hostname = malloc(sizeof(char*)*MAX_LEN)) == NULL) {
-        logMessage(LOG_FATAL, __func__, "malloc_err: %s", strerror(errno));
+        LOG_MSG("ERR_malloc: %s", strerror(errno));
         exit(1);
     }
     if (gethostname(giga_options_t.hostname, MAX_LEN) < 0) {
-        logMessage(LOG_FATAL, __func__, "gethostname_err: %s", strerror(errno));
+        LOG_MSG("ERR_gethostname: %s", strerror(errno));
         exit(1);
     }
 
-    logMessage(LOG_TRACE, __func__, "SELF_HOSTNAME=%s", giga_options_t.hostname);
-    logMessage(LOG_TRACE, __func__, "SELF_IP=%s", giga_options_t.ip_addr);
-    logMessage(LOG_TRACE, __func__, "SELF_PORT=%d", giga_options_t.port_num);
 }
 
 
@@ -102,7 +96,7 @@ void parse_serverlist_file(const char *serverlist_file)
     char ip_addr[MAX_LEN];
 
     if ((conf_fp = fopen(serverlist_file, "r+")) == NULL) {
-        logMessage(LOG_FATAL, __func__, "err_open(conf=%s).", serverlist_file);
+        LOG_MSG("ERR_open(%s): %s", serverlist_file, strerror(errno));
         exit(1);
     }
    
@@ -111,12 +105,12 @@ void parse_serverlist_file(const char *serverlist_file)
     giga_options_t.num_servers = 0;
     
     if ((giga_options_t.serverlist = malloc(sizeof(char*)*MAX_LEN)) == NULL) {
-        logMessage(LOG_FATAL, __func__, "malloc_err: %s", strerror(errno));
+        LOG_MSG("ERR_malloc: %s", strerror(errno));
         fclose(conf_fp);
         exit(1);
     }
 
-    logMessage(LOG_TRACE, __func__, "SERVER_LIST=...");
+    //logMessage(LOG_TRACE, __func__, "SERVER_LIST=...");
     while (fgets(ip_addr, MAX_LEN, conf_fp) != NULL) {
         if (ip_addr[0] == '#')
             continue;
@@ -126,7 +120,8 @@ void parse_serverlist_file(const char *serverlist_file)
         int i = giga_options_t.num_servers;
         giga_options_t.serverlist[i] = (char*)malloc(sizeof(char)*MAX_LEN);
         if (giga_options_t.serverlist[i] == NULL) {
-            logMessage(LOG_FATAL, __func__, "malloc_err: %s", strerror(errno));
+            LOG_MSG("ERR_malloc: %s", strerror(errno));
+            fclose(conf_fp);
             exit(1);
         }
         strncpy((char*)giga_options_t.serverlist[i], ip_addr, strlen(ip_addr)+1);
@@ -136,13 +131,10 @@ void parse_serverlist_file(const char *serverlist_file)
         if (strcmp(giga_options_t.serverlist[i], giga_options_t.ip_addr) == 0)
             giga_options_t.serverID = i;
 
-        logMessage(LOG_TRACE, __func__, "-->server_%d={%s}\n", 
-                   giga_options_t.num_servers-1, 
-                   giga_options_t.serverlist[giga_options_t.num_servers-1]); 
+        //logMessage(LOG_TRACE, __func__, "-->server_%d={%s}\n", 
+        //           giga_options_t.num_servers-1, 
+        //           giga_options_t.serverlist[giga_options_t.num_servers-1]); 
     }
-
-    //giga_options_t.num_servers = 1;
-    logMessage(LOG_TRACE, __func__, "NUM_SERVERS=%d",giga_options_t.num_servers);
 
     fclose(conf_fp);
 }
@@ -150,37 +142,25 @@ void parse_serverlist_file(const char *serverlist_file)
 static
 void print_settings()
 {
-    if (giga_proc_type == GIGA_CLIENT) {
-        logMessage(LOG_FATAL, __func__, "=================="); 
-        logMessage(LOG_FATAL, __func__, "Settings: client. ");
-        logMessage(LOG_FATAL, __func__, "=================="); 
-        
-        logMessage(LOG_FATAL, __func__, 
-                   "SELF_HOSTNAME=%s", giga_options_t.hostname);
-        logMessage(LOG_FATAL, __func__, 
-                   "SELF_IP=%s", giga_options_t.ip_addr);
-        logMessage(LOG_FATAL, __func__, 
-                   "SELF_PORT=%d", giga_options_t.port_num);
-        
-        logMessage(LOG_FATAL, __func__, "\n");
-        
-        logMessage(LOG_FATAL, __func__, 
-                   "BACKEND_TYPE=%s", backends_str[giga_options_t.backend_type]);
-        logMessage(LOG_FATAL, __func__, 
-                   "BACKEND_MNT=%s", giga_options_t.mountpoint);
-        
-        logMessage(LOG_FATAL, __func__, "\n");
-        
-        logMessage(LOG_FATAL, __func__, 
-                   "NUM_SERVERS=%d",giga_options_t.num_servers);
-        logMessage(LOG_FATAL, __func__, 
-                   "SPLIT_THRESHOLD=%d", giga_options_t.split_threshold);
-        
-        logMessage(LOG_FATAL, __func__, "==================\n");
-
-        return;
+    if (giga_proc_type == GIGA_CLIENT) { 
+        LOG_MSG("### client[%d]\n",(int)getpid());
+    } else {
+        assert(giga_options_t.serverID != -1); 
+        LOG_MSG("### server[%d]\n", giga_options_t.serverID); 
     }
 
+    LOG_MSG("-- SELF_HOSTNAME=%s", giga_options_t.hostname);
+    LOG_MSG("-- SELF_IP=%s", giga_options_t.ip_addr);
+    LOG_MSG("-- SELF_PORT=%d\n", giga_options_t.port_num);
+    
+    LOG_MSG("-- BACKEND_TYPE=%s", backends_str[giga_options_t.backend_type]);
+    LOG_MSG("-- BACKEND_MNT=%s\n", giga_options_t.mountpoint);
+    
+    LOG_MSG("-- NUM_SERVERS=%d",giga_options_t.num_servers);
+    LOG_MSG("-- SPLIT_THRESHOLD=%d\n", giga_options_t.split_threshold);
+    
+
+#if 0
     fprintf(stdout, "==================\n"); 
     fprintf(stdout, "Settings: server[%d]\n", giga_options_t.serverID); 
     fprintf(stdout, "==================\n"); 
@@ -194,17 +174,21 @@ void print_settings()
     fprintf(stdout, "\tNUM_SERVERS=%d\n",giga_options_t.num_servers);
     fprintf(stdout, "\tSPLIT_THRESHOLD=%d\n",giga_options_t.split_threshold);
     fprintf(stdout, "==================\n"); 
-    
+#endif    
+
     return;
 }
 
-void initGIGAsetting(int process_type, const char *serverlist_file)
+void initGIGAsetting(int cli_or_srv, char *cli_mnt, const char *srv_list_file)
 {
-    giga_proc_type = process_type;  // client or server flag
+    giga_proc_type = cli_or_srv;  // client or server flag
 
     init_self_network_IDs();
-    parse_serverlist_file(serverlist_file);
-    init_default_backends();
+    parse_serverlist_file(srv_list_file);
+    if (giga_proc_type == GIGA_CLIENT)
+        init_default_backends((const char*)cli_mnt);
+    else
+        init_default_backends(NULL);
 
     print_settings();
 }

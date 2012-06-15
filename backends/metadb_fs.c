@@ -709,7 +709,24 @@ int metadb_extract_clean(struct MetaDB mdb) {
     //                   mdb.extraction->dir_with_new_partition,
     //                   &err);
 
+    if (rmdir(mdb.extraction->dir_with_new_partition) < 0) {
+        if (errno == ENOTEMPTY) {
+            DIR* dp = opendir(mdb.extraction->dir_with_new_partition);
+            if (dp != NULL) {
+                struct dirent *de;
+                while ((de = readdir(dp)) != NULL) {
+                  if (strcmp(de->d_name,".")!=0 && strcmp(de->d_name,"..")!=0)
+                    unlink(de->d_name);
+                }
+                closedir(dp);
+            }
+
+        }
+    }
+    
     ret = rmdir(mdb.extraction->dir_with_new_partition);
+
+
 //    RELEASE_RWLOCK(&(mdb.rwlock_extract), "metadb_extract(ret=%d)", ret);
 
     RELEASE_MUTEX(&(mdb.mtx_leveldb), "metadb_extract_clean", "");

@@ -17,23 +17,41 @@
 #define LOG_MSG(format, ...) logMessage(LOG_FATAL, NULL, format, __VA_ARGS__); 
 
 static char* backends_str[] = {
-    /* Non-networked, local backends */
-    "BACKEND_LOCAL_FS",           /* Local file system */
-    "BACKEND_LOCAL_LEVELDB",      /* Local levelDB */
+    // Non-networked, local backends
+    "BACKEND_LOCAL_FS",         // Local file system 
+    "BACKEND_LOCAL_LEVELDB",    // Local levelDB
 
-    /* Networked, RPC-based backends */
-    "BACKEND_RPC_LOCALFS",        /* ship ops via RPC to server */
-    "BACKEND_RPC_LEVELDB"
+    // Networked, RPC-based backends
+    "BACKEND_RPC_LOCALFS",      // ship ops via RPC to server
+    "BACKEND_RPC_LEVELDB"       // LevelDB mounted on networked config
 };
 
 static int giga_proc_type;
 
+static void init_default_backends(const char *cli_mnt);
+static void init_self_network_IDs();
+static void parse_serverlist_file(const char *serverlist_file);
+static void print_settings();
+
+void initGIGAsetting(int cli_or_srv, char *cli_mnt, const char *srv_list_file)
+{
+    giga_proc_type = cli_or_srv;  // client or server flag
+
+    init_self_network_IDs();
+    parse_serverlist_file(srv_list_file);
+    init_default_backends((const char*)cli_mnt);
+
+    print_settings();
+}
+
+/******************************
+ *  STATIC functions in use.  *
+ ******************************/
+
 static 
 void init_default_backends(const char *cli_mnt)
 {
-    //giga_options_t.backend_type = BACKEND_LOCAL_LEVELDB;
-    giga_options_t.backend_type = BACKEND_RPC_LEVELDB;
-    //giga_options_t.backend_type = BACKEND_RPC_LOCALFS;
+    giga_options_t.backend_type = DEFAULT_BACKEND_TYPE;
 
     giga_options_t.mountpoint = (char*)malloc(sizeof(char) * MAX_LEN);
     if (giga_options_t.mountpoint == NULL) {
@@ -41,23 +59,18 @@ void init_default_backends(const char *cli_mnt)
         exit(1);
     }
 
-    if (giga_proc_type == GIGA_CLIENT) { 
-        //strncpy(giga_options_t.mountpoint, 
-        //        DEFAULT_CLI_MNT_POINT, strlen(DEFAULT_CLI_MNT_POINT)+1);
-        snprintf(giga_options_t.mountpoint, MAX_LEN, "%s/", cli_mnt); 
-    }
-    else if (giga_proc_type == GIGA_SERVER) {
-        snprintf(giga_options_t.mountpoint, MAX_LEN, 
-                 "%s/s%d/", DEFAULT_SRV_BACKEND, giga_options_t.serverID); 
-        /*
-        if (mkdir(giga_options_t.mountpoint, DEFAULT_MODE) < 0) {
-            if (errno != EEXIST) {
-                LOG_MSG("ERR_mkdir(%s): [%s]", 
-                        giga_options_t.mountpoint, strerror(errno));
-                exit(1);
-            }
-        }
-        */
+    switch (giga_proc_type) {
+        case GIGA_CLIENT:
+            assert (cli_mnt != NULL);
+            snprintf(giga_options_t.mountpoint, MAX_LEN, "%s/", cli_mnt); 
+            break;
+        case GIGA_SERVER:
+            snprintf(giga_options_t.mountpoint, MAX_LEN, 
+                     "%s/s%d/", DEFAULT_SRV_BACKEND, giga_options_t.serverID);
+            break;
+        default:
+            LOG_MSG("ERR_giga_proc_type: invalid option[%d]", giga_proc_type);
+            exit(1);
     }
 
 }
@@ -70,14 +83,14 @@ void init_self_network_IDs()
     giga_options_t.ip_addr = NULL;
     giga_options_t.port_num = DEFAULT_PORT;
     
-    if ((giga_options_t.ip_addr = malloc(sizeof(char*)*MAX_LEN)) == NULL) {
+    if ((giga_options_t.ip_addr = malloc(sizeof(char)*MAX_LEN)) == NULL) {
         LOG_MSG("ERR_malloc: %s", strerror(errno));
         exit(1);
     }
     
     getHostIPAddress(giga_options_t.ip_addr, MAX_LEN);
 
-    if ((giga_options_t.hostname = malloc(sizeof(char*)*MAX_LEN)) == NULL) {
+    if ((giga_options_t.hostname = malloc(sizeof(char)*MAX_LEN)) == NULL) {
         LOG_MSG("ERR_malloc: %s", strerror(errno));
         exit(1);
     }
@@ -179,16 +192,3 @@ void print_settings()
     return;
 }
 
-void initGIGAsetting(int cli_or_srv, char *cli_mnt, const char *srv_list_file)
-{
-    giga_proc_type = cli_or_srv;  // client or server flag
-
-    init_self_network_IDs();
-    parse_serverlist_file(srv_list_file);
-    if (giga_proc_type == GIGA_CLIENT)
-        init_default_backends((const char*)cli_mnt);
-    else
-        init_default_backends(NULL);
-
-    print_settings();
-}

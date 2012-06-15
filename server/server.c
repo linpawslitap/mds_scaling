@@ -39,20 +39,89 @@
     logMessage(LOG_FATAL, __func__, format, __VA_ARGS__); 
 
 
-static pthread_t listen_tid;    // connection listener thread
-static pthread_t split_tid;     // giga splitting thread
-
+// RPC specific functions
+//
 extern SVCXPRT *svcfd_create (int __sock, u_int __sendsize, u_int __recvsize);
 // FIXME: rpcgen should put this in giga_rpc.h, but it doesn't. Why?
 extern void giga_rpc_prog_1(struct svc_req *rqstp, register SVCXPRT *transp);
 
 // Methods to handle requests from client connections
+//
 static void * handler_thread(void *arg);
+static pthread_t listen_tid;    // connection listener thread
+static pthread_t split_tid;     // giga splitting thread
 
 // Methods to setup server's socket connections
 static void server_socket();
 static void setup_listener(int listen_fd);
 static void * main_select_loop(void * listen_fd);
+
+static void sig_handler(const int sig);
+
+// Methods to initialize GIGA+ specific directories and data structures
+//
+static void init_root_partition();
+static void init_giga_mapping();
+
+int main(int argc, char **argv)
+{
+    int ret = 0;
+
+    if (argc == 2) {
+        printf("usage: %s -p <port_number> -f <server_list_config>\n",argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    
+    setbuf(stderr, NULL);           // set STDERR non-buffering 
+    log_fp = stderr;        
+
+    signal(SIGINT, sig_handler);    // handling SIGINT
+   
+    // initialize logging
+    char log_file[MAX_LEN] = {0};
+    snprintf(log_file, sizeof(log_file), "%s.s", DEFAULT_LOG_FILE_PATH);
+    if ((ret = logOpen(log_file, DEFAULT_LOG_LEVEL)) < 0) {
+        fprintf(stdout, "***ERROR*** during opening log(%s) : [%s]\n",
+                log_file, strerror(ret));
+        return ret;
+    }
+
+    // init GIGA+ options.
+    memset(&giga_options_t, 0, sizeof(struct giga_options));
+    initGIGAsetting(GIGA_SERVER, NULL, DEFAULT_CONF_FILE);    
+
+    init_root_partition();  // init root partition on each server.
+    init_giga_mapping();    // init GIGA+ mapping structure.
+
+    server_socket();        // start server socket(s). 
+
+    if (pthread_create(&split_tid, 0, split_thread, NULL) < 0) 
+        LOG_ERR("ERR_pthread_create(): split_thread(%d)", split_tid);
+
+    if (pthread_detach(split_tid) < 0)
+        LOG_ERR("ERR_pthread_detach(): split_thread(%d)", split_tid);
+
+    // FIXME: we sleep 15 seconds here to let the other servers startup.  This
+    // mechanism needs to be replaced by an intelligent reconnection system.
+    sleep(10);
+    if (giga_options_t.num_servers >= 1) {
+        rpcInit();          // initialize RPC connections
+        rpcConnect();       // try connecting to all servers
+    }
+
+    LOG_ERR("### server[%d] up ...\n", giga_options_t.serverID);
+
+    void *retval;
+
+    pthread_join(listen_tid, &retval);
+
+    exit((long)retval);
+}
+
+/******************************
+ *  STATIC functions in use.  *
+ ******************************/
 
 static 
 void sig_handler(const int sig)
@@ -247,47 +316,49 @@ void server_socket()
 static 
 void init_root_partition()
 {
-    /*
-    struct stat stbuf;
-    if (lstat(giga_options_t.mountpoint, &stbuf) < 0) {
-        if (errno == EEXIST) {
-            logMessage(LOG_DEBUG, __func__, 
-                       "mountpoint(%s) exists.", giga_options_t.mountpoint);
-        }
-        else if (errno == ENOENT) {
-            logMessage(LOG_DEBUG, __func__, 
-                       "mountpoint(%s) setup.", giga_options_t.mountpoint);
-            if (mkdir(giga_options_t.mountpoint, DEFAULT_MODE) < 0) {
-                logMessage(LOG_FATAL, __func__, 
-                           "root creation error: %s", strerror(errno));
-                exit(1);
-            }
-        }
-        else {
-            logMessage(LOG_FATAL, __func__, 
-                       "init root partition error: %s", strerror(errno));
+    LOG_ERR("Check default directories for s[%d] ...", giga_options_t.serverID);
+
+    if (mkdir(DEFAULT_SRV_BACKEND, DEFAULT_MODE) < 0) {
+        if (errno != EEXIST) {
+            LOG_ERR("ERR_mkdir(%s): for srv backend [%s]", 
+                    DEFAULT_SRV_BACKEND, strerror(errno));
+            exit(1);
         }
     }
-    */
     
-    // check if server's backend directory is created.
+    if (mkdir(DEFAULT_LEVELDB_DIR, DEFAULT_MODE) < 0) {
+        if (errno != EEXIST) { 
+            LOG_ERR("ERR_mkdir(%s): for leveldb [%s]", 
+                    DEFAULT_LEVELDB_DIR, strerror(errno));
+            exit(1);
+        }
+    }
+    
+    if (mkdir(DEFAULT_SPLIT_DIR, DEFAULT_MODE) < 0) {
+        if (errno != EEXIST) { 
+            LOG_ERR("ERR_mkdir(%s): for splits [%s]", 
+                    DEFAULT_SPLIT_DIR, strerror(errno));
+            exit(1);
+        }
+    }
+    
     if (mkdir(giga_options_t.mountpoint, DEFAULT_MODE) < 0) {
         if (errno != EEXIST) {
-            LOG_ERR("ERR_mkdir(%s): [%s]", 
+            LOG_ERR("ERR_mkdir(%s): for mountpoint [%s]", 
                     giga_options_t.mountpoint, strerror(errno));
             exit(1);
         }
     }
 
-    // initialize backend based on the type of backend.
+    // initialize backends for each server
+    //
     char ldb_name[MAX_LEN] = {0};
     switch (giga_options_t.backend_type) {
         case BACKEND_RPC_LOCALFS:
             snprintf(ldb_name, sizeof(ldb_name), "%s/0/", 
                      giga_options_t.mountpoint);
-            if (local_mkdir(ldb_name, DEFAULT_MODE) < 0) {
+            if (local_mkdir(ldb_name, DEFAULT_MODE) < 0) 
                 exit(1);
-            }
             break;
         case BACKEND_RPC_LEVELDB:
             //TODO: leveldb setup and initialization
@@ -297,7 +368,8 @@ void init_root_partition()
             metadb_init(&ldb_mds, ldb_name);
             if (giga_options_t.serverID == 0) {
                 if (metadb_create(ldb_mds, ROOT_DIR_ID, 0, OBJ_DIR, object_id, 
-                                  "/", giga_options_t.mountpoint) < 0) {
+                                  "/", giga_options_t.mountpoint) < 0) 
+                {
                     LOG_ERR("mdb_create(%s): error creating root", ldb_name);
                     exit(1);
                 }
@@ -329,83 +401,3 @@ void init_giga_mapping()
 }
 
 
-int main(int argc, char **argv)
-{
-    int ret = 0;
-
-    if (argc == 2) {
-        printf("usage: %s -p <port_number> -f <server_list_config>\n",argv[0]);
-        exit(EXIT_FAILURE);
-    }
-
-    // set STDERR non-buffering 
-    setbuf(stderr, NULL);
-    log_fp = stderr;
-
-    /*
-    char * fs_spec = NULL;
-    char c;
-    while (-1 != (c = getopt(argc, argv,
-                             "p:"           // port number
-                             "f:"           // mount point for server "root"
-           ))) {
-        switch(c) {
-            case 'p':
-                srv_settings.port_num = atoi(optarg);
-                break;
-            case 'f':
-                fs_spec = strdup(optarg);
-                break;
-            default:
-                fprintf(stdout, "Illegal parameter: %c\n", c);
-                exit(1);
-                break;
-        }
-
-    }
-    */
-
-    signal(SIGINT, sig_handler);    // handling SIGINT
-   
-    // initialize logging
-    char log_file[MAX_LEN] = {0};
-    snprintf(log_file, sizeof(log_file), "%s.s", DEFAULT_LOG_FILE_PATH);
-    if ((ret = logOpen(log_file, DEFAULT_LOG_LEVEL)) < 0) {
-        fprintf(stdout, "***ERROR*** during opening log(%s) : [%s]\n",
-                log_file, strerror(ret));
-        return ret;
-    }
-
-    // init GIGA+ options.
-    memset(&giga_options_t, 0, sizeof(struct giga_options));
-    initGIGAsetting(GIGA_SERVER, NULL, DEFAULT_CONF_FILE);    
-
-    init_root_partition();  // init root partition on each server.
-    init_giga_mapping();    // init GIGA+ mapping structure.
-
-    server_socket();        // start server socket(s). 
-
-    if (pthread_create(&split_tid, 0, split_thread, NULL) < 0) {
-        logMessage(LOG_FATAL, __func__, "ERR_pthread: split_thread create()");
-    }
-
-    if (pthread_detach(split_tid) < 0){
-        logMessage(LOG_FATAL, __func__, "ERR_pthread: split_thread_detach()");
-    }
-
-    // FIXME: we sleep 15 seconds here to let the other servers startup.  This
-    // mechanism needs to be replaced by an intelligent reconnection system.
-    sleep(10);
-    if (giga_options_t.num_servers >= 1) {
-        rpcInit();
-        rpcConnect();
-    }
-
-    LOG_ERR("### server[%d] up ...", giga_options_t.serverID);
-
-    void *retval;
-
-    pthread_join(listen_tid, &retval);
-
-    exit((long)retval);
-}

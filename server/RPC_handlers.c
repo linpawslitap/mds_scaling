@@ -3,8 +3,9 @@
 #include "common/connection.h"
 #include "common/defaults.h"
 #include "common/debugging.h"
-#include "common/rpc_giga.h"
 #include "common/options.h"
+#include "common/rpc_giga.h"
+#include "common/giga_index.h"
 
 #include "backends/operations.h"
 
@@ -24,7 +25,8 @@ static
 int check_split_eligibility(struct giga_directory *dir, int index)
 {
     if ((dir->partition_size[index] >= giga_options_t.split_threshold) &&
-        (dir->split_flag == 0)) { 
+        (dir->split_flag == 0) &&
+        (giga_is_splittable(&dir->mapping, index) == 1)) { 
         return true;
     }
 
@@ -252,7 +254,6 @@ start:
                            path_name, strerror(rpc_reply->errnum));
                 break;
             }
-            LOG_MSG("__ret=%d", rpc_reply->errnum);
             */
 
             // create object entry (metadata) in levelDB

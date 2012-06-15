@@ -14,9 +14,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define LOG_ERR(format, ...) \
-    logMessage(LOG_DEBUG, __func__, format, __VA_ARGS__) 
-
 static CLIENT **rpc_clnts;
 
 static int rpc_host_connect(CLIENT **rpc_client, const char *host);

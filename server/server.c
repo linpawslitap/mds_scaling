@@ -35,8 +35,6 @@
 #define LOG_MSG(format, ...) \
     logMessage(SRV_LOG, __func__, format, __VA_ARGS__);
 
-#define LOG_ERR(format, ...) \
-    logMessage(LOG_FATAL, __func__, format, __VA_ARGS__); 
 
 
 // RPC specific functions

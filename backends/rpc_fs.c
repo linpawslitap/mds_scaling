@@ -22,10 +22,6 @@
 #define LOG_MSG(format, ...) \
     logMessage(RPCFS_LOG, __func__, format, __VA_ARGS__); 
 
-#define LOG_ERR(format, ...) \
-    logMessage(LOG_FATAL, __func__, format, __VA_ARGS__); 
-
-
 static 
 void update_client_mapping(struct giga_directory *dir, struct giga_mapping_t *map)
 {
@@ -40,7 +36,7 @@ int get_server_for_file(struct giga_directory *dir, const char *name)
     //                ((&(dir->mapping))->server_count);
     int server_id = giga_get_server_for_index(&dir->mapping, index);
 
-    LOG_MSG("{%s}={p%d->s%d}", name, index, server_id);
+    LOG_MSG("object[%s] goes to p[%d]-on-s[%d]", name, index, server_id);
 
     return server_id;
 
@@ -127,21 +123,6 @@ retry:
             LOG_MSG("ERR_getattr(%s): statbuf is NULL!", path);
     }
 
-    /*
-    int errnum = rpc_reply.result.errnum;
-    if (errnum == -EAGAIN) {
-        update_client_mapping(dir, &rpc_reply.result.giga_result_t_u.bitmap); 
-        goto retry;
-    } else if (errnum < 0) {
-        ret = errnum;
-    } else {
-        *stbuf = rpc_reply.statbuf;
-        if (stbuf == NULL)
-            LOG_MSG("getattr() stbuf is NULL!");
-        ret = errnum;
-    }
-    */
-
     LOG_MSG("<<< RPC_getattr(%s): status=[%d]%s", path, ret, strerror(ret));
     
     return ret;
@@ -179,19 +160,11 @@ retry:
         update_client_mapping(dir, &rpc_reply.giga_result_t_u.bitmap);
         LOG_MSG("bitmap update from s%d -- RETRY ...", server_id); 
         goto retry;
-    } 
-    
-    /*
-    int errnum = rpc_reply.errnum;
-    if (errnum == -EAGAIN) {
-        update_client_mapping(dir, &rpc_reply.giga_result_t_u.bitmap); 
-        goto retry;
-    } else if (errnum < 0) {
-        ret = errnum;
+    } else if (ret < 0) {
+        ;
     } else {
         ret = 0;
     }
-    */
 
     LOG_MSG("<<< RPC_mkdir(%s): status=[%d]%s", path, ret, strerror(ret));
     
@@ -220,7 +193,7 @@ retry:
     if (giga_rpc_mknod_1(dir_id, (char*)path, mode, dev, &rpc_reply, rpc_clnt) 
         != RPC_SUCCESS) {
         LOG_ERR("ERR_rpc_mknod(%s)", clnt_spcreateerror(path));
-        //exit(1);//TODO: retry again?
+        exit(1);//TODO: retry again?
     }
     
     // check return condition 
@@ -230,20 +203,12 @@ retry:
         update_client_mapping(dir, &rpc_reply.giga_result_t_u.bitmap);
         LOG_MSG("bitmap update from s%d -- RETRY ...", server_id); 
         goto retry;
-    } 
-
-    /*
-    int errnum = rpc_reply.errnum;
-    if (errnum == -EAGAIN) {
-        update_client_mapping(dir, &rpc_reply.giga_result_t_u.bitmap);
-        LOG_MSG("client mapping updated. retrying ...");
-        goto retry;
-    } else if (errnum < 0) {
-        ret = errnum;
+    } else if (ret < 0) {
+        ;
     } else {
         ret = 0;
     }
-    */
+
 
     LOG_MSG("<<< RPC_mknod(%s): status=[%d]%s", path, ret, strerror(ret));
     

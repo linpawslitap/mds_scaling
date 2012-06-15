@@ -19,7 +19,8 @@
 
 #define _LEVEL_     LOG_DEBUG
 
-#define LOG_MSG(format, ...) logMessage(_LEVEL_, __func__, format, __VA_ARGS__); 
+#define LOG_MSG(format, ...) \
+    logMessage(_LEVEL_, __func__, format, __VA_ARGS__); 
 
 static struct MetaDB ldb_mds;
 static uint64_t object_id = 0;
@@ -110,7 +111,7 @@ void* GIGAinit(struct fuse_conn_info *conn)
                               ROOT_DIR_ID, 0,
                               OBJ_DIR,
                               object_id, "/", giga_options_t.mountpoint) < 0) {
-                logMessage(LOG_FATAL, __func__, "root entry creation error.");
+                LOG_ERR("root entry creation error(%s)", ROOT_DIR_ID);
                 exit(1);
             }
             break;
@@ -120,7 +121,7 @@ void* GIGAinit(struct fuse_conn_info *conn)
             rpcInit();
             //rpcConnect();     //FIXME: I don't need this 
             if (rpc_init() < 0) {
-                LOG_MSG("RPC_init_err(%s)", ROOT_DIR_ID);
+                LOG_ERR("RPC_init_err(%s)", ROOT_DIR_ID);
                 exit(1);
             }  
             break;
@@ -185,13 +186,7 @@ int GIGAgetattr(const char *path, struct stat *statbuf)
     }
 
     LOG_MSG("<<< FUSE_getattr(p=%s): ret=[%d]", path, ret);
-    /*
-    if (ret == 0) {
-        logMessage(FUSE_LOG, __func__,
-                "==> getattr: gid=%d, uid=%d, mode=%08d",
-                statbuf->st_gid, statbuf->st_uid, statbuf->st_mode);
-    }
-    */
+    
     return ret;
 }
 
@@ -234,6 +229,7 @@ int GIGAmkdir(const char *path, mode_t mode)
     }
     
     LOG_MSG("<<< FUSE_mkdir(p=%s): status=[%d] ", path, ret);
+    
     return ret;
 }
 

@@ -13,12 +13,12 @@ typedef enum backends {
     BACKEND_RPC_LEVELDB         // LevelDB mounted on networked config
 } backend_t;
 
-#define NFS 
+#define LOCAL 
 
 #ifdef  LOCAL        /* LocalFS */
 #define DEFAULT_BACKEND_TYPE    BACKEND_LOCAL_FS
-#define DEFAULT_SRV_BACKEND     "/tmp/giga_srv/"
-#define DEFAULT_LEVELDB_DIR     "/tmp/giga_ldb/"
+#define DEFAULT_SRV_BACKEND     "/l0/giga_srv/"
+#define DEFAULT_LEVELDB_DIR     "/l0/giga_ldb/"
 #define DEFAULT_SPLIT_DIR       "/tmp/splits/"
 #endif
 

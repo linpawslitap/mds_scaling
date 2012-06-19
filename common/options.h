@@ -13,7 +13,7 @@ typedef enum backends {
     BACKEND_RPC_LEVELDB         // LevelDB mounted on networked config
 } backend_t;
 
-#define LOCAL_LDB 
+#define LOCAL_FS
 
 #ifdef  LOCAL_FS    /* LocalFS */
 #define DEFAULT_BACKEND_TYPE    BACKEND_LOCAL_FS
@@ -46,6 +46,7 @@ typedef enum backends {
 // client-side and server side defaults
 //
 #define GIGA_CLIENT     12345           // Magic identifier
+#define DEFAULT_MNT     "/tmp/giga_c"
 
 #define GIGA_SERVER     67890           // Magic identifier
 

@@ -84,8 +84,8 @@ static int parse_path_components(const char *path, char *file, char *dir)
  */
 static void get_full_path(char fpath[PATH_MAX], const char *path)
 {
-    strncpy(fpath, 
-            giga_options_t.mountpoint, strlen(giga_options_t.mountpoint)+1);  
+    strncpy(fpath, DEFAULT_SRV_BACKEND, strlen(DEFAULT_SRV_BACKEND)+1); 
+            //giga_options_t.mountpoint, strlen(giga_options_t.mountpoint)+1);  
     strncat(fpath, path, PATH_MAX);          //XXX: long path names with break!
 
     LOG_MSG("converted [%s] to [%s]", path, fpath);
@@ -98,7 +98,7 @@ void* GIGAinit(struct fuse_conn_info *conn)
     LOG_MSG(">>> FUSE_init(%d)", ROOT_DIR_ID);
 
     (void)conn;
-
+    
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_LEVELDB:
             metadb_init(&ldb_mds, DEFAULT_LEVELDB_DIR);
@@ -157,6 +157,8 @@ int GIGAgetattr(const char *path, struct stat *statbuf)
             get_full_path(fpath, path);
             ret = local_getattr(fpath, statbuf);
             ret = FUSE_ERROR(ret);
+            //if ((ret = lstat(fpath, statbuf)) < 0)
+            //    ret = FUSE_ERROR(ret);
             break;
         case BACKEND_LOCAL_LEVELDB:
             parse_path_components(path, file, dir);
@@ -407,7 +409,7 @@ int GIGAchmod(const char *path, mode_t mode)
 
 int GIGAchown(const char *path, uid_t uid, gid_t gid)
 {
-    LOG_MSG(">>> FUSE_chown(%s): uid=%d, gid=%d ", uid, gid);
+    LOG_MSG(">>> FUSE_chown(%s): uid=%d, gid=%d ", path, uid, gid);
     
     int ret = 0;
     char fpath[PATH_MAX] = {0};
@@ -511,27 +513,17 @@ int GIGAread(const char *path, char *buf, size_t size, off_t offset,
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
             if ((ret = pread(fi->fh, buf, size, offset)) < 0)
-                ret = errno;
+                ret = FUSE_ERROR(ret);
             break;
         default:
-            ret = ENOTSUP;
+            ret = FUSE_ERROR(ENOTSUP);
             break;
     }
     
     LOG_MSG("<<< FUSE_read(%s): ret=[%d:%s]", path, ret, strerror(ret));
         
-    return FUSE_ERROR(ret);
-}
-
-/*
-int GIGAwrite(const char *path, const char *buf, size_t size, off_t offset, 
-              struct fuse_file_info *fi)
-{
-    int ret = 0;
-
     return ret;
 }
-*/
 
 int GIGAwrite(const char *path, const char *buf, size_t size, off_t offset, 
               struct fuse_file_info *fi)
@@ -544,16 +536,16 @@ int GIGAwrite(const char *path, const char *buf, size_t size, off_t offset,
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
             if ((ret = pwrite(fi->fh, buf, size, offset)) < 0)
-                ret = errno;
+                ret = FUSE_ERROR(ret);
             break;
         default:
-            ret = ENOTSUP;
+            ret = FUSE_ERROR(ENOTSUP);
             break;
     }
     
     LOG_MSG("<<< FUSE_write(%s): ret=[%d:%s]", path, ret, strerror(ret));
         
-    return FUSE_ERROR(ret);
+    return ret;
 }
 
 

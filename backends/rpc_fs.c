@@ -2,7 +2,6 @@
 #include "common/cache.h"
 #include "common/connection.h"
 #include "common/debugging.h"
-#include "common/defaults.h"
 #include "common/options.h"
 #include "common/giga_index.h"
 #include "common/rpc_giga.h"

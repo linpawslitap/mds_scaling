@@ -1,12 +1,11 @@
 
-#include "common/connection.h"
-#include "common/defaults.h"
-#include "common/options.h"
-#include "common/rpc_giga.h"
-#include "common/debugging.h"
-
 #include "client.h"
 #include "FUSE_operations.h"
+
+#include "common/connection.h"
+#include "common/debugging.h"
+#include "common/options.h"
+#include "common/rpc_giga.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -50,7 +49,7 @@ static struct fuse_operations giga_oper = {
     .truncate   = GIGAtruncate,
     .utime      = GIGAutime,
     .read       = GIGAread,
-    .write      = NULL,
+    .write      = GIGAwrite,
     .statfs     = GIGAstatfs,
     .flush      = GIGAflush,
     .release    = GIGArelease,
@@ -74,7 +73,7 @@ int main(int argc, char *argv[])
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 
     // initialize logging
-    char log_file[MAX_LEN] = {0};
+    char log_file[PATH_MAX] = {0};
     snprintf(log_file, sizeof(log_file), 
              "%s.c.%d", DEFAULT_LOG_FILE_PATH, (int)getpid());
     if ((ret = logOpen(log_file, DEFAULT_LOG_LEVEL)) < 0) {
@@ -88,7 +87,7 @@ int main(int argc, char *argv[])
     //logOpen(log_fd, DEFAULT_LOG_LEVEL);
     
     memset(&giga_options_t, 0, sizeof(struct giga_options));
-    initGIGAsetting(GIGA_CLIENT, argv[1], DEFAULT_CONF_FILE);
+    initGIGAsetting(GIGA_CLIENT, argv[1], CONFIG_FILE);
 
     if (fuse_opt_parse(&args, &giga_options_t, giga_opts, NULL) == -1)
         return -1;

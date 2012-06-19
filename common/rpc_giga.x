@@ -3,7 +3,6 @@
  */
 
 #include <asm-generic/errno-base.h>
-#include "defaults.h"
 
 #ifdef RPC_HDR
 %#include <sys/types.h>
@@ -18,8 +17,8 @@
 #endif
 
 typedef int giga_dir_id;
-typedef string giga_pathname<MAX_LEN>;
-typedef opaque giga_file_data<MAX_SIZE>;
+typedef string giga_pathname<PATH_MAX>;
+typedef opaque giga_file_data<4096>;
 typedef struct giga_mapping_t giga_bitmap;
 
 struct giga_timestamp_t {

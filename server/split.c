@@ -1,7 +1,6 @@
 
 #include "common/cache.h"
 #include "common/connection.h"
-#include "common/defaults.h"
 #include "common/debugging.h"
 #include "common/rpc_giga.h"
 #include "common/options.h"
@@ -179,7 +178,7 @@ int split_in_localFS(struct giga_directory *dir,
         }
         */
 
-        char parent_path[MAX_LEN] = {0};
+        char parent_path[PATH_MAX] = {0};
         snprintf(parent_path, sizeof(parent_path), 
                  "%s/%d/", giga_options_t.mountpoint, parent_index);
 
@@ -217,7 +216,7 @@ int split_in_levelDB(struct giga_directory *dir,
 {
     int ret = -1;
 
-    char split_dir_path[MAX_LEN] = {0};
+    char split_dir_path[PATH_MAX] = {0};
     snprintf(split_dir_path, sizeof(split_dir_path), 
              "%s/sst-d%d-p%dp%d", 
              DEFAULT_SPLIT_DIR, dir->handle, parent_index, child_index);

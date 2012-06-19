@@ -1,7 +1,6 @@
 
 #include "common/cache.h"
 #include "common/connection.h"
-#include "common/defaults.h"
 #include "common/debugging.h"
 #include "common/options.h"
 #include "common/rpc_giga.h"
@@ -139,7 +138,7 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
     if (index < 0)
         return true;
     
-    char path_name[MAX_LEN];
+    char path_name[PATH_MAX];
 
     switch (giga_options_t.backend_type) {
         case BACKEND_RPC_LOCALFS:
@@ -229,7 +228,7 @@ start:
    
     // regular operations (if no splits)
     
-    char path_name[MAX_LEN] = {0};
+    char path_name[PATH_MAX] = {0};
     
     switch (giga_options_t.backend_type) {
         case BACKEND_RPC_LOCALFS:
@@ -350,7 +349,7 @@ start:
     // regular operations (if no splits)
     //
     
-    char path_name[MAX_LEN];
+    char path_name[PATH_MAX];
 
     switch (giga_options_t.backend_type) {
         case BACKEND_RPC_LOCALFS:

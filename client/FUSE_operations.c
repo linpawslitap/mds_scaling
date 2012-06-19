@@ -2,7 +2,6 @@
 #include "common/cache.h"
 #include "common/connection.h"
 #include "common/debugging.h"
-#include "common/defaults.h"
 #include "common/rpc_giga.h"
 
 #include "backends/operations.h"
@@ -27,7 +26,7 @@ static struct MetaDB ldb_mds;
 static uint64_t object_id = 0;
 
 static int  parse_path_components(const char *path, char *file, char *dir);
-static void get_full_path(char fpath[MAX_LEN], const char *path);
+static void get_full_path(char fpath[], const char *path);
 
 #define FUSE_ERROR(x)   -(x)
 
@@ -53,18 +52,18 @@ static int parse_path_components(const char *path, char *file, char *dir)
 
     int pathlen = strlen(path);
 
-    if (pathlen > MAX_LEN)
+    if (pathlen > PATH_MAX)
         return -ENAMETOOLONG;
     
     p += pathlen;
 	while ( (*p) != '/' && p != path)
 		p--; // Come back till '/'
 
-    if (pathlen - (int)(p - path) > MAX_LEN)
+    if (pathlen - (int)(p - path) > PATH_MAX)
         return -ENAMETOOLONG;
 
     // Copy after slash till end into filename
-	strncpy(file, p+1, MAX_LEN); 
+	strncpy(file, p+1, PATH_MAX); 
 	if (dir) {
 		if (path == p)
 			strncpy(dir, "/", 2);
@@ -83,11 +82,11 @@ static int parse_path_components(const char *path, char *file, char *dir)
  * Appends a given path name with something else.
  *
  */
-static void get_full_path(char fpath[MAX_LEN], const char *path)
+static void get_full_path(char fpath[PATH_MAX], const char *path)
 {
     strncpy(fpath, 
             giga_options_t.mountpoint, strlen(giga_options_t.mountpoint)+1);  
-    strncat(fpath, path, MAX_LEN);          //XXX: long path names with break!
+    strncat(fpath, path, PATH_MAX);          //XXX: long path names with break!
 
     LOG_MSG("converted [%s] to [%s]", path, fpath);
 
@@ -100,13 +99,9 @@ void* GIGAinit(struct fuse_conn_info *conn)
 
     (void)conn;
 
-    char ldb_name[MAX_LEN];
-
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_LEVELDB:
-            snprintf(ldb_name, sizeof(ldb_name), "%s/l%d", 
-                     DEFAULT_LEVELDB_DIR, 0);
-            metadb_init(&ldb_mds, ldb_name);
+            metadb_init(&ldb_mds, DEFAULT_LEVELDB_DIR);
             object_id = 0;
             if (metadb_create(ldb_mds,
                               ROOT_DIR_ID, 0,
@@ -152,9 +147,9 @@ int GIGAgetattr(const char *path, struct stat *statbuf)
     LOG_MSG(">>> FUSE_getattr(%s): stat=[0x%08x]", path, statbuf);
 
     int ret = 0;
-    char fpath[MAX_LEN] = {0};
-    char dir[MAX_LEN] = {0};
-    char file[MAX_LEN] = {0};
+    char fpath[PATH_MAX] = {0};
+    char dir[PATH_MAX] = {0};
+    char file[PATH_MAX] = {0};
     int dir_id = 0;
    
     switch (giga_options_t.backend_type) {
@@ -165,9 +160,7 @@ int GIGAgetattr(const char *path, struct stat *statbuf)
             break;
         case BACKEND_LOCAL_LEVELDB:
             parse_path_components(path, file, dir);
-            ret  = metadb_lookup(ldb_mds,
-                                 0, 0, file,
-                                 statbuf);
+            ret  = metadb_lookup(ldb_mds, 0, 0, file, statbuf);
             ret = FUSE_ERROR(ret);
             break;
         case BACKEND_RPC_LEVELDB:
@@ -196,9 +189,9 @@ int GIGAmkdir(const char *path, mode_t mode)
     LOG_MSG(">>> FUSE_mkdir(%s): mode=[%lo]", path, (unsigned long)mode);
 
     int ret = 0;
-    char fpath[MAX_LEN] = {0};
-    char dir[MAX_LEN] = {0};
-    char file[MAX_LEN] = {0};
+    char fpath[PATH_MAX] = {0};
+    char dir[PATH_MAX] = {0};
+    char file[PATH_MAX] = {0};
     int dir_id = 0;
     
     switch (giga_options_t.backend_type) {
@@ -210,9 +203,7 @@ int GIGAmkdir(const char *path, mode_t mode)
         case BACKEND_LOCAL_LEVELDB:
             parse_path_components(path, file, dir);
             object_id += 1;
-            ret  = metadb_create(ldb_mds, 0, 0,
-                                 OBJ_DIR,
-                                 object_id, file, path);
+            ret  = metadb_create(ldb_mds, 0, 0, OBJ_DIR, object_id, file, path);
             ret = FUSE_ERROR(ret);
             break;
         case BACKEND_RPC_LEVELDB:
@@ -241,8 +232,8 @@ int GIGAmknod(const char *path, mode_t mode, dev_t dev)
 
     int ret = 0;
     char fpath[PATH_MAX];
-    char dir[MAX_LEN] = {0};
-    char file[MAX_LEN] = {0};
+    char dir[PATH_MAX] = {0};
+    char file[PATH_MAX] = {0};
     int dir_id = 0;
     
     switch (giga_options_t.backend_type) {
@@ -254,9 +245,7 @@ int GIGAmknod(const char *path, mode_t mode, dev_t dev)
         case BACKEND_LOCAL_LEVELDB:
             parse_path_components(path, file, dir);
             object_id += 1;
-            ret  = metadb_create(ldb_mds, 0, 0,
-                                 OBJ_MKNOD,
-                                 object_id, file, path);
+            ret = metadb_create(ldb_mds, 0, 0, OBJ_MKNOD, object_id, file, path);
             ret = FUSE_ERROR(ret);
             break;
         case BACKEND_RPC_LOCALFS:
@@ -279,7 +268,7 @@ int GIGAunlink(const char *path)
     LOG_MSG(">>> FUSE_unlink(%s): ", path);
     
     int ret = 0;
-    char fpath[MAX_LEN] = {0};
+    char fpath[PATH_MAX] = {0};
 
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
@@ -302,7 +291,7 @@ int GIGArmdir(const char *path)
     LOG_MSG(">>> FUSE_rmdir(%s): ", path);
     
     int ret = 0;
-    char fpath[MAX_LEN] = {0};
+    char fpath[PATH_MAX] = {0};
 
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
@@ -325,7 +314,7 @@ int GIGAsymlink(const char *path, const char *link)
     LOG_MSG(">>> FUSE_symlink(%s): link=[%s])", path, link);
 
     int ret = 0;
-    char flink[MAX_LEN] = {0};
+    char flink[PATH_MAX] = {0};
 
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
@@ -348,8 +337,8 @@ int GIGArename(const char *path, const char *newpath)
     LOG_MSG(">>> FUSE_rename(%s): to [%s]", path, newpath);
     
     int ret = 0;
-    char fpath[MAX_LEN] = {0};
-    char fnewpath[MAX_LEN] = {0};
+    char fpath[PATH_MAX] = {0};
+    char fnewpath[PATH_MAX] = {0};
 
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
@@ -373,8 +362,8 @@ int GIGAlink(const char *path, const char *newpath)
     LOG_MSG(">>> FUSE_link(%s): to [%s]", path, newpath);
     
     int ret = 0;
-    char fpath[MAX_LEN] = {0};
-    char fnewpath[MAX_LEN] = {0};
+    char fpath[PATH_MAX] = {0};
+    char fnewpath[PATH_MAX] = {0};
 
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
@@ -398,7 +387,7 @@ int GIGAchmod(const char *path, mode_t mode)
     LOG_MSG(">>> FUSE_chmod(%s): mode=%3o ", path, mode);
     
     int ret = 0;
-    char fpath[MAX_LEN] = {0};
+    char fpath[PATH_MAX] = {0};
 
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
@@ -421,7 +410,7 @@ int GIGAchown(const char *path, uid_t uid, gid_t gid)
     LOG_MSG(">>> FUSE_chown(%s): uid=%d, gid=%d ", uid, gid);
     
     int ret = 0;
-    char fpath[MAX_LEN] = {0};
+    char fpath[PATH_MAX] = {0};
 
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
@@ -444,7 +433,7 @@ int GIGAtruncate(const char *path, off_t newsize)
     LOG_MSG(">>> FUSE_truncate(%s): ", path);
     
     int ret = 0;
-    char fpath[MAX_LEN] = {0};
+    char fpath[PATH_MAX] = {0};
 
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
@@ -467,7 +456,7 @@ int GIGAutime(const char *path, struct utimbuf *ubuf)
     LOG_MSG(">>> FUSE_utime(%s): ", path);
     
     int ret = 0;
-    char fpath[MAX_LEN] = {0};
+    char fpath[PATH_MAX] = {0};
 
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
@@ -490,7 +479,7 @@ int GIGAopen(const char *path, struct fuse_file_info *fi)
     LOG_MSG(">>> FUSE_open(%s): fi=[0x%08x])", path, fi);
     
     int ret = 0;
-    char fpath[MAX_LEN] = {0};
+    char fpath[PATH_MAX] = {0};
     int fd;
 
     switch (giga_options_t.backend_type) {
@@ -534,7 +523,17 @@ int GIGAread(const char *path, char *buf, size_t size, off_t offset,
     return FUSE_ERROR(ret);
 }
 
-int GIGAwrite(const char *path, char *buf, size_t size, off_t offset, 
+/*
+int GIGAwrite(const char *path, const char *buf, size_t size, off_t offset, 
+              struct fuse_file_info *fi)
+{
+    int ret = 0;
+
+    return ret;
+}
+*/
+
+int GIGAwrite(const char *path, const char *buf, size_t size, off_t offset, 
               struct fuse_file_info *fi)
 {
     LOG_MSG(">>> FUSE_write(%s): size=%d,offset=%d,buf=[0x%08x] and fi=[0x%08x] ", 
@@ -557,12 +556,13 @@ int GIGAwrite(const char *path, char *buf, size_t size, off_t offset,
     return FUSE_ERROR(ret);
 }
 
+
 int GIGAstatfs(const char *path, struct statvfs *statv)
 {
     LOG_MSG(">>> FUSE_statfs(%s): ", path);
     
     int ret = 0;
-    char fpath[MAX_LEN] = {0};
+    char fpath[PATH_MAX] = {0};
 
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
@@ -633,7 +633,7 @@ int GIGAopendir(const char *path, struct fuse_file_info *fi)
     LOG_MSG(">>> FUSE_opendir(%s): fi=[0x%08x])", path, fi);
     
     int ret = 0;
-    char fpath[MAX_LEN] = {0};
+    char fpath[PATH_MAX] = {0};
     DIR *dp;
 
     switch (giga_options_t.backend_type) {
@@ -719,7 +719,7 @@ int GIGAaccess(const char *path, int mask)
     LOG_MSG(">>> FUSE_access(%s): mask=[0%o]", path, mask);
     
     int ret = 0;
-    char fpath[MAX_LEN] = {0};
+    char fpath[PATH_MAX] = {0};
 
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
@@ -742,7 +742,7 @@ int GIGAcreate(const char *path, mode_t mode, struct fuse_file_info *fi)
     LOG_MSG(">>> FUSE_create(%s): mode=[0%03o]", path, mode);
     
     int ret = 0;
-    char fpath[MAX_LEN] = {0};
+    char fpath[PATH_MAX] = {0};
     int fd = 0;
 
     switch (giga_options_t.backend_type) {
@@ -812,7 +812,7 @@ int GIGAreadlink(const char *path, char *link, size_t size)
     LOG_MSG(">>> FUSE_readlink(%s): link=[%s],size[%d])", path, link, size);
     
     int ret = 0;
-    char fpath[MAX_LEN] = {0};
+    char fpath[PATH_MAX] = {0};
 
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
@@ -839,7 +839,7 @@ int GIGAreadlink(const char *path, char *link, size_t size)
     LOG_MSG(">>> FUSE_XXX(%s): ", path);
     
     int ret = 0;
-    char fpath[MAX_LEN] = {0};
+    char fpath[PATH_MAX] = {0};
 
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:

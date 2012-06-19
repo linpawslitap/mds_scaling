@@ -5,7 +5,6 @@
 #include "common/rpc_giga.h"
 #include "common/connection.h"
 #include "common/debugging.h"
-#include "common/defaults.h"
 #include "common/options.h"
 
 #include "backends/operations.h"
@@ -77,7 +76,7 @@ int main(int argc, char **argv)
     signal(SIGINT, sig_handler);    // handling SIGINT
    
     // initialize logging
-    char log_file[MAX_LEN] = {0};
+    char log_file[PATH_MAX] = {0};
     snprintf(log_file, sizeof(log_file), "%s.s", DEFAULT_LOG_FILE_PATH);
     if ((ret = logOpen(log_file, DEFAULT_LOG_LEVEL)) < 0) {
         fprintf(stdout, "***ERROR*** during opening log(%s) : [%s]\n",
@@ -87,7 +86,7 @@ int main(int argc, char **argv)
 
     // init GIGA+ options.
     memset(&giga_options_t, 0, sizeof(struct giga_options));
-    initGIGAsetting(GIGA_SERVER, NULL, DEFAULT_CONF_FILE);    
+    initGIGAsetting(GIGA_SERVER, NULL, CONFIG_FILE);    
 
     init_root_partition();  // init root partition on each server.
     init_giga_mapping();    // init GIGA+ mapping structure.
@@ -350,7 +349,7 @@ void init_root_partition()
 
     // initialize backends for each server
     //
-    char ldb_name[MAX_LEN] = {0};
+    char ldb_name[PATH_MAX] = {0};
     switch (giga_options_t.backend_type) {
         case BACKEND_RPC_LOCALFS:
             snprintf(ldb_name, sizeof(ldb_name), "%s/0/", 

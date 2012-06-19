@@ -1,7 +1,6 @@
 
 #include "common/connection.h"
 #include "common/debugging.h"
-#include "common/defaults.h"
 #include "common/options.h"
 
 #include <assert.h>
@@ -53,7 +52,7 @@ void init_default_backends(const char *cli_mnt)
 {
     giga_options_t.backend_type = DEFAULT_BACKEND_TYPE;
 
-    giga_options_t.mountpoint = (char*)malloc(sizeof(char) * MAX_LEN);
+    giga_options_t.mountpoint = (char*)malloc(sizeof(char) * PATH_MAX);
     if (giga_options_t.mountpoint == NULL) {
         LOG_MSG("ERR_malloc: %s", strerror(errno));
         exit(1);
@@ -62,10 +61,10 @@ void init_default_backends(const char *cli_mnt)
     switch (giga_proc_type) {
         case GIGA_CLIENT:
             assert (cli_mnt != NULL);
-            snprintf(giga_options_t.mountpoint, MAX_LEN, "%s/", cli_mnt); 
+            snprintf(giga_options_t.mountpoint, PATH_MAX, "%s/", cli_mnt); 
             break;
         case GIGA_SERVER:
-            snprintf(giga_options_t.mountpoint, MAX_LEN, 
+            snprintf(giga_options_t.mountpoint, PATH_MAX, 
                      "%s/s%d/", DEFAULT_SRV_BACKEND, giga_options_t.serverID);
             break;
         default:
@@ -83,18 +82,18 @@ void init_self_network_IDs()
     giga_options_t.ip_addr = NULL;
     giga_options_t.port_num = DEFAULT_PORT;
     
-    if ((giga_options_t.ip_addr = malloc(sizeof(char)*MAX_LEN)) == NULL) {
+    if ((giga_options_t.ip_addr = malloc(sizeof(char)*HOST_NAME_MAX)) == NULL) {
         LOG_MSG("ERR_malloc: %s", strerror(errno));
         exit(1);
     }
     
-    getHostIPAddress(giga_options_t.ip_addr, MAX_LEN);
+    getHostIPAddress(giga_options_t.ip_addr, HOST_NAME_MAX);
 
-    if ((giga_options_t.hostname = malloc(sizeof(char)*MAX_LEN)) == NULL) {
+    if ((giga_options_t.hostname = malloc(sizeof(char)*HOST_NAME_MAX)) == NULL) {
         LOG_MSG("ERR_malloc: %s", strerror(errno));
         exit(1);
     }
-    if (gethostname(giga_options_t.hostname, MAX_LEN) < 0) {
+    if (gethostname(giga_options_t.hostname, HOST_NAME_MAX) < 0) {
         LOG_MSG("ERR_gethostname: %s", strerror(errno));
         exit(1);
     }
@@ -106,32 +105,32 @@ static
 void parse_serverlist_file(const char *serverlist_file)
 {
     FILE *conf_fp;
-    char ip_addr[MAX_LEN];
+    char ip_addr[HOST_NAME_MAX];
 
     if ((conf_fp = fopen(serverlist_file, "r+")) == NULL) {
         LOG_MSG("ERR_open(%s): %s", serverlist_file, strerror(errno));
         exit(1);
     }
    
-    giga_options_t.split_threshold = DEFAULT_SPLIT_THRESHOLD;
+    giga_options_t.split_threshold = SPLIT_THRESH;
     giga_options_t.serverlist = NULL;
     giga_options_t.num_servers = 0;
     
-    if ((giga_options_t.serverlist = malloc(sizeof(char*)*MAX_LEN)) == NULL) {
+    if ((giga_options_t.serverlist = malloc(sizeof(char*) * MAX_SERVERS)) == NULL) {
         LOG_MSG("ERR_malloc: %s", strerror(errno));
         fclose(conf_fp);
         exit(1);
     }
 
     //logMessage(LOG_TRACE, __func__, "SERVER_LIST=...");
-    while (fgets(ip_addr, MAX_LEN, conf_fp) != NULL) {
+    while (fgets(ip_addr, HOST_NAME_MAX, conf_fp) != NULL) {
         if (ip_addr[0] == '#')
             continue;
 
         ip_addr[strlen(ip_addr)-1]='\0';
 
         int i = giga_options_t.num_servers;
-        giga_options_t.serverlist[i] = (char*)malloc(sizeof(char)*MAX_LEN);
+        giga_options_t.serverlist[i] = (char*)malloc(sizeof(char) * HOST_NAME_MAX);
         if (giga_options_t.serverlist[i] == NULL) {
             LOG_MSG("ERR_malloc: %s", strerror(errno));
             fclose(conf_fp);

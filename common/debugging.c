@@ -9,7 +9,6 @@
 #include <unistd.h>
 
 #include "debugging.h"
-#include "defaults.h"
 
 /*
 static char *log_level_str[5] = {

@@ -28,7 +28,7 @@ int GIGAutime(const char *path, struct utimbuf *ubuf);
 int GIGAopen(const char *path, struct fuse_file_info *fi);
 int GIGAread(const char *path, char *buf, size_t size, off_t offset, 
              struct fuse_file_info *fi);
-int GIGAwrite(const char *path, char *buf, size_t size, off_t offset, 
+int GIGAwrite(const char *path, const char *buf, size_t size, off_t offset, 
               struct fuse_file_info *fi);
 
 int GIGAstatfs(const char *path, struct statvfs *statv);

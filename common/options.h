@@ -13,10 +13,17 @@ typedef enum backends {
     BACKEND_RPC_LEVELDB         // LevelDB mounted on networked config
 } backend_t;
 
-#define LOCAL 
+#define LOCAL_LDB 
 
-#ifdef  LOCAL        /* LocalFS */
+#ifdef  LOCAL_FS    /* LocalFS */
 #define DEFAULT_BACKEND_TYPE    BACKEND_LOCAL_FS
+#define DEFAULT_SRV_BACKEND     "/l0/giga_srv/"
+#define DEFAULT_LEVELDB_DIR     "/l0/giga_ldb/"
+#define DEFAULT_SPLIT_DIR       "/tmp/splits/"
+#endif
+
+#ifdef  LOCAL_LDB   /* LocalFS */
+#define DEFAULT_BACKEND_TYPE    BACKEND_LOCAL_LEVELDB
 #define DEFAULT_SRV_BACKEND     "/l0/giga_srv/"
 #define DEFAULT_LEVELDB_DIR     "/l0/giga_ldb/"
 #define DEFAULT_SPLIT_DIR       "/tmp/splits/"
@@ -36,9 +43,18 @@ typedef enum backends {
 #define DEFAULT_SPLIT_DIR       "/users/svp/_splits/"
 #endif
 
+// client-side and server side defaults
+//
+#define GIGA_CLIENT     12345           // Magic identifier
 
-#define GIGA_CLIENT 12345
-#define GIGA_SERVER 67890
+#define GIGA_SERVER     67890           // Magic identifier
+
+#define MAX_SERVERS     128             // MAX number of GIGA+ servers
+#define DEFAULT_PORT    45678           // Default port used by GIGA+ servers
+#define SPLIT_THRESH    8000            // Default directory split theshold
+#define CONFIG_FILE     "/tmp/.giga"    // Default config file location
+
+#define ROOT_DIR_ID     0
 
 // Configuration options used by GIGA+ client and server.
 //

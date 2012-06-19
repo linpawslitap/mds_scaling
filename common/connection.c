@@ -1,4 +1,4 @@
-#include "defaults.h"
+
 #include "options.h"
 #include "rpc_giga.h"
 #include "connection.h"
@@ -109,9 +109,9 @@ int rpc_host_connect(CLIENT **rpc_client, const char *host)
 
 void getHostIPAddress(char *ip_addr, int ip_addr_len)
 {
-    char hostname[MAX_LEN] = {0};
-    hostname[MAX_LEN-1] = '\0';
-    gethostname(hostname, MAX_LEN-1);
+    char hostname[HOST_NAME_MAX] = {0};
+    hostname[HOST_NAME_MAX-1] = '\0';
+    gethostname(hostname, HOST_NAME_MAX-1);
 
     //fprintf(stdout, "[%s] finding IP addr of host=%s\n", __func__, hostname);
 

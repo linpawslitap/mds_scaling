@@ -63,7 +63,7 @@ static struct fuse_operations giga_oper = {
     .releasedir = GIGAreleasedir,
     .fsyncdir   = GIGAfsyncdir,
     .access     = GIGAaccess,
-    .create     = GIGAcreate,
+    .create     = NULL,
     .ftruncate  = GIGAftruncate
 };
 

@@ -141,7 +141,7 @@ void getHostIPAddress(char *ip_addr, int ip_addr_len)
 
     //fprintf(stdout, "[%s] finding non-loopback IP addr ... \n", __func__);
 
-    void *ptr;
+    void *ptr = NULL;
     struct addrinfo *p;
     for (p = info; p != NULL; p = p->ai_next) {
         inet_ntop (p->ai_family, p->ai_addr->sa_data, ip_addr, ip_addr_len);

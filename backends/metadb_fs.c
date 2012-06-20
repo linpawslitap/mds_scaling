@@ -135,7 +135,7 @@ static void CmpDestroy(void* arg) { assert(arg==NULL); }
 
 static int CmpCompare(void* arg, const char* a, size_t alen,
                       const char* b, size_t blen) {
-  assert(arg==NULL);
+  assert(arg==NULL); 
   int n = (alen < blen) ? alen : blen;
   int r = memcmp(a, b, n);
   if (r == 0) {
@@ -146,7 +146,7 @@ static int CmpCompare(void* arg, const char* a, size_t alen,
 }
 
 static const char* CmpName(void* arg) {
-  assert(arg==NULL);
+  assert(arg==NULL); 
   return "foo";
 }
 
@@ -472,7 +472,8 @@ int metadb_extract_do(struct MetaDB mdb,
 
     if (!leveldb_iter_valid(iter)) {
 
-        uint64_t min_seq, max_seq;
+        uint64_t min_seq = 0;
+        uint64_t max_seq = 0;
         leveldb_iter_seek(iter, (char *) &mobj_key, METADB_KEY_LEN);
 
         while (leveldb_iter_valid(iter)) {

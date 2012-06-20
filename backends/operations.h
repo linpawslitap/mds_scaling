@@ -1,13 +1,26 @@
 #ifndef OPERATIONS_H
 #define OPERATIONS_H
 
+#include <limits.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #include "./leveldb/include/leveldb/c.h"
 #include "common/giga_index.h"
-#include "common/defaults.h"
+
+/* 
+ * File/Directory permission bits 
+ * */
+#define DEFAULT_MODE    (S_IRWXU | S_IRWXG | S_IRWXO )
+
+#define USER_RW         (S_IRUSR | S_IWUSR)
+#define GRP_RW          (S_IRGRP | S_IWGRP)
+#define OTHER_RW        (S_IROTH | S_IWOTH)
+
+#define CREATE_MODE     (USER_RW | GRP_RW | OTHER_RW)
+#define CREATE_FLAGS    (O_CREAT | O_APPEND)
+#define CREATE_RDEV     0
 
 /*
  * Operations for local file system as the backend.
@@ -57,7 +70,7 @@ typedef struct Extract {
     metadb_inode_t dir_id;
     int old_partition_id;
     int new_partition_id;
-    char dir_with_new_partition[MAX_LEN];
+    char dir_with_new_partition[PATH_MAX];
 
     leveldb_t* extract_db;
     int in_extraction;
@@ -163,12 +176,12 @@ struct LevelDB ldb;
 struct LevelDB_key {
     int dir_id;
     int partition_id;
-    char obj_name[MAX_LEN];
+    char obj_name[PATH_MAX];
 };
 
 struct LevelDB_val {
     struct stat statbuf;
-    char realpath[MAX_LEN];
+    char realpath[PATH_MAX];
 };
 
 

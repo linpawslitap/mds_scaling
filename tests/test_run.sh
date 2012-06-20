@@ -16,18 +16,20 @@ fi
 cli=`cat ${NUM_FUSE_CLI} | wc -l`
 host=`hostname | cut -d'.' -f 1`
 
+#cli=$2
+
 if [ $cli -gt 1 ]
 then
     for (( i=1; i<=$cli; i++)) 
     do
-        echo "test instance $i ..."
+        echo "test instance $i of $cli ..."
         dir=${MNT}/${i}
-        out="~/_perf/$host.$i"
         ( time ./mknod_test ${dir} $1 ) > ~/_perf/$host.$i 2>&1 &
+        #( time ./mknod_test ${MNT} $1 ) > ~/_perf/$host.$i 2>&1 &
     done
 else
-    out="~/_perf/$host.0"
-    ( time ./mknod_test ${MNT} $1 ) > ~/_perf/$host.$i 2>&1 &
+    echo "single test instance ..."
+    ( time ./mknod_test ${MNT} $1 ) > ~/_perf/$host 2>&1 &
 fi
 
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-#MNT="/tmp"
-MNT="/m/pvfs"
+MNT="/l0"
+#MNT="/m/pvfs"
 GIGA="${MNT}/giga_srv/"
 LDB="${MNT}/giga_ldb/"
 

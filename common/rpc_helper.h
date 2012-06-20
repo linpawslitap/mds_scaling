@@ -1,10 +1,10 @@
 #ifndef GIGA_RPC_HELPER_H
 #define GIGA_RPC_HELPER_H   
 
+#include <inttypes.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
-#include <inttypes.h>
 
 #include "giga_index.h"
 

@@ -57,6 +57,10 @@ void logClose(void);
 
 void logMessage(log_level_t lev, const char *location, const char *format, ...);
 
+#define LOG_ERR(format, ...) \
+    logMessage(LOG_FATAL, __func__, format, __VA_ARGS__) 
+
+
 /*
  * Macros for mutex debugging.
  */

@@ -266,6 +266,30 @@ class PosixEnv : public Env {
     return s;
   }
 
+  virtual Status CopyFile(const std::string& src, const std::string& target) {
+    Status result;
+    
+    int r_fd, w_fd;
+    if ((r_fd = open(src.c_str(), O_RDONLY)) < 0) {
+      result = IOError(src, errno);
+      return result;
+    }
+    if ((w_fd = open(target.c_str(), O_CREAT | O_TRUNC | O_WRONLY, 0644)) < 0) {
+      result = IOError(target, errno);
+      return result;
+    }
+    
+    int p[2];
+    pipe(p); 
+    
+    while(splice(p[0], 0, w_fd, 0, splice(r_fd, 0, p[1], 0, 4096, 0), 0) > 0);
+   
+    close(r_fd);
+    close(w_fd);
+
+    return result;
+  }
+
   virtual Status RenameFile(const std::string& src, const std::string& target) {
     Status result;
     if (rename(src.c_str(), target.c_str()) != 0) {

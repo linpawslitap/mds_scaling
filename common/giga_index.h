@@ -21,14 +21,14 @@ typedef int index_t;                    // Index is the position in the bitmap
 
 // Support different modes of splitting in GIGA+
 //
-#define SPLIT_T_NO_BOUND            1111
-#define SPLIT_T_NO_SPLITTING_EVER   2222
-#define SPLIT_T_NUM_SERVERS_BOUND   3333
-#define SPLIT_T_NEXT_HIGHEST_POW2   4444
+#define SPLIT_T_NO_BOUND            1111    // keep splitting
+#define SPLIT_T_NO_SPLITTING_EVER   2222    // static all way splitting
+#define SPLIT_T_NUM_SERVERS_BOUND   3333    // stop splitting and load balanced
+#define SPLIT_T_NEXT_HIGHEST_POW2   4444    // UNDEFINED yet
 
 #define SPLIT_TYPE                  SPLIT_T_NUM_SERVERS_BOUND
 
-#define MAX_BKTS_PER_SERVER         2 
+#define MAX_BKTS_PER_SERVER         1 
 
 // To avoid the signed and unsigned bit business, we just use the 7-bits in
 // every byte to represent the bitmap

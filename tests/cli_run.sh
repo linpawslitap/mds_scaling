@@ -22,6 +22,7 @@ do
     rm -rf $dir
 done
 
+killall -9 giga_client
 rm -rf /tmp/dbg.log.c.*
 mkdir -p $MNT
 
@@ -51,6 +52,7 @@ n)  # background, default mode (check for multiple clients)
 echo '' > $NUM_FUSE_CLI     # track PIDs of FUSE clients
 if [ $# -eq 2 ]
 then
+	echo "creating $2 FUSE instances ..."
     if [ $2 -gt 1 ]
     then
         for (( i=1; i<=$2; i++)) 

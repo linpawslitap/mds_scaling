@@ -13,7 +13,7 @@ typedef enum backends {
     BACKEND_RPC_LEVELDB         // LevelDB mounted on networked config
 } backend_t;
 
-#define LOCAL_LDB 
+#define NFS 
 
 #ifdef  LOCAL_FS    /* LocalFS */
 #define DEFAULT_BACKEND_TYPE    BACKEND_LOCAL_FS

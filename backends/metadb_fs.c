@@ -30,15 +30,6 @@
   }
 
 static
-void safe_free(char** ptr)
-{
-    if (*ptr) {
-        free(*ptr);
-        *ptr = NULL;
-    }
-}
-
-static
 void init_meta_obj_key(metadb_key_t *mkey,
                        metadb_inode_t dir_id, int partition_id, const char* path)
 {
@@ -131,11 +122,12 @@ void init_meta_obj_statbuf(metadb_obj_t* mobj,
     mobj->statbuf.st_ctime = now;
 }
 
+/*
 static void CmpDestroy(void* arg) { assert(arg==NULL); }
 
 static int CmpCompare(void* arg, const char* a, size_t alen,
                       const char* b, size_t blen) {
-  assert(arg==NULL); 
+  assert(arg==NULL);
   int n = (alen < blen) ? alen : blen;
   int r = memcmp(a, b, n);
   if (r == 0) {
@@ -146,21 +138,21 @@ static int CmpCompare(void* arg, const char* a, size_t alen,
 }
 
 static const char* CmpName(void* arg) {
-  assert(arg==NULL); 
+  assert(arg==NULL);
   return "foo";
 }
-
+*/
 int metadb_init(struct MetaDB *mdb, const char *mdb_name)
 {
     char* err = NULL;
 
     mdb->env = leveldb_create_default_env();
     mdb->cache = leveldb_cache_create_lru(DEFAULT_LEVELDB_CACHE_SIZE);
-    mdb->cmp = leveldb_comparator_create(NULL, CmpDestroy, CmpCompare, CmpName);
+//    mdb->cmp = leveldb_comparator_create(NULL, CmpDestroy, CmpCompare, CmpName);
 
     mdb->options = leveldb_options_create();
     leveldb_options_set_cache(mdb->options, mdb->cache);
-    leveldb_options_set_comparator(mdb->options, mdb->cmp);
+//    leveldb_options_set_comparator(mdb->options, mdb->cmp);
     leveldb_options_set_env(mdb->options, mdb->env);
     leveldb_options_set_create_if_missing(mdb->options, 1);
     leveldb_options_set_info_log(mdb->options, NULL);
@@ -234,7 +226,9 @@ int metadb_create(struct MetaDB mdb,
 
 //    RELEASE_RWLOCK(&(mdb.rwlock_extract), "metadb_create(%s)", path);
 
-    safe_free((char **) (&mobj));
+    if (mobj != NULL) {
+        free(mobj);
+    }
     if (err != NULL)
       ret = -1;
 
@@ -268,7 +262,10 @@ int metadb_lookup(struct MetaDB mdb,
         mobj = (metadb_obj_t*)val;
         *stbuf = mobj->statbuf;
         logMessage(METADB_LOG, __func__, "lookup found entry(%s).", path);
-        safe_free(&val);
+        if (val != NULL) {
+            free(val);
+            val = NULL;
+        }
     } else {
         /*
         if (mdb.extraction->in_extraction) {

@@ -19,7 +19,7 @@ void print_meta_obj_key(metadb_key_t *mkey) {
         printf("%c", mkey->name_hash[i]);
     printf("\n");
 }
-
+/*
 static
 void print_entries(void* buf, metadb_key_t* iter_key, metadb_obj_t* iter_obj) {
     if (entry_list[num_print_entries] != NULL) {
@@ -29,7 +29,7 @@ void print_entries(void* buf, metadb_key_t* iter_key, metadb_obj_t* iter_obj) {
     if (iter_obj != NULL && buf == NULL)
         print_meta_obj_key(iter_key);
 }
-
+*/
 static
 void init_meta_obj_key(metadb_key_t *mkey,
                        metadb_inode_t dir_id,

@@ -50,7 +50,6 @@ void init_meta_obj_key(metadb_key_t *mkey,
 
 static
 void print_meta_obj_key(metadb_key_t *mkey) {
-//    printf("%ld, %ld, %s\n", mkey->parent_id, mkey->partition_id, mkey->name_hash);
     printf("%s\n",  mkey->name_hash);
 }
 
@@ -223,13 +222,17 @@ int metadb_create(struct MetaDB mdb,
     init_meta_obj_statbuf(mobj, inode_id, entry_type);
     size_t msize = metadb_obj_size(mobj);
 
-    ACQUIRE_RWLOCK_READ(&(mdb.rwlock_extract), "metadb_create(%s)", path);
+    //ACQUIRE_RWLOCK_READ(&(mdb.rwlock_extract), "metadb_create(%s)", path);
+
+    ACQUIRE_MUTEX(&(mdb.mtx_leveldb), "metadb_create(%s)", path);
 
     leveldb_put(mdb.db, mdb.insert_options,
                 (const char*) &mobj_key, METADB_KEY_LEN,
                 (const char*) mobj, msize, &err);
 
-    RELEASE_RWLOCK(&(mdb.rwlock_extract), "metadb_create(%s)", path);
+    RELEASE_MUTEX(&(mdb.mtx_leveldb), "metadb_create(%s)", path);
+
+//    RELEASE_RWLOCK(&(mdb.rwlock_extract), "metadb_create(%s)", path);
 
     safe_free((char **) (&mobj));
     if (err != NULL)
@@ -338,7 +341,7 @@ int metadb_readdir(struct MetaDB mdb,
 
   init_meta_obj_seek_key(&mobj_key, dir_id, partition_id);
 
-  ACQUIRE_MUTEX(&(mdb.mtx_leveldb), 
+  ACQUIRE_MUTEX(&(mdb.mtx_leveldb),
                 "metadb_readdir(p[%d])", partition_id);
 
   leveldb_iterator_t* iter = leveldb_create_iterator(mdb.db, mdb.scan_options);

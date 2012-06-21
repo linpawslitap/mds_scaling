@@ -9,8 +9,8 @@
 #include "./leveldb/include/leveldb/c.h"
 #include "common/giga_index.h"
 
-/* 
- * File/Directory permission bits 
+/*
+ * File/Directory permission bits
  * */
 #define DEFAULT_MODE    (S_IRWXU | S_IRWXG | S_IRWXO )
 
@@ -57,14 +57,26 @@ typedef struct MetaDB_key {
     char name_hash[HASH_LEN];
 } metadb_key_t;
 
-typedef struct MetaDB_obj {
+typedef struct {
     struct stat statbuf;
-    metadb_obj_type_t obj_type;
     size_t objname_len;
     char* objname;
     size_t realpath_len;
     char* realpath;
-} metadb_obj_t;
+} metadb_val_header_t;
+
+typedef struct {
+    char data;
+} metadb_val_file_t;
+
+typedef struct {
+    bitmap_t bitmap[MAX_BMAP_LEN];
+} metadb_val_dir_t;
+
+typedef struct {
+    size_t size;
+    char* value;
+} metadb_val_t;
 
 typedef struct Extract {
     metadb_inode_t dir_id;
@@ -100,10 +112,9 @@ struct MetaDB {
     pthread_mutex_t     mtx_leveldb;
 };
 
-typedef void (*fill_dir_t)(void* buf, metadb_key_t* iter_key, metadb_obj_t* iter_obj);
+typedef void (*fill_dir_t)(void* buf, metadb_key_t* iter_key, metadb_val_t* iter_val);
 
-typedef void (*iden_part_t)(const char* entry, const int partition_id);
-
+typedef int (*update_func_t)(metadb_val_t* mval, void* arg1);
 
 int metadb_init(struct MetaDB *mdb, const char *mdb_name);
 
@@ -149,10 +160,17 @@ int metadb_bulkinsert(struct MetaDB mdb,
                       uint64_t min_sequence_number,
                       uint64_t max_sequence_number);
 
-void metadb_test_put_and_get(struct MetaDB mdb,
-                             const metadb_inode_t dir_id,
-                             const int partition_id,
-                             const char *path);
+int metadb_read_bitmap(struct MetaDB mdb,
+                       const metadb_inode_t dir_id,
+                       const int partition_id,
+                       const char* path,
+                       bitmap_t* bitmap);
+
+int metadb_write_bitmap(struct MetaDB mdb,
+                        const metadb_inode_t dir_id,
+                        const int partition_id,
+                        const char* path,
+                        bitmap_t* bitmap);
 
 /* SVP: trying new leveldb code as is ... */
 /******************************************/
@@ -164,7 +182,7 @@ struct LevelDB {
     leveldb_cache_t* cache;     // Cache object: If set, individual blocks 
                                 // (of levelDB files) are cached using LRU.
     leveldb_env_t* env;
-    
+
     leveldb_options_t* options;
 
     leveldb_readoptions_t*  roptions;

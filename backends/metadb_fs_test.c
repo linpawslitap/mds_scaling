@@ -56,6 +56,7 @@ void run_test(int nargs, char* args[]) {
     metadb_init(&mdb, dbname);
     metadb_init(&mdb2, dbname2);
 
+    int ret;
     int dir_id = 0;
     int partition_id = 0;
     int new_partition_id = 1;
@@ -67,7 +68,14 @@ void run_test(int nargs, char* args[]) {
     metadb_inode_t i = 0;
 
     snprintf(filename, MAX_FILENAME_LEN, "%08x", 10000);
-    metadb_test_put_and_get(mdb, dir_id, partition_id, filename);
+    bitmap_t mybitmap[MAX_BMAP_LEN];
+
+    ret = metadb_read_bitmap(mdb, 0, 0, "/", mybitmap);
+    assert(ret == 0);
+
+    ret = metadb_write_bitmap(mdb, 0, 0, "/", mybitmap);
+    assert(ret == 0);
+
     metadb_lookup(mdb, dir_id, partition_id, filename, &statbuf);
 
     size_t num_test_entries = MAX_NUM_ENTRIES;
@@ -90,7 +98,7 @@ void run_test(int nargs, char* args[]) {
     printf("moved entries: %d \n", num_migrated_entries);
 
     uint64_t min_seq, max_seq;
-    int ret = metadb_extract_do(mdb, dir_id, partition_id,
+    ret = metadb_extract_do(mdb, dir_id, partition_id,
                                 new_partition_id, extname,
                                 &min_seq, &max_seq);
     printf("ret: %d\n", ret);

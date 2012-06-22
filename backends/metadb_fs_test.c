@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <string.h>
 
+
 #define MAX_FILENAME_LEN 1024
 #define MAX_NUM_ENTRIES 10000
 #define FILE_FORMAT "%016lx"
@@ -68,19 +69,32 @@ void run_test(int nargs, char* args[]) {
     metadb_inode_t i = 0;
 
     snprintf(filename, MAX_FILENAME_LEN, "%08x", 10000);
-    bitmap_t mybitmap[MAX_BMAP_LEN];
+    struct giga_mapping_t mybitmap;
 
-    ret = metadb_read_bitmap(mdb, 0, 0, "/", mybitmap);
+    assert(metadb_create(mdb, 0, 0, OBJ_DIR, 0, "/", "/") == 0);
+
+    ret = metadb_read_bitmap(mdb, 0, 0, "/", &mybitmap);
     assert(ret == 0);
 
-    ret = metadb_write_bitmap(mdb, 0, 0, "/", mybitmap);
+    mybitmap.curr_radix = 0;
+    mybitmap.zeroth_server = 10;
+    mybitmap.server_count = 21;
+
+    ret = metadb_write_bitmap(mdb, 0, 0, "/", &mybitmap);
     assert(ret == 0);
+
+    memset(&mybitmap, 0, sizeof(mybitmap));
+    ret = metadb_read_bitmap(mdb, 0, 0, "/", &mybitmap);
+    assert(ret == 0);
+    assert(mybitmap.curr_radix == 0);
+    assert(mybitmap.zeroth_server == 10);
+    assert(mybitmap.server_count == 21);
 
     metadb_lookup(mdb, dir_id, partition_id, filename, &statbuf);
 
     size_t num_test_entries = MAX_NUM_ENTRIES;
 
-    for (i = 0; i < num_test_entries; ++i) {
+    for (i = 1; i <= num_test_entries; ++i) {
         memset(filename, 0, sizeof(filename));
         snprintf(filename, MAX_FILENAME_LEN, FILE_FORMAT, i);
         memset(backup, 0, sizeof(filename));

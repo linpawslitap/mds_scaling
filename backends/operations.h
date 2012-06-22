@@ -70,7 +70,7 @@ typedef struct {
 } metadb_val_file_t;
 
 typedef struct {
-    bitmap_t bitmap[MAX_BMAP_LEN];
+    struct giga_mapping_t mapping;
 } metadb_val_dir_t;
 
 typedef struct {
@@ -164,13 +164,13 @@ int metadb_read_bitmap(struct MetaDB mdb,
                        const metadb_inode_t dir_id,
                        const int partition_id,
                        const char* path,
-                       bitmap_t* bitmap);
+                       struct giga_mapping_t* bitmap);
 
 int metadb_write_bitmap(struct MetaDB mdb,
                         const metadb_inode_t dir_id,
                         const int partition_id,
                         const char* path,
-                        bitmap_t* bitmap);
+                        struct giga_mapping_t* bitmap);
 
 /* SVP: trying new leveldb code as is ... */
 /******************************************/

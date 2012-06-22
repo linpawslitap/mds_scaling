@@ -312,14 +312,13 @@ int metadb_update_internal(struct MetaDB mdb,
     } else {
         mobj_val.value = NULL;
         mobj_val.size = 0;
-        ret = -1;
+        ret = -ENOENT;
     }
 
     RELEASE_MUTEX(&(mdb.mtx_leveldb), "metadb_update_internal(%s)", path);
 
     return ret;
 }
-
 
 int metadb_lookup(struct MetaDB mdb,
                   const metadb_inode_t dir_id, const int partition_id,
@@ -346,15 +345,17 @@ int metadb_read_bitmap(struct MetaDB mdb,
                        const metadb_inode_t dir_id,
                        const int partition_id,
                        const char* path,
-                       bitmap_t* bitmap) {
+                       struct giga_mapping_t* mapping) {
     int ret = 0;
     metadb_val_t mobj_val;
 
     mobj_val = metadb_lookup_internal(mdb, dir_id, partition_id, path);
 
     if (mobj_val.size != 0) {
-        bitmap_t* mobj_bitmap = (bitmap_t*) (mobj_val.value + metadb_header_size(&mobj_val));
-        memcpy(bitmap, mobj_bitmap, MAX_BMAP_LEN);
+        struct giga_mapping_t* mobj_mapping =
+            (struct giga_mapping_t*) (mobj_val.value
+                                    + metadb_header_size(&mobj_val));
+        *mapping = *mobj_mapping;
         logMessage(METADB_LOG, __func__, "read_bitmap found entry(%s).", path);
     } else {
         logMessage(METADB_LOG, __func__, "entry(%s) not found.", path);
@@ -366,9 +367,10 @@ int metadb_read_bitmap(struct MetaDB mdb,
 }
 
 int metadb_write_bitmap_handler(metadb_val_t* mobj_val, void* arg1) {
-    bitmap_t* mobj_bitmap = (bitmap_t*) (mobj_val->value
-                                        + metadb_header_size(mobj_val));
-    memcpy(mobj_bitmap, (char *) arg1, MAX_BMAP_LEN);
+    struct giga_mapping_t* mobj_mapping =
+        (struct giga_mapping_t*) ( mobj_val->value
+                                 + metadb_header_size(mobj_val));
+    *mobj_mapping = *((struct giga_mapping_t *) arg1);
     return 0;
 }
 
@@ -376,10 +378,10 @@ int metadb_write_bitmap(struct MetaDB mdb,
                         const metadb_inode_t dir_id,
                         const int partition_id,
                         const char* path,
-                        bitmap_t* bitmap) {
+                        struct giga_mapping_t* mapping) {
     return metadb_update_internal(mdb, dir_id, partition_id, path,
                                   metadb_write_bitmap_handler,
-                                  (void *) bitmap);
+                                  (void *) mapping);
 }
 
 int metadb_close(struct MetaDB mdb) {

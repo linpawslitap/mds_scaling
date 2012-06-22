@@ -58,7 +58,7 @@ static void mknod_files(const char *dir)
         char path[512] = {0};
         snprintf(path, sizeof(path), "%s/%s_p%d_f%d", dir, hostname, pid, i);
         if (mknod(path, m, d) < 0) {
-            printf ("ERR_mknod(%s): %s\n", path, strerror(errno));
+            printf ("mknod(%s): %s\n", path, strerror(errno));
             return;
         }
     }

@@ -316,6 +316,9 @@ void server_socket()
 static 
 void initialize_metadb(const char *mdb_name)
 {
+    if (0)
+        LOG_ERR("ERR_mdb_init(%s) failed ...", mdb_name);
+#if 0
     int ret = metadb_init(&ldb_mds, mdb_name);
 
     int ROOT_PARTITION_ID = 0;
@@ -350,7 +353,7 @@ void initialize_metadb(const char *mdb_name)
             // TODO: update the cache too?
         }
     }
-
+#endif
 }
 
 static 
@@ -406,7 +409,6 @@ void init_root_partition()
             snprintf(ldb_name, sizeof(ldb_name), 
                      "%s/l%d", DEFAULT_LEVELDB_DIR, giga_options_t.serverID);
             initialize_metadb(ldb_name);
-            /*
             if (metadb_init(&ldb_mds, ldb_name) < 0) {
                 LOG_ERR("ERR_mdb_init(%s) failed ...", ldb_name);
                 exit(1);
@@ -419,7 +421,6 @@ void init_root_partition()
                     exit(1);
                 }
             }
-            */
             break;
         default:
             break;

@@ -151,7 +151,7 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name)
     mdb->options = leveldb_options_create();
     leveldb_options_set_cache(mdb->options, mdb->cache);
     leveldb_options_set_env(mdb->options, mdb->env);
-    leveldb_options_set_create_if_missing(mdb->options, 0);
+    leveldb_options_set_create_if_missing(mdb->options, 1);
     leveldb_options_set_info_log(mdb->options, NULL);
     leveldb_options_set_write_buffer_size(mdb->options,
                                           DEFAULT_WRITE_BUFFER_SIZE);
@@ -177,8 +177,15 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name)
     pthread_mutex_init(&(mdb->mtx_bulkload), NULL);
     pthread_mutex_init(&(mdb->mtx_leveldb), NULL);
     pthread_mutex_init(&(mdb->mtx_extload), NULL);
+    
+    mdb->db = leveldb_open(mdb->options, mdb_name, &err);
+    metadb_error("leveldb_init", err);
 
+    return 0;
+
+    /*
     if (lstat("./", &(INIT_STATBUF)) < 0) {
+        fprintf(stdout, "failed ..");
         return -1;
     }
 
@@ -200,6 +207,7 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name)
     }
 
     return ret;
+    */
 }
 
 

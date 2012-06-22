@@ -151,7 +151,7 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name)
     mdb->options = leveldb_options_create();
     leveldb_options_set_cache(mdb->options, mdb->cache);
     leveldb_options_set_env(mdb->options, mdb->env);
-    leveldb_options_set_create_if_missing(mdb->options, 1);
+    leveldb_options_set_create_if_missing(mdb->options, 0);
     leveldb_options_set_info_log(mdb->options, NULL);
     leveldb_options_set_write_buffer_size(mdb->options,
                                           DEFAULT_WRITE_BUFFER_SIZE);
@@ -177,15 +177,9 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name)
     pthread_mutex_init(&(mdb->mtx_bulkload), NULL);
     pthread_mutex_init(&(mdb->mtx_leveldb), NULL);
     pthread_mutex_init(&(mdb->mtx_extload), NULL);
-    
-    mdb->db = leveldb_open(mdb->options, mdb_name, &err);
-    metadb_error("leveldb_init", err);
 
-    return 0;
-
-    /*
     if (lstat("./", &(INIT_STATBUF)) < 0) {
-        fprintf(stdout, "failed ..");
+       logMessage(METADB_LOG, __func__, "Getting init statbuf failed");
         return -1;
     }
 
@@ -195,8 +189,10 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name)
     if (err != NULL) {
         if (strstr(err, "(create_if_missing is false)") != NULL) {
             leveldb_options_set_create_if_missing(mdb->options, 1);
+            err = NULL;
             mdb->db = leveldb_open(mdb->options, mdb_name, &err);
             if (err != NULL) {
+                logMessage(METADB_LOG, __func__, "Init metadb %s", err);
                 ret = -1;
             } else {
                 ret = 1;
@@ -207,7 +203,6 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name)
     }
 
     return ret;
-    */
 }
 
 
@@ -222,13 +217,14 @@ int metadb_create(struct MetaDB mdb,
     metadb_val_t mobj_val;
     char* err = NULL;
 
-    logMessage(METADB_LOG, __func__, "create(%s) in (partition=%d,dirid=%d)",
-               path, partition_id, dir_id);
+    init_meta_obj_key(&mobj_key, dir_id, partition_id, path);
 
     mobj_val = init_meta_val(entry_type, inode_id,
                              strlen(path), path,
                              strlen(realpath), realpath);
 
+    logMessage(METADB_LOG, __func__, "create(%s) in (partition=%d,dirid=%d): (%d, %08x)",
+               path, partition_id, dir_id, mobj_val.size, mobj_val.value);
 
     //ACQUIRE_RWLOCK_READ(&(mdb.rwlock_extract), "metadb_create(%s)", path);
 
@@ -273,8 +269,15 @@ metadb_val_t metadb_lookup_internal(struct MetaDB mdb,
     RELEASE_MUTEX(&(mdb.mtx_leveldb), "metadb_lookup_internal(%s)", path);
 
     if (err != NULL) {
+        logMessage(METADB_LOG, __func__,
+               "lookup_internal(%s) in (partition=%d,dirid=%ld) failed: (%s)",
+               path, partition_id, dir_id, err);
         mobj_val.value = NULL;
         mobj_val.size = 0;
+    } else {
+        logMessage(METADB_LOG, __func__,
+               "lookup_internal(%s) in (partition=%d,dirid=%ld) found entry: (%d, %08x)",
+               path, partition_id, dir_id, mobj_val.size, mobj_val.value);
     }
 
     return mobj_val;
@@ -305,7 +308,7 @@ int metadb_update_internal(struct MetaDB mdb,
                                 (const char*) &mobj_key, METADB_KEY_LEN,
                                 &mobj_val.size, &err);
 
-    if ((err != NULL) & (mobj_val.size != 0)) {
+    if ((err == NULL) & (mobj_val.size != 0)) {
         ret = update_func(&mobj_val, arg1);
         if (ret >= 0) {
             leveldb_put(mdb.db, mdb.insert_options,
@@ -313,14 +316,14 @@ int metadb_update_internal(struct MetaDB mdb,
                         mobj_val.value, mobj_val.size, &err);
             if (err != NULL) {
                 logMessage(METADB_LOG, __func__,
-                           "update_internal failed (%s).", path);
+                           "update_internal (%s) failed (%s).", path, err);
                 ret = -1;
             }
         }
     } else {
         mobj_val.value = NULL;
         mobj_val.size = 0;
-        ret = -ENOENT;
+        ret = ENOENT;
     }
 
     RELEASE_MUTEX(&(mdb.mtx_leveldb), "metadb_update_internal(%s)", path);
@@ -342,7 +345,7 @@ int metadb_lookup(struct MetaDB mdb,
         logMessage(METADB_LOG, __func__, "lookup found entry(%s).", path);
     } else {
         logMessage(METADB_LOG, __func__, "entry(%s) not found.", path);
-        ret = -ENOENT;
+        ret = ENOENT;
     }
 
     free_metadb_val(&mobj_val);
@@ -367,7 +370,7 @@ int metadb_read_bitmap(struct MetaDB mdb,
         logMessage(METADB_LOG, __func__, "read_bitmap found entry(%s).", path);
     } else {
         logMessage(METADB_LOG, __func__, "entry(%s) not found.", path);
-        ret = -ENOENT;
+        ret = ENOENT;
     }
 
     free_metadb_val(&mobj_val);

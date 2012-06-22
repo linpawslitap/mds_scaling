@@ -109,6 +109,16 @@ void run_test(int nargs, char* args[]) {
         }
     }
 
+    for (i = 1; i <= num_test_entries; ++i) {
+        memset(filename, 0, sizeof(filename));
+        snprintf(filename, MAX_FILENAME_LEN, FILE_FORMAT, i);
+        memset(backup, 0, sizeof(filename));
+        snprintf(backup, MAX_FILENAME_LEN, FILE_FORMAT, i);
+
+        metadb_lookup(mdb, dir_id, partition_id, filename, &statbuf);
+        assert(statbuf.st_ino == i);
+    }
+
     printf("moved entries: %d \n", num_migrated_entries);
 
     uint64_t min_seq, max_seq;

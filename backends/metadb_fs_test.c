@@ -4,7 +4,6 @@
 #include <sys/types.h>
 #include <string.h>
 
-
 #define MAX_FILENAME_LEN 1024
 #define MAX_NUM_ENTRIES 10000
 #define FILE_FORMAT "%016lx"
@@ -57,7 +56,6 @@ void run_test(int nargs, char* args[]) {
     metadb_init(&mdb, dbname);
     metadb_init(&mdb2, dbname2);
 
-    int ret;
     int dir_id = 0;
     int partition_id = 0;
     int new_partition_id = 1;
@@ -69,32 +67,12 @@ void run_test(int nargs, char* args[]) {
     metadb_inode_t i = 0;
 
     snprintf(filename, MAX_FILENAME_LEN, "%08x", 10000);
-    struct giga_mapping_t mybitmap;
-
-    assert(metadb_create(mdb, 0, 0, OBJ_DIR, 0, "/", "/") == 0);
-
-    ret = metadb_read_bitmap(mdb, 0, 0, "/", &mybitmap);
-    assert(ret == 0);
-
-    mybitmap.curr_radix = 0;
-    mybitmap.zeroth_server = 10;
-    mybitmap.server_count = 21;
-
-    ret = metadb_write_bitmap(mdb, 0, 0, "/", &mybitmap);
-    assert(ret == 0);
-
-    memset(&mybitmap, 0, sizeof(mybitmap));
-    ret = metadb_read_bitmap(mdb, 0, 0, "/", &mybitmap);
-    assert(ret == 0);
-    assert(mybitmap.curr_radix == 0);
-    assert(mybitmap.zeroth_server == 10);
-    assert(mybitmap.server_count == 21);
-
+    metadb_test_put_and_get(mdb, dir_id, partition_id, filename);
     metadb_lookup(mdb, dir_id, partition_id, filename, &statbuf);
 
     size_t num_test_entries = MAX_NUM_ENTRIES;
 
-    for (i = 1; i <= num_test_entries; ++i) {
+    for (i = 0; i < num_test_entries; ++i) {
         memset(filename, 0, sizeof(filename));
         snprintf(filename, MAX_FILENAME_LEN, FILE_FORMAT, i);
         memset(backup, 0, sizeof(filename));
@@ -109,20 +87,10 @@ void run_test(int nargs, char* args[]) {
         }
     }
 
-    for (i = 1; i <= num_test_entries; ++i) {
-        memset(filename, 0, sizeof(filename));
-        snprintf(filename, MAX_FILENAME_LEN, FILE_FORMAT, i);
-        memset(backup, 0, sizeof(filename));
-        snprintf(backup, MAX_FILENAME_LEN, FILE_FORMAT, i);
-
-        metadb_lookup(mdb, dir_id, partition_id, filename, &statbuf);
-        assert(statbuf.st_ino == i);
-    }
-
     printf("moved entries: %d \n", num_migrated_entries);
 
     uint64_t min_seq, max_seq;
-    ret = metadb_extract_do(mdb, dir_id, partition_id,
+    int ret = metadb_extract_do(mdb, dir_id, partition_id,
                                 new_partition_id, extname,
                                 &min_seq, &max_seq);
     printf("ret: %d\n", ret);

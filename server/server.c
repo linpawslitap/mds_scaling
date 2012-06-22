@@ -57,7 +57,6 @@ static void sig_handler(const int sig);
 
 // Methods to initialize GIGA+ specific directories and data structures
 //
-static void initialize_metadb(const char *mdb_name);
 static void init_root_partition();
 static void init_giga_mapping();
 
@@ -311,51 +310,6 @@ void server_socket()
     setup_listener(listen_fd);
 }
 
-// FIXME: what does non-zeroth server initialize to?? 
-// --- it only knows about the root bucket for "ROOT"?
-static 
-void initialize_metadb(const char *mdb_name)
-{
-    if (0)
-        LOG_ERR("ERR_mdb_init(%s) failed ...", mdb_name);
-#if 0
-    int ret = metadb_init(&ldb_mds, mdb_name);
-
-    int ROOT_PARTITION_ID = 0;
-    if (ret <0) {
-        LOG_ERR("ERR_mdb_init(%s) failed ...", mdb_name);
-        exit(1);
-    }
-    else if (ret == 0) {
-        if (giga_options_t.serverID == 0) {
-            if (metadb_create(ldb_mds, ROOT_DIR_ID, ROOT_PARTITION_ID, 
-                              OBJ_DIR, object_id, "/", 
-                              giga_options_t.mountpoint) < 0) {
-                LOG_ERR("mdb_create(%s): error creating root", mdb_name);
-                exit(1);
-            }
-        }
-    }
-    else if (ret == 1) {
-        if (giga_options_t.serverID == 0) {
-            int dir_id = 0;
-            struct giga_directory *dir = cache_fetch(&dir_id);
-            if (dir == NULL) {
-                LOG_ERR("ERR_cache: dir(%d) missing", dir_id);
-                exit(1);
-            }
-
-            if (metadb_read_bitmap(ldb_mds, ROOT_DIR_ID, ROOT_PARTITION_ID, "/",
-                                   &dir->mapping) == -ENOENT) {
-                LOG_ERR("ERR_mdb_read_bitmap(%d) for root failed.", ROOT_DIR_ID);
-                exit(1);
-            }
-            // TODO: update the cache too?
-        }
-    }
-#endif
-}
-
 static 
 void init_root_partition()
 {
@@ -408,11 +362,7 @@ void init_root_partition()
             object_id = 0;
             snprintf(ldb_name, sizeof(ldb_name), 
                      "%s/l%d", DEFAULT_LEVELDB_DIR, giga_options_t.serverID);
-            initialize_metadb(ldb_name);
-            if (metadb_init(&ldb_mds, ldb_name) < 0) {
-                LOG_ERR("ERR_mdb_init(%s) failed ...", ldb_name);
-                exit(1);
-            }
+            metadb_init(&ldb_mds, ldb_name);
             if (giga_options_t.serverID == 0) {
                 if (metadb_create(ldb_mds, ROOT_DIR_ID, 0, OBJ_DIR, object_id, 
                                   "/", giga_options_t.mountpoint) < 0) 

@@ -50,12 +50,15 @@ void spawn_threads(int n)
 static void mknod_files(const char *dir)
 {
     printf("Creating %d files from test_%d ... \n", num_files, pid);
+    mode_t m = CREATE_MODE;
+    dev_t d = CREATE_RDEV;
+    
     int i = 0;
     for (i=0; i<num_files; i++) {
         char path[512] = {0};
         snprintf(path, sizeof(path), "%s/%s_p%d_f%d", dir, hostname, pid, i);
         if (mknod(path, m, d) < 0) {
-            printf ("mknod(%s): %s\n", path, strerror(errno));
+            printf ("ERR_mknod(%s): %s\n", path, strerror(errno));
             return;
         }
     }
@@ -70,9 +73,6 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    mode_t m = CREATE_MODE;
-    dev_t d = CREATE_RDEV;
-    
     num_files = atoi(argv[2]);
     pid = (int)getpid();
    

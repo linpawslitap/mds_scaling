@@ -35,7 +35,7 @@ union giga_result_t switch (int errnum) {
 
 union giga_lookup_t switch (int errnum) {
 	case 0:
-		giga_dir_id dir_id;
+		giga_pathname path;
 	case -EAGAIN:
 		giga_bitmap bitmap;
 	default:
@@ -64,6 +64,7 @@ program GIGA_RPC_PROG {                 /* program number */
         giga_result_t GIGA_RPC_MKDIR(giga_dir_id, giga_pathname, mode_t) = 201;
 
         giga_result_t GIGA_RPC_MKNOD(giga_dir_id, giga_pathname, mode_t, short) = 301;
+        giga_lookup_t GIGA_RPC_CREATE(giga_dir_id, giga_pathname, mode_t) = 302;
         
         /* {dir_to_split, parent_index, child_index, path_leveldb_files} */
         giga_result_t GIGA_RPC_SPLIT(giga_dir_id, int, int, giga_pathname, 

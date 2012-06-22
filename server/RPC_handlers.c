@@ -13,6 +13,7 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <stdbool.h>
 
 #define _LEVEL_     LOG_DEBUG
@@ -61,6 +62,10 @@ int check_giga_addressing(struct giga_directory *dir, giga_pathname path,
             memcpy(&(stat_rpc_reply->result.giga_result_t_u.bitmap), 
                    &dir->mapping, sizeof(dir->mapping));
             stat_rpc_reply->result.errnum = -EAGAIN;
+        }
+        else {
+            LOG_ERR("ERR_giga_check(%s): both NULL!! fixit!", path);
+            exit(1);
         }
         
         LOG_MSG("ERR_redirect: to s%d, not me(s%d)",
@@ -241,19 +246,11 @@ start:
                 dir->partition_size[index] += 1;
             break;
         case BACKEND_RPC_LEVELDB:
-            // create object in the underlying file system
-            // TODO: assume partitioned sub-dirs, and randomly pick a dir
-            //       for symlink creation (for PanFS)
-            //
-            /*
             snprintf(path_name, sizeof(path_name), 
                      "%s/%s", giga_options_t.mountpoint, path);
-            if ((rpc_reply->errnum = local_mknod(path_name, mode, dev)) < 0) {
-                logMessage(LOG_FATAL, __func__, "ERR_mknod(%s): [%s]",
-                           path_name, strerror(rpc_reply->errnum));
-                break;
-            }
-            */
+            
+            // TODO: create object in the underlying file system - when big?
+            //       for symlink creation (for PanFS)
 
             // create object entry (metadata) in levelDB
             object_id += 1;  //TODO: do we need this for non-dir objects?? 
@@ -280,6 +277,123 @@ exit_func:
     return true;
 }
 
+bool_t giga_rpc_create_1_svc(giga_dir_id dir_id, 
+                             giga_pathname path, mode_t mode, 
+                             giga_lookup_t *rpc_reply, 
+                             struct svc_req *rqstp)
+{
+    (void)rqstp;
+    assert(rpc_reply);
+    assert(path);
+
+    LOG_MSG(">>> RPC_create(d=%d,p=%s): m=[0%3o]", dir_id, path, mode);
+
+    bzero(rpc_reply, sizeof(giga_lookup_t));
+
+    struct giga_directory *dir = cache_fetch(&dir_id);
+    if (dir == NULL) {
+        rpc_reply->errnum = -EIO;
+        
+        LOG_MSG("ERR_cache: dir(%d) missing", dir_id);
+        return true;
+    }
+
+    int index = 0;
+
+start:
+    // check for giga specific addressing checks.
+    //
+    if ((index = check_giga_addressing(dir, path, NULL, NULL)) < 0)
+        return true;
+    
+    ACQUIRE_MUTEX(&dir->partition_mtx[index], "create(%s)", path);
+    
+    if(check_giga_addressing(dir, path, NULL, NULL) != index) {
+        RELEASE_MUTEX(&dir->partition_mtx[index], "create(%s)", path);
+        LOG_MSG("RECOMPUTE_INDEX: create(%s) for p(%d) changed.", path, index);
+        goto start;
+    }
+    
+    // check for splits.
+    if ((check_split_eligibility(dir, index) == true)) {
+        ACQUIRE_MUTEX(&dir->split_mtx, "set_split(p%d)", index);
+        dir->split_flag = 1;
+        RELEASE_MUTEX(&dir->split_mtx, "set_split(p%d)", index);
+        
+        LOG_MSG("SPLIT_p%d[%d entries] caused_by=[%s]", 
+                index, dir->partition_size[index], path);
+      
+        rpc_reply->errnum = split_bucket(dir, index);
+        if (rpc_reply->errnum == -EAGAIN) {
+            LOG_MSG("ERR_retry: split_p%d", index);
+        } else if (rpc_reply->errnum < 0) {
+            LOG_ERR("**FATAL_ERROR** during split of p%d", index);
+            exit(1);    //TODO: do something smarter???
+        } else {
+            memcpy(&(rpc_reply->giga_lookup_t_u.bitmap), 
+                   &dir->mapping, sizeof(dir->mapping));
+            rpc_reply->errnum = -EAGAIN;
+            rpc_reply->giga_lookup_t_u.path = NULL;
+        }
+
+        ACQUIRE_MUTEX(&dir->split_mtx, "reset_split(p%d)", index);
+        dir->split_flag = 0;
+        RELEASE_MUTEX(&dir->split_mtx, "reset_split(p%d)", index);
+       
+        goto exit_func;
+    }
+   
+    // regular operations (if no splits)
+    
+    char path_name[PATH_MAX] = {0};
+    
+    switch (giga_options_t.backend_type) {
+        case BACKEND_RPC_LOCALFS:
+            snprintf(path_name, sizeof(path_name), 
+                     "%s/%d/%s", giga_options_t.mountpoint, index, path);
+            if ((rpc_reply->errnum = creat(path_name, mode)) < 0) {
+                LOG_ERR("ERR_create(%s): [%s]", 
+                        path_name, strerror(rpc_reply->errnum));
+            } else {
+                dir->partition_size[index] += 1;
+                rpc_reply->errnum = 0;
+                rpc_reply->giga_lookup_t_u.path = path_name;
+            }
+            break;
+        case BACKEND_RPC_LEVELDB:
+            snprintf(path_name, sizeof(path_name), 
+                     "%s/%s", giga_options_t.mountpoint, path);
+            
+            // TODO: create object in the underlying file system - when big?
+            //       for symlink creation (for PanFS)
+
+            // create object entry (metadata) in levelDB
+            object_id += 1;  //TODO: do we need this for non-dir objects?? 
+            LOG_MSG("d=%d,p=%d,o=%d,p=%s,rp=%s", 
+                    dir_id, index,object_id, path,path_name);
+            rpc_reply->errnum = metadb_create(ldb_mds, dir_id, index,
+                                              OBJ_MKNOD,
+                                              object_id, path, path_name);
+            if (rpc_reply->errnum < 0) {
+                LOG_ERR("ERR_mdb_create(%s): p%d of d%d", path, index, dir_id);
+            } else {
+                dir->partition_size[index] += 1;
+                rpc_reply->errnum = 0;
+                rpc_reply->giga_lookup_t_u.path = NULL; //FIXME?? what to pass?
+            }
+            break;
+        default:
+            break;
+    }
+
+exit_func:
+
+    RELEASE_MUTEX(&dir->partition_mtx[index], "mknod(%s)", path);
+
+    LOG_MSG("<<< RPC_mknod(d=%d,p=%s): status=[%d]", dir_id, path,
+            rpc_reply->errnum);
+    return true;
+}
 
 bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id, 
                             giga_pathname path, mode_t mode,

@@ -39,6 +39,7 @@ int rpc_init();
 int rpc_getattr(int dir_id, const char *path, struct stat *statbuf);
 int rpc_mkdir(int dir_id, const char *path, mode_t mode);
 int rpc_mknod(int dir_ID, const char *path, mode_t mode, dev_t dev);
+int rpc_create(int dir_id, const char *path, mode_t mode);
 
 typedef enum MetaDB_obj_type {
     OBJ_DIR,

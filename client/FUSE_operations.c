@@ -738,6 +738,7 @@ int GIGAcreate(const char *path, mode_t mode, struct fuse_file_info *fi)
     char dir[PATH_MAX] = {0};
     char file[PATH_MAX] = {0};
     int fd = 0;
+    int dir_id = 0;
 
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
@@ -751,6 +752,13 @@ int GIGAcreate(const char *path, mode_t mode, struct fuse_file_info *fi)
             parse_path_components(path, file, dir);
             object_id += 1;
             ret = metadb_create(ldb_mds, 0, 0, OBJ_MKNOD, object_id, file, path);
+            ret = FUSE_ERROR(ret);
+            break;
+        case BACKEND_RPC_LEVELDB:
+            parse_path_components(path, file, dir);
+            if ((fd = rpc_create(dir_id, file, mode)) < 0)
+                ret = errno;
+            fi->fh = fd;
             ret = FUSE_ERROR(ret);
             break;
         default:

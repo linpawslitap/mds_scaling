@@ -214,89 +214,96 @@ retry:
     return ret;
 }
 
-/*
-int local_symlink(const char *path, const char *link)
+int rpc_create(int dir_id, const char *path, mode_t mode)
 {
     int ret = 0;
-
-    if ((ret = symlink(path, link)) < 0) {
-        logMessage(LOG_FATAL, __func__,
-                   "symlink(%s,%s) failed: %s", path, link, strerror(errno));
-        ret = errno;
+    
+    struct giga_directory *dir = cache_fetch(&dir_id);
+    if (dir == NULL) {
+        LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
+        ret = -EIO;
     }
+    
+    int server_id = 0;
+    giga_lookup_t rpc_reply;
+
+retry:
+    server_id = get_server_for_file(dir, path);
+    CLIENT *rpc_clnt = getConnection(server_id);
+
+    LOG_MSG(">>> RPC_mknod(%s): to s%d]", path, server_id);
+
+    if (giga_rpc_create_1(dir_id, (char*)path, mode, &rpc_reply, rpc_clnt) 
+        != RPC_SUCCESS) {
+        LOG_ERR("ERR_rpc_mknod(%s)", clnt_spcreateerror(path));
+        exit(1);//TODO: retry again?
+    }
+    
+    // check return condition 
+    //
+    ret = rpc_reply.errnum;
+    if (ret == -EAGAIN) {
+        update_client_mapping(dir, &rpc_reply.giga_lookup_t_u.bitmap);
+        LOG_MSG("bitmap update from s%d -- RETRY ...", server_id); 
+        goto retry;
+    } else if (ret < 0) {
+        ;
+    } else {
+        //XXX: convert "rpc_reply.path" to a FD
+        int fd = 123; 
+        ret = fd;
+    }
+
+
+    LOG_MSG("<<< RPC_mknod(%s): status=[%d]%s", path, ret, strerror(ret));
     
     return ret;
 }
 
-int local_readlink(const char *path, char *link, size_t size)
+/*
+int rpc_write(int dir_id, const char *path, mode_t mode, dev_t dev)
 {
     int ret = 0;
-
-    if ((ret = readlink(path, link, size-1)) < 0) {
-        logMessage(LOG_FATAL, __func__,
-                   "readlink(%s,%s) failed: %s", path, link, strerror(errno));
-        ret = errno;
+    
+    struct giga_directory *dir = cache_fetch(&dir_id);
+    if (dir == NULL) {
+        LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
+        ret = -EIO;
     }
-    else  {
-	    link[ret] = '\0';
+    
+    int server_id = 0;
+    giga_result_t rpc_reply;
+
+retry:
+    server_id = get_server_for_file(dir, path);
+    CLIENT *rpc_clnt = getConnection(server_id);
+
+    LOG_MSG(">>> RPC_mknod(%s): to s%d]", path, server_id);
+
+    if (giga_rpc_mknod_1(dir_id, (char*)path, mode, dev, &rpc_reply, rpc_clnt) 
+        != RPC_SUCCESS) {
+        LOG_ERR("ERR_rpc_mknod(%s)", clnt_spcreateerror(path));
+        exit(1);//TODO: retry again?
+    }
+    
+    // check return condition 
+    //
+    ret = rpc_reply.errnum;
+    if (ret == -EAGAIN) {
+        update_client_mapping(dir, &rpc_reply.giga_result_t_u.bitmap);
+        LOG_MSG("bitmap update from s%d -- RETRY ...", server_id); 
+        goto retry;
+    } else if (ret < 0) {
+        ;
+    } else {
         ret = 0;
     }
+
+
+    LOG_MSG("<<< RPC_mknod(%s): status=[%d]%s", path, ret, strerror(ret));
     
-    return ret;
-}
-
-// NOTE: ret_fd is to return the fd from the open call (needed for fi->fh)
-int local_open(const char *path, int flags, int *ret_fd)
-{
-    int ret = 0;
-    int fd;
-    
-    if ((fd = open(path, flags)) < 0) {
-        logMessage(LOG_FATAL, __func__,
-                   "open(%s) failed: %s", path, strerror(errno));
-        ret = errno;
-    }
-
-    *ret_fd = fd;
-
-    return ret;
-}
-
-int local_mknod(const char *path, mode_t mode, dev_t dev)
-{
-    int ret = 0;
-
-    // On Linux this could just be 'mknod(path, mode, rdev)' but this
-    //  is more portable
-    if (S_ISREG(mode)) {
-        if ((ret = open(path, O_CREAT | O_EXCL | O_WRONLY, mode) < 0)) {
-            logMessage(LOG_FATAL, __func__,
-                       "open(%s, CRT|EXCL|WR) failed: %s", path, strerror(errno));
-            ret = (errno);
-        }
-        else {
-            // close the opened file.
-            if ((ret = close(ret)) < 0) {
-                logMessage(LOG_FATAL, __func__,
-                           "close(%d) failed: %s", ret, strerror(errno));
-                ret = (errno);
-            }
-	    }
-    } 
-    else if (S_ISFIFO(mode)) {
-	    if ((ret = mkfifo(path, mode)) < 0) {
-            logMessage(LOG_FATAL, __func__,
-                       "mkfifo(%s) failed: %s", path, strerror(errno));
-            ret = (errno);
-        }
-	} else {
-	    if ((ret = mknod(path, mode, dev)) < 0) {
-            logMessage(LOG_FATAL, __func__,
-                       "mknod(%s) failed: %s", path, strerror(errno));
-            ret = (errno);
-        }
-	}
-
     return ret;
 }
 */
+
+

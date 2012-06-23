@@ -40,13 +40,8 @@ void init_meta_obj_key(metadb_key_t *mkey,
     memset(mkey->name_hash, 0, sizeof(mkey->name_hash));
     giga_hash_name(path, mkey->name_hash);
 }
-/*
-static
-void print_meta_obj_key(metadb_key_t *mkey) {
-    printf("%s\n",  mkey->name_hash);
-}
-*/
-static
+
+  static
 void init_meta_obj_seek_key(metadb_key_t *mkey,
                             metadb_inode_t dir_id, int partition_id)
 {
@@ -113,16 +108,14 @@ metadb_val_t init_meta_val(metadb_obj_type_t obj_type,
     mobj->statbuf.st_ino = inode_id;
     if (obj_type == OBJ_DIR) {
         mobj->statbuf.st_mode = (mobj->statbuf.st_mode & ~S_IFMT) | S_IFDIR;
-        metadb_val_dir_t* mdir = (metadb_val_dir_t*) (mobj_val.value + header_size);
+        metadb_val_dir_t* mdir =
+          (metadb_val_dir_t*) (mobj_val.value + header_size);
         memset((char *) mdir, 0, sizeof(metadb_val_dir_t));
+        mobj->statbuf.st_nlink = 2;
     } else {
         mobj->statbuf.st_mode = (mobj->statbuf.st_mode & ~S_IFMT) | S_IFREG;
+        mobj->statbuf.st_nlink = 1;
     }
-    mobj->statbuf.st_mode = DEFAULT_MODE;
-    if (obj_type == OBJ_DIR)
-        mobj->statbuf.st_nlink   = 2;
-    else
-        mobj->statbuf.st_nlink   = 1;
 
     time_t now = time(NULL);
     mobj->statbuf.st_atime = now;
@@ -141,14 +134,40 @@ void free_metadb_val(metadb_val_t* mobj_val) {
     }
 }
 
+static void CmpDestroy(void* arg) { if (arg != NULL) {} }
+
+static int CmpCompare(void* arg, const char* a, size_t alen,
+                          const char* b, size_t blen) {
+    if (arg == NULL) {
+      int n = (alen < blen) ? alen : blen;
+      int r = memcmp(a, b, n);
+      if (r == 0) {
+         if (alen < blen) r = -1;
+         else if (alen > blen) r = +1;
+      }
+      return r;
+    } else {
+      return 0;
+    }
+}
+
+static const char* CmpName(void* arg) {
+    if (arg != NULL) {
+      return "wrong";
+    }
+    return "foo";
+}
+
 int metadb_init(struct MetaDB *mdb, const char *mdb_name)
 {
     char* err = NULL;
 
     mdb->env = leveldb_create_default_env();
     mdb->cache = leveldb_cache_create_lru(DEFAULT_LEVELDB_CACHE_SIZE);
+    mdb->cmp = leveldb_comparator_create(NULL, CmpDestroy, CmpCompare, CmpName);
 
     mdb->options = leveldb_options_create();
+    leveldb_options_set_comparator(mdb->options, mdb->cmp);
     leveldb_options_set_cache(mdb->options, mdb->cache);
     leveldb_options_set_env(mdb->options, mdb->env);
     leveldb_options_set_create_if_missing(mdb->options, 0);
@@ -189,6 +208,7 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name)
     if (err != NULL) {
         if (strstr(err, "(create_if_missing is false)") != NULL) {
             leveldb_options_set_create_if_missing(mdb->options, 1);
+            free(err);
             err = NULL;
             mdb->db = leveldb_open(mdb->options, mdb_name, &err);
             if (err != NULL) {
@@ -549,7 +569,6 @@ int metadb_extract_do(struct MetaDB mdb,
         return ret;
     }
 
-
     metadb_key_t mobj_key;
     init_meta_obj_seek_key(&mobj_key, dir_id, old_partition_id);
 
@@ -814,20 +833,24 @@ int metadb_extract_clean(struct MetaDB mdb) {
     if (rmdir(mdb.extraction->dir_with_new_partition) < 0) {
         if (errno == ENOTEMPTY) {
             DIR* dp = opendir(mdb.extraction->dir_with_new_partition);
+            char fullpath[MAX_FILENAME_LEN];
+            snprintf(fullpath, MAX_FILENAME_LEN, "%s/",
+                     mdb.extraction->dir_with_new_partition);
+            size_t prefix_len = strlen(mdb.extraction->dir_with_new_partition);
             if (dp != NULL) {
                 struct dirent *de;
                 while ((de = readdir(dp)) != NULL) {
-                  if (strcmp(de->d_name,".")!=0 && strcmp(de->d_name,"..")!=0)
-                    unlink(de->d_name);
+                  if (strcmp(de->d_name,".")!=0 && strcmp(de->d_name,"..")!=0) {
+                    sprintf(fullpath+prefix_len+1, "%s", de->d_name);
+                    printf("%s\n", fullpath);
+                    unlink(fullpath);
+                  }
                 }
                 closedir(dp);
             }
-
+          ret = rmdir(mdb.extraction->dir_with_new_partition);
         }
     }
-    
-    ret = rmdir(mdb.extraction->dir_with_new_partition);
-
 
     //RELEASE_RWLOCK(&(mdb.rwlock_extract), "metadb_extract(ret=%d)", ret);
 

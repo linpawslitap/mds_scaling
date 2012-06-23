@@ -4,7 +4,6 @@
 #include <sys/types.h>
 #include <string.h>
 
-
 #define MAX_FILENAME_LEN 1024
 #define MAX_NUM_ENTRIES 100000
 #define FILE_FORMAT "%016lx"
@@ -58,7 +57,6 @@ void run_test(int nargs, char* args[]) {
     metadb_init(&mdb, dbname);
     metadb_init(&mdb2, dbname2);
 
-    int ret;
     int dir_id = 0;
     int partition_id = 0;
     int new_partition_id = 1;
@@ -70,6 +68,7 @@ void run_test(int nargs, char* args[]) {
     metadb_inode_t i = 0;
 
     snprintf(filename, MAX_FILENAME_LEN, "%08x", 10000);
+<<<<<<< HEAD
     struct giga_mapping_t mybitmap;
 
     ASSERT(metadb_create(mdb, 0, 0, OBJ_DIR, 0, "/", "/") == 0);
@@ -91,6 +90,9 @@ void run_test(int nargs, char* args[]) {
     ASSERT(mybitmap.zeroth_server == 10);
     ASSERT(mybitmap.server_count == 21);
 
+=======
+    metadb_test_put_and_get(mdb, dir_id, partition_id, filename);
+>>>>>>> 5dabe9a33086ff2083739b9734c1141a43a5b1d8
     metadb_lookup(mdb, dir_id, partition_id, filename, &statbuf);
 
     size_t num_test_entries = MAX_NUM_ENTRIES;
@@ -110,6 +112,7 @@ void run_test(int nargs, char* args[]) {
         }
     }
 
+<<<<<<< HEAD
     for (i = 0; i < num_test_entries; ++i) {
         memset(filename, 0, sizeof(filename));
         snprintf(filename, MAX_FILENAME_LEN, FILE_FORMAT, i);
@@ -120,13 +123,15 @@ void run_test(int nargs, char* args[]) {
         ASSERT(statbuf.st_ino == i);
     }
 
+=======
+>>>>>>> 5dabe9a33086ff2083739b9734c1141a43a5b1d8
     printf("moved entries: %d \n", num_migrated_entries);
 
     num_print_entries = 0;
     ASSERT(metadb_readdir(mdb, dir_id, partition_id, NULL, print_entries) == 0);
 
     uint64_t min_seq, max_seq;
-    ret = metadb_extract_do(mdb, dir_id, partition_id,
+    int ret = metadb_extract_do(mdb, dir_id, partition_id,
                                 new_partition_id, extname,
                                 &min_seq, &max_seq);
     printf("extract entries: %d\n", ret);

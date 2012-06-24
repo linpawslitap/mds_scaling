@@ -241,21 +241,15 @@ start:
                 dir->partition_size[index] += 1;
             break;
         case BACKEND_RPC_LEVELDB:
-            // create object in the underlying file system
+            //snprintf(path_name, sizeof(path_name), 
+            //         "%s/%s", giga_options_t.mountpoint, path);
+            
             // TODO: assume partitioned sub-dirs, and randomly pick a dir
             //       for symlink creation (for PanFS)
-            //
-            /*
-            snprintf(path_name, sizeof(path_name), 
-                     "%s/%s", giga_options_t.mountpoint, path);
-            if ((rpc_reply->errnum = local_mknod(path_name, mode, dev)) < 0) {
-                logMessage(LOG_FATAL, __func__, "ERR_mknod(%s): [%s]",
-                           path_name, strerror(rpc_reply->errnum));
-                break;
-            }
-            */
+            // create object in the underlying file system
 
             // create object entry (metadata) in levelDB
+            
             object_id += 1;  //TODO: do we need this for non-dir objects?? 
             LOG_MSG("d=%d,p=%d,o=%d,p=%s,rp=%s", 
                     dir_id, index,object_id, path,path_name);
@@ -280,6 +274,24 @@ exit_func:
     return true;
 }
 
+bool_t giga_rpc_readdir_1_svc(giga_dir_id dir_id, int partition_id, 
+                              readdir_result_t *rpc_reply, 
+                              struct svc_req *rqstp)
+{
+    (void)rqstp;
+    assert(rpc_reply);
+    
+    LOG_MSG(">>> RPC_readdir(d=%d, p[%d])", dir_id, partition_id); 
+
+    bzero(rpc_reply, sizeof(readdir_result_t));
+
+    //int ret = metadb_readdir(ldb_mds, dir_id, partition_id, buf, NULL);
+
+    LOG_MSG(">>> RPC_readdir(d=%d, p[%d]): status=[%d]", 
+            dir_id, partition_id, rpc_reply->errnum); 
+
+    return true;
+}
 
 bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id, 
                             giga_pathname path, mode_t mode,

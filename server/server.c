@@ -362,7 +362,11 @@ void init_root_partition()
             object_id = 0;
             snprintf(ldb_name, sizeof(ldb_name), 
                      "%s/l%d", DEFAULT_LEVELDB_DIR, giga_options_t.serverID);
-            metadb_init(&ldb_mds, ldb_name);
+            // FIXME: use new semantics of metadb_init.
+            if (metadb_init(&ldb_mds, ldb_name) != 1) {
+                LOG_ERR("mdb_init(%s): int error (try deleting old ldb)", ldb_name);
+                exit(1);
+            }
             if (giga_options_t.serverID == 0) {
                 if (metadb_create(ldb_mds, ROOT_DIR_ID, 0, OBJ_DIR, object_id, 
                                   "/", giga_options_t.mountpoint) < 0) 

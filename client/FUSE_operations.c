@@ -265,6 +265,105 @@ int GIGAmknod(const char *path, mode_t mode, dev_t dev)
     return ret;
 }
 
+int GIGAopendir(const char *path, struct fuse_file_info *fi)
+{
+    LOG_MSG(">>> FUSE_opendir(%s): fi=[0x%08x])", path, fi);
+    
+    int ret = 0;
+    char fpath[PATH_MAX] = {0};
+    char dir[PATH_MAX] = {0};
+    char file[PATH_MAX] = {0};
+    int dir_id = 0;
+    DIR *dp;
+
+    switch (giga_options_t.backend_type) {
+        case BACKEND_LOCAL_FS:
+            get_full_path(fpath, path);
+            if ((dp = opendir(fpath)) == NULL)
+                ret = errno;
+            fi->fh = (intptr_t) dp;
+            break;
+        case BACKEND_RPC_LEVELDB:
+            parse_path_components(path, file, dir);
+            ret = rpc_opendir(dir_id, dir);
+            break;
+        default:
+            ret = ENOTSUP;
+            break;
+    }
+    
+    LOG_MSG("<<< FUSE_opendir(%s): ret=[%d:%s]", path, ret, strerror(ret));
+        
+    return FUSE_ERROR(ret);
+}
+
+int GIGAreaddir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset,
+                struct fuse_file_info *fi)
+{
+    LOG_MSG(">>> FUSE_readdir(%s): offset=%lld", path, offset);
+    
+    int ret = 0;
+    char dir[PATH_MAX] = {0};
+    char file[PATH_MAX] = {0};
+    int dir_id = 0;
+    struct dirent *de;
+    DIR *dp = (DIR*) (uintptr_t) fi->fh;
+
+    switch (giga_options_t.backend_type) {
+        case BACKEND_LOCAL_FS:
+            if ((de = readdir(dp)) == 0) {
+                ret = errno;
+                break;
+            }
+            do {
+                if (filler(buf, de->d_name, NULL, 0) != 0) 
+                    ret = ENOMEM;
+            } while ((de = readdir(dp)) != NULL);
+            break;
+        case BACKEND_RPC_LEVELDB:
+            parse_path_components(path, file, dir);
+            ret = rpc_readdir(dir_id, dir);
+            break;
+        default:
+            ret = ENOTSUP;
+            break;
+    }
+    
+    LOG_MSG("<<< FUSE_readdir(%s): ret=[%d:%s]", path, ret, strerror(ret));
+        
+    return FUSE_ERROR(ret);
+}
+
+int GIGAreleasedir(const char *path, struct fuse_file_info *fi)
+{
+    LOG_MSG(">>> FUSE_releasedir(%s): fi=[0x%08x])", path, fi);
+    
+    int ret = 0;
+    char dir[PATH_MAX] = {0};
+    char file[PATH_MAX] = {0};
+    int dir_id = 0;
+    
+    switch (giga_options_t.backend_type) {
+        case BACKEND_LOCAL_FS:
+            closedir((DIR*)(uintptr_t)fi->fh);
+            break;
+        case BACKEND_RPC_LEVELDB:
+            parse_path_components(path, file, dir);
+            ret = rpc_releasedir(dir_id, dir);
+            break;
+        default:
+            ret = ENOTSUP;
+            break;
+    }
+    
+    
+    LOG_MSG("<<< FUSE_releasedir(%s): ret=[%d:%s]", path, ret, strerror(ret));
+        
+    return FUSE_ERROR(ret);
+}
+
+// =========================================================
+
 int GIGAunlink(const char *path)
 {
     LOG_MSG(">>> FUSE_unlink(%s): ", path);
@@ -620,72 +719,6 @@ int GIGAfsync(const char *path, int datasync, struct fuse_file_info *fi)
     return FUSE_ERROR(ret);
 }
 
-int GIGAopendir(const char *path, struct fuse_file_info *fi)
-{
-    LOG_MSG(">>> FUSE_opendir(%s): fi=[0x%08x])", path, fi);
-    
-    int ret = 0;
-    char fpath[PATH_MAX] = {0};
-    DIR *dp;
-
-    switch (giga_options_t.backend_type) {
-        case BACKEND_LOCAL_FS:
-            get_full_path(fpath, path);
-            if ((dp = opendir(fpath)) == NULL)
-                ret = errno;
-            fi->fh = (intptr_t) dp;
-            break;
-        default:
-            ret = ENOTSUP;
-            break;
-    }
-    
-    LOG_MSG("<<< FUSE_opendir(%s): ret=[%d:%s]", path, ret, strerror(ret));
-        
-    return FUSE_ERROR(ret);
-}
-
-int GIGAreaddir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset,
-                struct fuse_file_info *fi)
-{
-    LOG_MSG(">>> FUSE_readdir(%s): offset=%lld", path, offset);
-    
-    int ret = 0;
-    struct dirent *de;
-    DIR *dp = (DIR*) (uintptr_t) fi->fh;
-
-    switch (giga_options_t.backend_type) {
-        case BACKEND_LOCAL_FS:
-            if ((de = readdir(dp)) == 0) {
-                ret = errno;
-                break;
-            }
-            do {
-                if (filler(buf, de->d_name, NULL, 0) != 0) 
-                    ret = ENOMEM;
-            } while ((de = readdir(dp)) != NULL);
-            break;
-        default:
-            ret = ENOTSUP;
-            break;
-    }
-    
-    LOG_MSG("<<< FUSE_readdir(%s): ret=[%d:%s]", path, ret, strerror(ret));
-        
-    return FUSE_ERROR(ret);
-}
-
-int GIGAreleasedir(const char *path, struct fuse_file_info *fi)
-{
-    LOG_MSG(">>> FUSE_releasedir(%s): fi=[0x%08x])", path, fi);
-    
-    int ret = 0;
-    closedir((DIR*)(uintptr_t)fi->fh);
-    
-    LOG_MSG("<<< FUSE_releasedir(%s): ret=[%d:%s]", path, ret, strerror(ret));
-        
-    return FUSE_ERROR(ret);
-}
 
 int GIGAfsyncdir(const char *path, int datasync, struct fuse_file_info *fi)
 {

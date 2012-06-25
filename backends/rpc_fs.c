@@ -214,6 +214,72 @@ retry:
     return ret;
 }
 
+int rpc_readdir(int dir_id, const char *path)
+{
+    int ret = 0;
+    
+    struct giga_directory *dir = cache_fetch(&dir_id);
+    if (dir == NULL) {
+        LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
+        ret = -EIO;
+    }
+    
+    int server_id = 0;
+    readdir_result_t rpc_reply;
+
+retry:
+    server_id = get_server_for_file(dir, path);
+    CLIENT *rpc_clnt = getConnection(server_id);
+
+    LOG_MSG(">>> RPC_readdir(%s): to s[%d]", path, server_id);
+
+    int partition_id = 0;
+    if (giga_rpc_readdir_1(dir_id, partition_id, &rpc_reply, rpc_clnt) 
+        != RPC_SUCCESS) {
+        LOG_ERR("ERR_rpc_readdir(%s)", clnt_spcreateerror(path));
+        exit(1);//TODO: retry again?
+    }
+    
+    // check return condition 
+    //
+    ret = rpc_reply.errnum;
+    if (ret == -EAGAIN) {
+        update_client_mapping(dir, &rpc_reply.readdir_result_t_u.bitmap);
+        LOG_MSG("bitmap update from s%d -- RETRY ...", server_id); 
+        goto retry;
+    } else if (ret < 0) {
+        ;
+    } else {
+        ret = 0;
+    }
+
+
+    LOG_MSG("<<< RPC_readdir(%s): status=[%d]%s", path, ret, strerror(ret));
+    
+    return ret;
+}
+
+int rpc_releasedir(int dir_id, const char *path)
+{
+    int ret = 0;
+    
+    LOG_MSG(">>> RPC_readdir(%s, d%d)", path, dir_id);
+    LOG_MSG("<<< RPC_readdir(%s): status=[%d]%s", path, ret, strerror(ret));
+
+    return ret;
+}
+
+int rpc_opendir(int dir_id, const char *path)
+{
+    int ret = 0;
+    
+    LOG_MSG(">>> RPC_releasedir(%s, d%d)", path, dir_id);
+    LOG_MSG("<<< RPC_releasedir(%s): status=[%d]%s", path, ret, strerror(ret));
+
+    return ret;
+}
+
+
 /*
 int local_symlink(const char *path, const char *link)
 {

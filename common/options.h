@@ -45,6 +45,9 @@ typedef enum backends {
 
 // client-side and server side defaults
 //
+
+#define MAX_BUF     4096*256
+
 #define GIGA_CLIENT     12345           // Magic identifier
 #define DEFAULT_MNT     "/tmp/giga_c"
 

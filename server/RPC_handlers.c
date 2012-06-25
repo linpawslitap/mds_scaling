@@ -286,6 +286,56 @@ bool_t giga_rpc_readdir_1_svc(giga_dir_id dir_id, int partition_id,
     bzero(rpc_reply, sizeof(readdir_result_t));
 
     //int ret = metadb_readdir(ldb_mds, dir_id, partition_id, buf, NULL);
+    char *buf = (char*)malloc(sizeof(char)*MAX_BUF);
+    if (buf == NULL) {
+        LOG_ERR("ERR_malloc: [%s]", strerror(errno));
+        exit(1);
+    }
+    char *end_key = NULL;
+    char *start_key = NULL;
+    size_t num_ent = 0;
+    
+    do {
+        rpc_reply->errnum = metadb_readdir(ldb_mds, dir_id, partition_id,
+                                           start_key, buf, MAX_BUF, 
+                                           &num_ent, &end_key);
+        if (rpc_reply->errnum == ENOENT) {
+            LOG_ERR("ERR_mdb_readdir(d%d_p%d_sk[%s]) ...", 
+                    dir_id, partition_id, start_key);
+            break;
+        }
+        
+        if (start_key != NULL) 
+            free(start_key);
+        
+        metadb_readdir_iterator_t *iter = NULL;
+        
+        iter = metadb_create_readdir_iterator(buf, MAX_BUF, num_ent);
+        metadb_readdir_iter_begin(iter);
+       
+        int entry = 0;
+        LOG_MSG("PRINT_readdir() buf with %d entries ...", num_ent);
+        while (metadb_readdir_iter_valid(iter)) {
+            size_t len;
+            struct stat statbuf;
+            
+            const char* objname = metadb_readdir_iter_get_objname(iter, &len);
+            const char* realpath = metadb_readdir_iter_get_realpath(iter, &len);
+            
+            metadb_readdir_iter_get_stat(iter, &statbuf);
+            
+            assert((statbuf.st_mode & S_IFDIR) > 0);
+            assert(memcmp(objname, realpath, len) == 0);
+            
+            LOG_MSG("#%d: \t obj=[%s] \t sym=[%s]", entry, objname, realpath);
+            entry += 1;
+
+            metadb_readdir_iter_next(iter);
+        }
+        start_key = end_key;
+    } while (end_key != NULL);
+    
+    free(buf);
 
     LOG_MSG(">>> RPC_readdir(d=%d, p[%d]): status=[%d]", 
             dir_id, partition_id, rpc_reply->errnum); 

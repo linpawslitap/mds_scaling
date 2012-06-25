@@ -51,6 +51,7 @@ typedef enum MetaDB_obj_type {
 
 typedef uint64_t metadb_inode_t;
 typedef uint64_t mdb_seq_num_t;
+typedef uint32_t readdir_rec_len_t;
 
 typedef struct MetaDB_key {
     metadb_inode_t parent_id;
@@ -89,6 +90,14 @@ typedef struct Extract {
     int in_extraction;
 } metadb_extract_t;
 
+typedef struct {
+    const char* buf;
+    size_t buf_len;
+    size_t num_ent;
+    size_t offset;
+    size_t cur_ent;
+} metadb_readdir_iterator_t;
+
 /*
  * LevelDB specific definitions
  */
@@ -113,9 +122,20 @@ struct MetaDB {
     pthread_mutex_t     mtx_leveldb;
 };
 
-typedef void (*fill_dir_t)(void* buf, metadb_key_t* iter_key, metadb_val_t* iter_val);
-
 typedef int (*update_func_t)(metadb_val_t* mval, void* arg1);
+
+metadb_readdir_iterator_t* metadb_create_readdir_iterator(const char* buf,
+        size_t buf_len, size_t num_entries);
+void metadb_destroy_readdir_iterator(metadb_readdir_iterator_t *iter);
+void metadb_readdir_iter_begin(metadb_readdir_iterator_t *iter);
+int metadb_readdir_iter_valid(metadb_readdir_iterator_t *iter);
+void metadb_readdir_iter_next(metadb_readdir_iterator_t *iter);
+const char* metadb_readdir_iter_get_objname(metadb_readdir_iterator_t *iter,
+                                      size_t *name_len);
+const char* metadb_readdir_iter_get_realpath(metadb_readdir_iterator_t *iter,
+                                       size_t *path_len);
+int metadb_readdir_iter_get_stat(metadb_readdir_iterator_t *iter,
+                                 struct stat *statbuf);
 
 int metadb_init(struct MetaDB *mdb, const char *mdb_name);
 
@@ -143,7 +163,11 @@ int metadb_lookup(struct MetaDB mdb,
 int metadb_readdir(struct MetaDB mdb,
                    const metadb_inode_t dir_id,
                    const int partition_id,
-                   void *buf, fill_dir_t filler);
+                   const char* start_key,
+                   char* buf,
+                   const size_t buf_len,
+                   size_t *num_entries,
+                   char* *end_key);
 
 int metadb_extract_do(struct MetaDB mdb,
                       const metadb_inode_t dir_id,

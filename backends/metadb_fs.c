@@ -33,7 +33,9 @@ static struct stat INIT_STATBUF;
 
 static
 void init_meta_obj_key(metadb_key_t *mkey,
-                       metadb_inode_t dir_id, int partition_id, const char* path)
+                       metadb_inode_t dir_id,
+                       int partition_id,
+                       const char* path)
 {
     mkey->parent_id = dir_id;
     mkey->partition_id = (uint64_t) partition_id;
@@ -41,13 +43,19 @@ void init_meta_obj_key(metadb_key_t *mkey,
     giga_hash_name(path, mkey->name_hash);
 }
 
-  static
+static
 void init_meta_obj_seek_key(metadb_key_t *mkey,
-                            metadb_inode_t dir_id, int partition_id)
+                            metadb_inode_t dir_id,
+                            int partition_id,
+                            const char* name_hash)
 {
     mkey->parent_id = dir_id;
     mkey->partition_id = partition_id;
-    memset(mkey->name_hash, 0, sizeof(mkey->name_hash));
+    if (name_hash == NULL) {
+        memset(mkey->name_hash, 0, sizeof(mkey->name_hash));
+    } else {
+        memcpy(mkey->name_hash, name_hash, sizeof(mkey->name_hash));
+    }
 }
 
 /*
@@ -450,19 +458,127 @@ int metadb_remove(struct MetaDB mdb,
     }
 }
 
+int readdir_filler(char* buf,
+                   const size_t buf_len,
+                   size_t* buf_offset,
+                   metadb_val_t mval) {
+    readdir_rec_len_t rec_len = (readdir_rec_len_t) metadb_header_size(&mval);
+    if ((*buf_offset) + rec_len + sizeof(rec_len) <= buf_len) {
+        buf += (*buf_offset);
+        memcpy(buf, &rec_len, sizeof(rec_len));
+        buf += sizeof(rec_len);
+        memcpy(buf, (void *) mval.value, rec_len);
+        *buf_offset = (*buf_offset) + rec_len + sizeof(rec_len);
+        return 0;
+    } else {
+        return 1;
+    }
+}
+
+metadb_readdir_iterator_t* metadb_create_readdir_iterator(const char* buf,
+        size_t buf_len, size_t num_entries) {
+    metadb_readdir_iterator_t* iter = (metadb_readdir_iterator_t *)
+        malloc(sizeof(metadb_readdir_iterator_t));
+    iter->buf = buf;
+    iter->buf_len = buf_len;
+    iter->num_ent = num_entries;
+    iter->offset = 0;
+    iter->cur_ent = 0;
+    return iter;
+}
+
+void metadb_destroy_readdir_iterator(metadb_readdir_iterator_t *iter) {
+    free(iter);
+}
+
+void metadb_readdir_iter_begin(metadb_readdir_iterator_t *iter) {
+    iter->offset = 0;
+    iter->cur_ent = 0;
+}
+
+int metadb_readdir_iter_valid(metadb_readdir_iterator_t *iter) {
+    return (iter->offset < iter->buf_len && iter->cur_ent < iter->num_ent);
+}
+
+void metadb_readdir_iter_next(metadb_readdir_iterator_t *iter) {
+    iter->cur_ent ++;
+    if (iter->cur_ent < iter->num_ent) {
+        readdir_rec_len_t rec_len = *((readdir_rec_len_t *) (iter->buf + iter->offset));
+        iter->offset += rec_len + sizeof(rec_len);
+    }
+}
+
+const char* metadb_readdir_iter_get_objname(metadb_readdir_iterator_t *iter,
+                                      size_t *name_len) {
+    if (iter->cur_ent < iter->num_ent) {
+        metadb_val_header_t* header = (metadb_val_header_t *)
+            (iter->buf + iter->offset + sizeof(readdir_rec_len_t));
+        *name_len = header->objname_len;
+        return (char *) header + sizeof(metadb_val_header_t);
+    } else {
+        return NULL;
+    }
+}
+
+const char* metadb_readdir_iter_get_realpath(metadb_readdir_iterator_t *iter,
+                                       size_t *path_len) {
+    if (iter->cur_ent < iter->num_ent) {
+        metadb_val_header_t* header = (metadb_val_header_t *)
+            (iter->buf + iter->offset + sizeof(readdir_rec_len_t));
+        *path_len = header->realpath_len;
+        return (char *) header + sizeof(metadb_val_header_t)
+                               + header->objname_len + 1;
+    } else {
+        return NULL;
+    }
+}
+
+int metadb_readdir_iter_get_stat(metadb_readdir_iterator_t *iter,
+                                 struct stat *statbuf) {
+    if (iter->cur_ent < iter->num_ent) {
+        metadb_val_header_t* header = (metadb_val_header_t *)
+            (iter->buf + iter->offset + sizeof(readdir_rec_len_t));
+        /*
+        memcpy(statbuf,
+               iter->buf + iter->offset + sizeof(readdir_rec_len_t),
+               sizeof(struct stat));
+        */
+        *statbuf = header->statbuf;
+        return 0;
+    } else {
+        return -1;
+    }
+}
+/*
+static
+void print_meta_obj_key(metadb_key_t *mkey) {
+    printf("%ld, %ld, ", mkey->parent_id, mkey->partition_id);
+    int i;
+    for (i = 0; i < HASH_LEN; ++i)
+        printf("%c", mkey->name_hash[i]);
+    printf("\n");
+}
+*/
 int metadb_readdir(struct MetaDB mdb,
                    const metadb_inode_t dir_id,
                    const int partition_id,
-                   void *buf, fill_dir_t filler) {
+                   const char* start_key,
+                   char* buf,
+                   const size_t buf_len,
+                   size_t *num_entries,
+                   char* *end_key) {
     int ret = 0;
+    size_t buf_offset = 0;
+    *num_entries = 0;
+    end_key = NULL;
     metadb_key_t mobj_key;
-
-    init_meta_obj_seek_key(&mobj_key, dir_id, partition_id);
+    init_meta_obj_seek_key(&mobj_key, dir_id, partition_id, start_key);
 
     ACQUIRE_MUTEX(&(mdb.mtx_leveldb),
                 "metadb_readdir(p[%d])", partition_id);
 
-    leveldb_iterator_t* iter = leveldb_create_iterator(mdb.db, mdb.scan_options);
+    leveldb_iterator_t* iter =
+        leveldb_create_iterator(mdb.db, mdb.scan_options);
     leveldb_iter_seek(iter, (char *) &mobj_key, METADB_KEY_LEN);
     if (leveldb_iter_valid(iter)) {
         do {
@@ -472,8 +588,17 @@ int metadb_readdir(struct MetaDB mdb,
             iter_key = (metadb_key_t*) leveldb_iter_key(iter, &klen);
             if (iter_key->parent_id == dir_id &&
                 iter_key->partition_id == partition_id) {
-                iter_val.value = (char *) leveldb_iter_value(iter, &iter_val.size);
-                filler(buf, iter_key, &iter_val);
+                iter_val.value =
+                    (char *) leveldb_iter_value(iter, &iter_val.size);
+                int fret = readdir_filler(buf, buf_len, &buf_offset, iter_val);
+                if (fret < 0) {
+                    return fret;
+                } else if (fret > 0) {
+                    *end_key = (char *) malloc(HASH_LEN);
+                    memcpy(end_key, iter_key->name_hash, HASH_LEN);
+                } else {
+                    *num_entries = (*num_entries) + 1;
+                }
             } else {
                 break;
             }
@@ -570,7 +695,7 @@ int metadb_extract_do(struct MetaDB mdb,
     }
 
     metadb_key_t mobj_key;
-    init_meta_obj_seek_key(&mobj_key, dir_id, old_partition_id);
+    init_meta_obj_seek_key(&mobj_key, dir_id, old_partition_id, NULL);
 
     int num_new_sstable = 0;
     int num_migrated_entries = 0;
@@ -729,7 +854,8 @@ int metadb_extract_do(struct MetaDB mdb,
 
     init_meta_obj_seek_key(&mobj_key,
                            extraction->dir_id,
-                           extraction->old_partition_id);
+                           extraction->old_partition_id,
+                           NULL);
 
     int num_migrated_entries = 0;
     int num_inprogress_entries = 0;

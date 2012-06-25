@@ -578,9 +578,7 @@ int metadb_readdir(struct MetaDB mdb,
                 iter_val.value =
                     (char *) leveldb_iter_value(iter, &iter_val.size);
                 int fret = readdir_filler(buf, buf_len, &buf_offset, iter_val);
-                if (fret < 0) {
-                    return fret;
-                } else if (fret > 0) {
+                if (fret > 0) {
                     *end_key = (char *) malloc(HASH_LEN);
                     memcpy(*end_key, iter_key->name_hash, HASH_LEN);
                 } else {

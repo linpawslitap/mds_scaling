@@ -503,7 +503,8 @@ int metadb_readdir_iter_valid(metadb_readdir_iterator_t *iter) {
 void metadb_readdir_iter_next(metadb_readdir_iterator_t *iter) {
     iter->cur_ent ++;
     if (iter->cur_ent < iter->num_ent) {
-        readdir_rec_len_t rec_len = *((readdir_rec_len_t *) (iter->buf + iter->offset));
+        readdir_rec_len_t rec_len =
+            *((readdir_rec_len_t *) (iter->buf + iter->offset));
         iter->offset += rec_len + sizeof(rec_len);
     }
 }
@@ -536,29 +537,15 @@ const char* metadb_readdir_iter_get_realpath(metadb_readdir_iterator_t *iter,
 int metadb_readdir_iter_get_stat(metadb_readdir_iterator_t *iter,
                                  struct stat *statbuf) {
     if (iter->cur_ent < iter->num_ent) {
-        metadb_val_header_t* header = (metadb_val_header_t *)
-            (iter->buf + iter->offset + sizeof(readdir_rec_len_t));
-        /*
         memcpy(statbuf,
                iter->buf + iter->offset + sizeof(readdir_rec_len_t),
                sizeof(struct stat));
-        */
-        *statbuf = header->statbuf;
         return 0;
     } else {
         return -1;
     }
 }
-/*
-static
-void print_meta_obj_key(metadb_key_t *mkey) {
-    printf("%ld, %ld, ", mkey->parent_id, mkey->partition_id);
-    int i;
-    for (i = 0; i < HASH_LEN; ++i)
-        printf("%c", mkey->name_hash[i]);
-    printf("\n");
-}
-*/
+
 int metadb_readdir(struct MetaDB mdb,
                    const metadb_inode_t dir_id,
                    const int partition_id,
@@ -570,7 +557,7 @@ int metadb_readdir(struct MetaDB mdb,
     int ret = 0;
     size_t buf_offset = 0;
     *num_entries = 0;
-    end_key = NULL;
+    *end_key = NULL;
     metadb_key_t mobj_key;
     init_meta_obj_seek_key(&mobj_key, dir_id, partition_id, start_key);
 
@@ -595,7 +582,7 @@ int metadb_readdir(struct MetaDB mdb,
                     return fret;
                 } else if (fret > 0) {
                     *end_key = (char *) malloc(HASH_LEN);
-                    memcpy(end_key, iter_key->name_hash, HASH_LEN);
+                    memcpy(*end_key, iter_key->name_hash, HASH_LEN);
                 } else {
                     *num_entries = (*num_entries) + 1;
                 }

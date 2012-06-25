@@ -5,7 +5,7 @@
 
 
 #define MAX_FILENAME_LEN 1024
-#define MAX_NUM_ENTRIES 1000
+#define MAX_NUM_ENTRIES 100000
 #define FILE_FORMAT "%016lx"
 #define MAX_BUF_SIZE (2 << 20)
 #define ASSERT(x) \

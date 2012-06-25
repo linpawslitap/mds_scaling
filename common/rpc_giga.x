@@ -21,6 +21,22 @@ typedef string giga_pathname<PATH_MAX>;
 typedef opaque giga_file_data<4096>;
 typedef struct giga_mapping_t giga_bitmap;
 
+typedef struct scan_entry_t* scan_list_t;
+
+struct scan_entry_t {
+    giga_pathname           entry_name;
+    struct scan_entry_t*    next;
+};
+
+union readdir_result_t switch (int errnum) {
+	case 0:
+    scan_list_t list;
+	case -EAGAIN:
+		giga_bitmap bitmap;
+	default:
+		void;
+};
+
 struct giga_timestamp_t {
     int tv_sec;
     long tv_nsec;
@@ -48,6 +64,7 @@ struct giga_getattr_reply_t {
     /**int fn_retval;*/
 };
 
+
 /* RPC definitions */
 
 program GIGA_RPC_PROG {                 /* program number */
@@ -64,6 +81,8 @@ program GIGA_RPC_PROG {                 /* program number */
         giga_result_t GIGA_RPC_MKDIR(giga_dir_id, giga_pathname, mode_t) = 201;
 
         giga_result_t GIGA_RPC_MKNOD(giga_dir_id, giga_pathname, mode_t, short) = 301;
+
+        readdir_result_t GIGA_RPC_READDIR(giga_dir_id, int) = 501;
         
         /* {dir_to_split, parent_index, child_index, path_leveldb_files} */
         giga_result_t GIGA_RPC_SPLIT(giga_dir_id, int, int, giga_pathname, 

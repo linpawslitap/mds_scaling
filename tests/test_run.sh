@@ -45,8 +45,8 @@ do
         then
             dir=${MNT}/${i}
         fi
-        ( time ./mknod_test ${dir} $files ) > ~/_perf/$host.$i.$j 2>&1 &
-        #( time ./mknod_test ${MNT} $files ) > ~/_perf/$host.$i 2>&1 &
+        ./mknod_test ${dir} $files > ~/_perf/$host.$i.$j 2>&1 &
+        #( time ./mknod_test ${dir} $files ) > ~/_perf/$host.$i.$j 2>&1 &
     done
 done
 #else

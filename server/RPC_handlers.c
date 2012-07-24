@@ -241,8 +241,8 @@ start:
                 dir->partition_size[index] += 1;
             break;
         case BACKEND_RPC_LEVELDB:
-            //snprintf(path_name, sizeof(path_name), 
-            //         "%s/%s", giga_options_t.mountpoint, path);
+            snprintf(path_name, sizeof(path_name), 
+                     "%s/%s", giga_options_t.mountpoint, path);
             
             // TODO: assume partitioned sub-dirs, and randomly pick a dir
             //       for symlink creation (for PanFS)

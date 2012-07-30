@@ -6,7 +6,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "./leveldb/include/leveldb/c.h"
+#include "leveldb/include/leveldb/c.h"
 #include "common/giga_index.h"
 
 /*
@@ -123,6 +123,8 @@ struct MetaDB {
     pthread_mutex_t     mtx_bulkload;
     pthread_mutex_t     mtx_extload;
     pthread_mutex_t     mtx_leveldb;
+
+    FILE* logfile;
 };
 
 typedef int (*update_func_t)(metadb_val_t* mval, void* arg1);

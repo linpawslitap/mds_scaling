@@ -508,6 +508,7 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   }
 
   CompactionStats stats;
+  stats.counter = 1;
   stats.micros = env_->NowMicros() - start_micros;
   stats.bytes_written = meta.file_size;
   stats_[level].Add(stats);
@@ -982,6 +983,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   input = NULL;
 
   CompactionStats stats;
+  stats.counter = 1;
   stats.micros = env_->NowMicros() - start_micros - imm_micros;
   for (int which = 0; which < 2; which++) {
     for (int i = 0; i < compact->compaction->num_input_files(which); i++) {
@@ -1106,6 +1108,7 @@ Status DBImpl::Get(const ReadOptions& options,
   mem->Unref();
   if (imm != NULL) imm->Unref();
   current->Unref();
+  op_stats_.get_count += 1;
   return s;
 }
 
@@ -1198,7 +1201,7 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* my_batch) {
   if (!writers_.empty()) {
     writers_.front()->cv.Signal();
   }
-
+  op_stats_.write_count += 1;
   return status;
 }
 
@@ -1341,27 +1344,26 @@ bool DBImpl::GetProperty(const Slice& property, std::string* value) {
     }
   } else if (in == "stats") {
     char buf[200];
-    snprintf(buf, sizeof(buf),
-             "                               Compactions\n"
-             "Level  Files Size(MB) Time(sec) Read(MB) Write(MB)\n"
-             "--------------------------------------------------\n"
-             );
-    value->append(buf);
+    CompactionStats tot_stat;
+    int tot_files = 0;
+    double tot_size = 0;
     for (int level = 0; level < config::kNumLevels; level++) {
-      int files = versions_->NumLevelFiles(level);
-      if (stats_[level].micros > 0 || files > 0) {
-        snprintf(
-            buf, sizeof(buf),
-            "%3d %8d %8.0f %9.0f %8.0f %9.0f\n",
-            level,
-            files,
-            versions_->NumLevelBytes(level) / 1048576.0,
-            stats_[level].micros / 1e6,
-            stats_[level].bytes_read / 1048576.0,
-            stats_[level].bytes_written / 1048576.0);
-        value->append(buf);
-      }
+      tot_files += versions_->NumLevelFiles(level);
+      tot_size += versions_->NumLevelBytes(level) / 1048576.0;
+      tot_stat.Add(stats_[level]);
     }
+    snprintf(
+        buf, sizeof(buf),
+        "%8d %8.0f %9.0f %9.0f %8.0f %9.0f %8ld %8ld\n",
+        tot_files,
+        tot_size,
+        tot_stat.counter / 1.0,
+        tot_stat.micros / 1e6,
+        tot_stat.bytes_read / 1048576.0,
+        tot_stat.bytes_written / 1048576.0,
+        op_stats_.write_count,
+        op_stats_.get_count);
+    value->append(buf);
     return true;
   } else if (in == "sstables") {
     *value = versions_->current()->DebugString();
@@ -1678,7 +1680,6 @@ Status DBImpl::BulkInsert(const WriteOptions& write_opt,
   if (!writers_.empty()) {
     writers_.front()->cv.Signal();
   }
-
   return s;
 }
 

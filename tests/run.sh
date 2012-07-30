@@ -6,6 +6,8 @@
 # Description:
 #########################################################################
 
+mkdir /tmp/fuse1
+mkdir /tmp/fuse2
 sudo umount /tmp/fuse1
 sudo umount /tmp/fuse2
 ../giga_client /tmp/fuse1

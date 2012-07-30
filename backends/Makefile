@@ -9,13 +9,13 @@ CFLAGS += -iquote ..
 LDFLAGS += `pkg-config fuse --libs` $(LEVELDBLIBRARY)
 
 metadb_fs.o : metadb_fs.c operations.h
-	$(CC) $(CFLAGS) -c metadb_fs.c ../common.a
+	$(CC) $(CFLAGS) -c metadb_fs.c
 
 rpc_fs.o : rpc_fs.c operations.h
-	$(CC) $(CFLAGS) -c local_fs.c ../common.a
+	$(CC) $(CFLAGS) -c local_fs.c
 						
 local_fs.o : local_fs.c operations.h
-	$(CC) $(CFLAGS) -c local_fs.c ../common.a
+	$(CC) $(CFLAGS) -c local_fs.c
 						
 
 metadb_fs_test.o : metadb_fs_test.c operations.h

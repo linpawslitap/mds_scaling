@@ -19,6 +19,8 @@
 #define DEFAULT_MAX_OPEN_FILES     128
 #define DEFAULT_MAX_BATCH_SIZE     1024
 #define DEFAULT_SSTABLE_SIZE       (2 << 20)
+#define DEFAULT_METRIC_SAMPLING_INTERVAL 1
+#define DEFAULT_METADB_LOG_FILE "/tmp/metadb.log" // Default metadb log file location
 #define MAX_FILENAME_LEN 1024
 #define METADB_KEY_LEN (sizeof(metadb_key_t))
 #define METADB_INTERNAL_KEY_LEN (sizeof(metadb_key_t)+8)
@@ -166,6 +168,66 @@ static const char* CmpName(void* arg) {
     return "foo";
 }
 
+int metric_thread_errors;
+
+void* metric_thread(void *unused) {
+    struct MetaDB* mdb = (struct MetaDB*) unused;
+
+    struct timespec ts;
+    ts.tv_sec = DEFAULT_METRIC_SAMPLING_INTERVAL;
+    ts.tv_nsec = 0;
+
+    struct timespec rem;
+    time_t seconds, flush_seconds=0;
+    char* prop;
+
+    do {
+        seconds = time(NULL);
+        prop = leveldb_property_value(mdb->db, "leveldb.stats");
+        if (prop != NULL) {
+            fprintf(mdb->logfile, "%ld %s", seconds, prop);
+        }
+        free(prop);
+        if (seconds - flush_seconds > 10) {
+            fflush(mdb->logfile);
+            flush_seconds = seconds;
+        }
+        int ret = nanosleep(&ts, &rem);
+        if (ret == -1){
+            if (errno == EINTR)
+                nanosleep(&rem, NULL);
+            else
+                metric_thread_errors++;
+        }
+    } while (metric_thread_errors < 50);
+
+    fclose(mdb->logfile);
+
+    return NULL;
+}
+
+void metadb_log_init(struct MetaDB *mdb) {
+    mdb->logfile = fopen(DEFAULT_METADB_LOG_FILE, "w");
+    if (mdb->logfile != NULL) {
+        pthread_t tid;
+        int ret;
+        if ((ret = pthread_create(&tid, NULL, metric_thread, mdb))) {
+            logMessage(METADB_LOG, __func__,
+                       "pthread_create() error: %d", ret);
+            exit(1);
+        }
+        if ((ret = pthread_detach(tid))) {
+            logMessage(METADB_LOG, __func__,
+                       "pthread_detach() error: %d", ret);
+            exit(1);
+        }
+    }
+}
+
+void metadb_log_destroy() {
+    metric_thread_errors = 100;
+}
+
 int metadb_init(struct MetaDB *mdb, const char *mdb_name)
 {
     char* err = NULL;
@@ -230,9 +292,10 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name)
         }
     }
 
+    metadb_log_init(mdb);
+
     return ret;
 }
-
 
 int metadb_create(struct MetaDB mdb,
                   const metadb_inode_t dir_id, const int partition_id,
@@ -424,6 +487,7 @@ int metadb_write_bitmap(struct MetaDB mdb,
 }
 
 int metadb_close(struct MetaDB mdb) {
+    metadb_log_destroy();
     leveldb_close(mdb.db);
     leveldb_options_destroy(mdb.options);
     leveldb_cache_destroy(mdb.cache);

@@ -616,7 +616,7 @@ int metadb_readdir(struct MetaDB mdb,
                    const char* start_key,
                    char* buf,
                    const size_t buf_len,
-                   size_t *num_entries,
+                   int *num_entries,
                    char* *end_key) {
     int ret = 0;
     size_t buf_offset = 0;
@@ -645,6 +645,7 @@ int metadb_readdir(struct MetaDB mdb,
                 if (fret > 0) {
                     *end_key = (char *) malloc(HASH_LEN);
                     memcpy(*end_key, iter_key->name_hash, HASH_LEN);
+                    break;
                 } else {
                     *num_entries = (*num_entries) + 1;
                 }

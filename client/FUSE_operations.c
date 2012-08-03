@@ -309,6 +309,8 @@ int GIGAreaddir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offse
     struct dirent *de;
     DIR *dp = (DIR*) (uintptr_t) fi->fh;
 
+    scan_list_t ls;
+    scan_list_t ret_ls; 
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
             if ((de = readdir(dp)) == 0) {
@@ -322,7 +324,13 @@ int GIGAreaddir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offse
             break;
         case BACKEND_RPC_LEVELDB:
             parse_path_components(path, file, dir);
-            ret = rpc_readdir(dir_id, dir);
+            ret_ls = (scan_list_t)rpc_readdir(dir_id, dir);
+            for (ls = ret_ls; ls != NULL; ls = ls->next) {
+                if (filler(buf, ls->entry_name, NULL, 0) != 0) {
+                    ret = ENOMEM;
+                    break;
+                }
+            }
             break;
         default:
             ret = ENOTSUP;

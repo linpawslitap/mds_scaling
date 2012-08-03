@@ -214,7 +214,7 @@ retry:
     return ret;
 }
 
-int rpc_readdir(int dir_id, const char *path)
+scan_list_t rpc_readdir(int dir_id, const char *path)
 {
     int ret = 0;
     
@@ -226,6 +226,7 @@ int rpc_readdir(int dir_id, const char *path)
     
     int server_id = 0;
     readdir_result_t rpc_reply;
+    scan_list_t ls;
 
 retry:
     server_id = get_server_for_file(dir, path);
@@ -239,6 +240,7 @@ retry:
         LOG_ERR("ERR_rpc_readdir(%s)", clnt_spcreateerror(path));
         exit(1);//TODO: retry again?
     }
+
     
     // check return condition 
     //
@@ -250,21 +252,24 @@ retry:
     } else if (ret < 0) {
         ;
     } else {
+        for (ls = rpc_reply.readdir_result_t_u.list; ls != NULL; ls = ls->next)
+            LOG_MSG("readdir_result=[%s]", ls->entry_name);
         ret = 0;
     }
 
 
     LOG_MSG("<<< RPC_readdir(%s): status=[%d]%s", path, ret, strerror(ret));
-    
-    return ret;
+   
+    return rpc_reply.readdir_result_t_u.list;
+    //return ret;
 }
 
 int rpc_releasedir(int dir_id, const char *path)
 {
     int ret = 0;
     
-    LOG_MSG(">>> RPC_readdir(%s, d%d)", path, dir_id);
-    LOG_MSG("<<< RPC_readdir(%s): status=[%d]%s", path, ret, strerror(ret));
+    LOG_MSG(">>> RPC_releasedir(%s, d%d)", path, dir_id);
+    LOG_MSG("<<< RPC_releasedir(%s): status=[%d]%s", path, ret, strerror(ret));
 
     return ret;
 }
@@ -273,8 +278,8 @@ int rpc_opendir(int dir_id, const char *path)
 {
     int ret = 0;
     
-    LOG_MSG(">>> RPC_releasedir(%s, d%d)", path, dir_id);
-    LOG_MSG("<<< RPC_releasedir(%s): status=[%d]%s", path, ret, strerror(ret));
+    LOG_MSG(">>> RPC_opendir(%s, d%d)", path, dir_id);
+    LOG_MSG("<<< RPC_opendir(%s): status=[%d]%s", path, ret, strerror(ret));
 
     return ret;
 }

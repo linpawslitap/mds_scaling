@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <dirent.h>
 
 #include <signal.h>
 #include <time.h>
@@ -82,7 +83,7 @@ top:
             errors++;
     }
 
-    if (errors > 50)
+    if ((errors > 50) || (curr = num_files-1))
         return NULL;
     else
         goto top;
@@ -104,6 +105,39 @@ static void mknod_files(const char *dir)
         }
     }
 }
+
+static void ls_files(const char *dir)
+{
+    printf("Scanning files from %s ... \n", dir);
+    DIR* dp;
+    struct dirent *de;
+
+    if ((dp = opendir(dir)) == NULL) {
+        printf("[%s] ERR_opendir: %s\n",__FILE__, strerror(errno)); 
+        exit(1);
+    }
+
+    while (1) {
+        errno = 0; // to distinguish error from End of Directory
+
+        if ((de = readdir(dp)) == NULL)
+            break;
+        if ((strcmp(de->d_name, ".") == 0) ||
+            (strcmp(de->d_name, "..") == 0))
+            continue;
+
+        printf("entry=%s\n", de->d_name);
+    }
+
+    if (errno != 0) { 
+        printf("[%s] ERR_readdir: %s\n",__FILE__, strerror(errno)); 
+        exit(1);
+    }
+
+    closedir(dp);
+}
+
+
 
 int main(int argc, char **argv)
 {
@@ -138,6 +172,7 @@ int main(int argc, char **argv)
     }
 
     mknod_files(argv[1]);
+    ls_files(argv[1]);
 
     errors = 100;
 

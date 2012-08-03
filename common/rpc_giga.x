@@ -30,7 +30,7 @@ struct scan_entry_t {
 
 union readdir_result_t switch (int errnum) {
 	case 0:
-    scan_list_t list;
+        scan_list_t list;
 	case -EAGAIN:
 		giga_bitmap bitmap;
 	default:

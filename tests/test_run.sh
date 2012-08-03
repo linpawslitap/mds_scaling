@@ -47,6 +47,7 @@ do
         fi
         ./mknod_test ${dir} $files > ~/_perf/$host.$i.$j 2>&1 &
         #( time ./mknod_test ${dir} $files ) > ~/_perf/$host.$i.$j 2>&1 &
+
     done
 done
 #else

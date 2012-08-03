@@ -294,6 +294,9 @@ bool_t giga_rpc_readdir_1_svc(giga_dir_id dir_id, int partition_id,
     char *end_key = NULL;
     char *start_key = NULL;
     size_t num_ent = 0;
+
+    scan_list_t ls;
+    scan_list_t *ls_ptr = &(rpc_reply->readdir_result_t_u.list); 
     
     do {
         rpc_reply->errnum = metadb_readdir(ldb_mds, dir_id, partition_id,
@@ -312,7 +315,7 @@ bool_t giga_rpc_readdir_1_svc(giga_dir_id dir_id, int partition_id,
         
         iter = metadb_create_readdir_iterator(buf, MAX_BUF, num_ent);
         metadb_readdir_iter_begin(iter);
-       
+
         int entry = 0;
         LOG_MSG("PRINT_readdir() buf with %d entries ...", num_ent);
         while (metadb_readdir_iter_valid(iter)) {
@@ -326,12 +329,19 @@ bool_t giga_rpc_readdir_1_svc(giga_dir_id dir_id, int partition_id,
             
             assert((statbuf.st_mode & S_IFDIR) > 0);
             assert(memcmp(objname, realpath, len) == 0);
-            
+           
             LOG_MSG("#%d: \t obj=[%s] \t sym=[%s]", entry, objname, realpath);
+
+            ls = *ls_ptr = (scan_entry_t*)malloc(sizeof(scan_entry_t));
+            ls->entry_name = strdup(objname);
+            ls_ptr = &ls->next;
+            
             entry += 1;
 
             metadb_readdir_iter_next(iter);
         }
+        *ls_ptr = NULL;
+
         start_key = end_key;
     } while (end_key != NULL);
     

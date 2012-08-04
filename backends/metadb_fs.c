@@ -617,11 +617,13 @@ int metadb_readdir(struct MetaDB mdb,
                    char* buf,
                    const size_t buf_len,
                    size_t *num_entries,
-                   char* *end_key) {
+                   char* end_key,
+                   int* more_entries_flag) {
     int ret = 0;
     size_t buf_offset = 0;
+    int entry_count = 0;
     *num_entries = 0;
-    *end_key = NULL;
+    *more_entries_flag = 0;
     metadb_key_t mobj_key;
     init_meta_obj_seek_key(&mobj_key, dir_id, partition_id, start_key);
 
@@ -643,10 +645,20 @@ int metadb_readdir(struct MetaDB mdb,
                     (char *) leveldb_iter_value(iter, &iter_val.size);
                 int fret = readdir_filler(buf, buf_len, &buf_offset, iter_val);
                 if (fret > 0) {
-                    *end_key = (char *) malloc(HASH_LEN);
-                    memcpy(*end_key, iter_key->name_hash, HASH_LEN);
+                    memcpy(end_key, iter_key->name_hash, HASH_LEN);
+                    // Check if there is no more entries
+                    leveldb_iter_next(iter);
+                    if (leveldb_iter_valid(iter)) {
+                        iter_key =
+                            (metadb_key_t*) leveldb_iter_key(iter, &klen);
+                        if (iter_key->parent_id == dir_id &&
+                            iter_key->partition_id == partition_id) {
+                            *more_entries_flag = 1;
+                        }
+                    }
+                    break;
                 } else {
-                    *num_entries = (*num_entries) + 1;
+                    entry_count += 1;
                 }
             } else {
                 break;
@@ -661,7 +673,7 @@ int metadb_readdir(struct MetaDB mdb,
 
     RELEASE_MUTEX(&(mdb.mtx_leveldb),
                 "metadb_readdir(p[%d])", partition_id);
-
+    *num_entries = entry_count;
     return ret;
 }
 

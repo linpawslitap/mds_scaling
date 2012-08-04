@@ -37,17 +37,15 @@ void myreaddir(struct MetaDB mdb,
                metadb_inode_t dir_id,
                int partition_id) {
     char* buf = (char *) malloc(MAX_BUF_SIZE);
-    char* end_key = NULL;
+    char end_key[128];
     char* start_key = NULL;
     size_t num_ent = 0;
+    int more_entries_flag;
     do {
         int ret = metadb_readdir(mdb, dir_id, partition_id,
                                  start_key, buf, MAX_BUF_SIZE,
-                                 &num_ent, &end_key);
+                                 &num_ent, end_key, &more_entries_flag);
         ASSERT(ret >= 0);
-        if (start_key != NULL) {
-            free(start_key);
-        }
         metadb_readdir_iterator_t* iter =
             metadb_create_readdir_iterator(buf, MAX_BUF_SIZE, num_ent);
         metadb_readdir_iter_begin(iter);
@@ -65,7 +63,7 @@ void myreaddir(struct MetaDB mdb,
             metadb_readdir_iter_next(iter);
         }
         start_key = end_key;
-    } while (end_key != NULL);
+    } while (more_entries_flag != 0);
     free(buf);
 }
 

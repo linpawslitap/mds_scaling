@@ -28,6 +28,23 @@ struct scan_entry_t {
     struct scan_entry_t*    next;
 };
 
+typedef string scan_key<PATH_MAX>;
+
+struct scan_result_t {
+    scan_key end_key;
+    scan_list_t list;
+    int num_entries;
+};
+
+union readdir_return_t switch (int errnum) {
+	case 0:
+        struct scan_result_t result;
+	case -EAGAIN:
+		giga_bitmap bitmap;
+	default:
+		void;
+};
+
 union readdir_result_t switch (int errnum) {
 	case 0:
         scan_list_t list;
@@ -83,6 +100,8 @@ program GIGA_RPC_PROG {                 /* program number */
         giga_result_t GIGA_RPC_MKNOD(giga_dir_id, giga_pathname, mode_t, short) = 301;
 
         readdir_result_t GIGA_RPC_READDIR(giga_dir_id, int) = 501;
+        
+        readdir_return_t GIGA_RPC_READDIR_REQ(giga_dir_id, int, scan_key) = 502;
         
         /* {dir_to_split, parent_index, child_index, path_leveldb_files} */
         giga_result_t GIGA_RPC_SPLIT(giga_dir_id, int, int, giga_pathname, 

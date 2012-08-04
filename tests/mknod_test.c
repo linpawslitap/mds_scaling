@@ -83,7 +83,8 @@ top:
             errors++;
     }
 
-    if ((errors > 50) || (curr = num_files-1))
+    //if ((errors > 50) || (curr = num_files-1))
+    if (errors > 50) 
         return NULL;
     else
         goto top;

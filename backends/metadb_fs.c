@@ -616,14 +616,9 @@ int metadb_readdir(struct MetaDB mdb,
                    const char* start_key,
                    char* buf,
                    const size_t buf_len,
-<<<<<<< HEAD
                    size_t *num_entries,
                    char* end_key,
                    int* more_entries_flag) {
-=======
-                   int *num_entries,
-                   char* *end_key) {
->>>>>>> 0f039266d31b3206d8c754eb7b5bada2de70105b
     int ret = 0;
     size_t buf_offset = 0;
     int entry_count = 0;
@@ -650,7 +645,6 @@ int metadb_readdir(struct MetaDB mdb,
                     (char *) leveldb_iter_value(iter, &iter_val.size);
                 int fret = readdir_filler(buf, buf_len, &buf_offset, iter_val);
                 if (fret > 0) {
-<<<<<<< HEAD
                     memcpy(end_key, iter_key->name_hash, HASH_LEN);
                     // Check if there is no more entries
                     leveldb_iter_next(iter);
@@ -662,10 +656,6 @@ int metadb_readdir(struct MetaDB mdb,
                             *more_entries_flag = 1;
                         }
                     }
-=======
-                    *end_key = (char *) malloc(HASH_LEN);
-                    memcpy(*end_key, iter_key->name_hash, HASH_LEN);
->>>>>>> 0f039266d31b3206d8c754eb7b5bada2de70105b
                     break;
                 } else {
                     entry_count += 1;

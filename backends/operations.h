@@ -172,14 +172,9 @@ int metadb_readdir(struct MetaDB mdb,
                    const char* start_key,
                    char* buf,
                    const size_t buf_len,
-<<<<<<< HEAD
                    size_t *num_entries,
                    char* end_key,
                    int* more_entries_flag);
-=======
-                   int *num_entries,
-                   char* *end_key);
->>>>>>> 0f039266d31b3206d8c754eb7b5bada2de70105b
 
 int metadb_extract_do(struct MetaDB mdb,
                       const metadb_inode_t dir_id,

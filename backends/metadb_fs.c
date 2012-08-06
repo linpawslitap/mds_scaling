@@ -731,7 +731,7 @@ int metadb_readdir(struct MetaDB mdb,
             leveldb_iter_next(iter);
         } while (leveldb_iter_valid(iter));
     } else {
-        printf("metadb_readdir: Invalid Iterator.\n");
+        //printf("metadb_readdir: Invalid Iterator.\n");
         ret = ENOENT;
     }
     leveldb_iter_destroy(iter);

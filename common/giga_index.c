@@ -1,4 +1,6 @@
-/* 
+/*
+ *
+ * return;
  * GIGA+ indexing implementation 
  *  by- Swapnil V Patil (svp at cs)
  *
@@ -360,6 +362,16 @@ index_t giga_get_index_for_file(struct giga_mapping_t *mapping,
    
     return index;
 }
+
+void giga_get_all_partitions(struct giga_mapping_t *mapping, int p[])
+{
+    int i=0;
+    for (i=0; i<MAX_GIGA_PARTITIONS; i++)
+        p[i] = get_bit_status(mapping->bitmap, i);
+
+    return;
+}
+
 
 // Given the hash of a file, return the server where the file should be inserted
 // or should be searched.

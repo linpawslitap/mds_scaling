@@ -115,6 +115,10 @@ index_t giga_get_server_for_index(struct giga_mapping_t *mapping,
 index_t giga_get_bucket_num_for_server(struct giga_mapping_t *mapping,
                                   index_t index);
 
+// used to enumerate all GIGA+ partitions in array "p"
+void giga_get_all_partitions(struct giga_mapping_t *mapping, int p[]);
+
+
 // FIXME: what's this for?
 index_t giga_get_index_for_backup(index_t index); 
 

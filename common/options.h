@@ -47,11 +47,12 @@ typedef enum backends {
 //
 
 #define MAX_BUF     4096*256
+#define MAX_LEN     512
 
 #define GIGA_CLIENT     12345           // Magic identifier
 #define DEFAULT_MNT     "/tmp/giga_c"
 
-#define GIGA_SERVER     67890           // Magic identifier
+#define GIGA_SERVER     67891           // Magic identifier
 
 #define MAX_SERVERS     128             // MAX number of GIGA+ servers
 #define DEFAULT_PORT    45678           // Default port used by GIGA+ servers

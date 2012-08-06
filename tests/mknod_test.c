@@ -118,6 +118,7 @@ static void ls_files(const char *dir)
         exit(1);
     }
 
+    int num_ent = 0;
     while (1) {
         errno = 0; // to distinguish error from End of Directory
 
@@ -127,7 +128,8 @@ static void ls_files(const char *dir)
             (strcmp(de->d_name, "..") == 0))
             continue;
 
-        printf("entry=%s\n", de->d_name);
+        //printf("entry=%s\n", de->d_name);
+        num_ent += 1;
     }
 
     if (errno != 0) { 
@@ -135,6 +137,7 @@ static void ls_files(const char *dir)
         exit(1);
     }
 
+    printf("readdir_ret=%d\n", num_ent);
     closedir(dp);
 }
 
@@ -173,6 +176,8 @@ int main(int argc, char **argv)
     }
 
     mknod_files(argv[1]);
+
+    sleep(2);
     ls_files(argv[1]);
 
     errors = 100;

@@ -42,7 +42,8 @@ void init_meta_obj_key(metadb_key_t *mkey,
     mkey->parent_id = dir_id;
     mkey->partition_id = (uint64_t) partition_id;
     memset(mkey->name_hash, 0, sizeof(mkey->name_hash));
-    giga_hash_name(path, mkey->name_hash);
+    if (path != NULL)
+        giga_hash_name(path, mkey->name_hash);
 }
 
 static
@@ -85,21 +86,15 @@ size_t metadb_header_size(metadb_val_t* mobj_val) {
 }
 
 static
-metadb_val_t init_meta_val(metadb_obj_type_t obj_type,
-                           const metadb_inode_t inode_id,
+metadb_val_t init_meta_val(const metadb_inode_t inode_id,
                            const size_t objname_len,
                            const char* objname,
                            const size_t realpath_len,
                            const char* realpath)
 {
     metadb_val_t mobj_val;
-    size_t header_size = sizeof(metadb_val_header_t)
+    mobj_val.size = sizeof(metadb_val_header_t)
                        + realpath_len +objname_len + 2;
-    if (obj_type == OBJ_DIR) {
-        mobj_val.size = header_size + sizeof(metadb_val_dir_t);
-    } else {
-        mobj_val.size = header_size;
-    }
     mobj_val.value = (char*) malloc(mobj_val.size);
 
     metadb_val_header_t* mobj = (metadb_val_header_t *) mobj_val.value;
@@ -116,16 +111,46 @@ metadb_val_t init_meta_val(metadb_obj_type_t obj_type,
 
     mobj->statbuf = INIT_STATBUF;
     mobj->statbuf.st_ino = inode_id;
-    if (obj_type == OBJ_DIR) {
-        mobj->statbuf.st_mode = (mobj->statbuf.st_mode & ~S_IFMT) | S_IFDIR;
-        metadb_val_dir_t* mdir =
+    mobj->statbuf.st_mode = (mobj->statbuf.st_mode & ~S_IFMT) | S_IFREG;
+    mobj->statbuf.st_nlink = 1;
+
+    time_t now = time(NULL);
+    mobj->statbuf.st_atime = now;
+    mobj->statbuf.st_mtime = now;
+    mobj->statbuf.st_ctime = now;
+
+    return mobj_val;
+}
+
+static
+metadb_val_t init_dir_val(const metadb_inode_t inode_id,
+                          const size_t objname_len,
+                          const char* objname,
+                          metadb_val_dir_t *dir_val)
+{
+    metadb_val_t mobj_val;
+    size_t header_size = sizeof(metadb_val_header_t)
+                       + objname_len + 2;
+    mobj_val.size = header_size + sizeof(metadb_val_dir_t);
+    mobj_val.value = (char*) malloc(mobj_val.size);
+
+    metadb_val_header_t* mobj = (metadb_val_header_t *) mobj_val.value;
+
+    mobj->objname_len = objname_len;
+    mobj->objname = (char*) mobj + sizeof(metadb_val_header_t);
+    if (objname_len > 0)
+        strncpy(mobj->objname, objname, objname_len);
+    mobj->objname[objname_len] = '\0';
+
+    mobj->realpath_len = 0;
+
+    mobj->statbuf = INIT_STATBUF;
+    mobj->statbuf.st_ino = inode_id;
+    mobj->statbuf.st_mode = (mobj->statbuf.st_mode & ~S_IFMT) | S_IFDIR;
+    metadb_val_dir_t* mdir =
           (metadb_val_dir_t*) (mobj_val.value + header_size);
-        memset((char *) mdir, 0, sizeof(metadb_val_dir_t));
-        mobj->statbuf.st_nlink = 2;
-    } else {
-        mobj->statbuf.st_mode = (mobj->statbuf.st_mode & ~S_IFMT) | S_IFREG;
-        mobj->statbuf.st_nlink = 1;
-    }
+    memcpy(mdir, dir_val, sizeof(metadb_val_dir_t));
+    mobj->statbuf.st_nlink = 2;
 
     time_t now = time(NULL);
     mobj->statbuf.st_atime = now;
@@ -308,9 +333,11 @@ int metadb_create(struct MetaDB mdb,
     metadb_val_t mobj_val;
     char* err = NULL;
 
+    (void) entry_type;
+
     init_meta_obj_key(&mobj_key, dir_id, partition_id, path);
 
-    mobj_val = init_meta_val(entry_type, inode_id,
+    mobj_val = init_meta_val(inode_id,
                              strlen(path), path,
                              strlen(realpath), realpath);
 
@@ -328,6 +355,44 @@ int metadb_create(struct MetaDB mdb,
     RELEASE_MUTEX(&(mdb.mtx_leveldb), "metadb_create(%s)", path);
 
     //RELEASE_RWLOCK(&(mdb.rwlock_extract), "metadb_create(%s)", path);
+
+    free_metadb_val(&mobj_val);
+
+    if (err != NULL)
+      ret = -1;
+
+    return ret;
+}
+
+int metadb_create_dir(struct MetaDB mdb,
+                      const metadb_inode_t dir_id, const int partition_id,
+                      const metadb_inode_t inode_id, const char *path,
+                      metadb_val_dir_t* dir_mapping)
+{
+    int ret = 0;
+    metadb_key_t mobj_key;
+    metadb_val_t mobj_val;
+    char* err = NULL;
+
+    init_meta_obj_key(&mobj_key, dir_id, partition_id, path);
+
+    if (path != NULL) {
+        mobj_val = init_dir_val(inode_id,
+                                strlen(path), path, dir_mapping);
+    } else {
+        mobj_val = init_dir_val(inode_id, 0, NULL, dir_mapping);
+    }
+
+    logMessage(METADB_LOG, __func__, "create_dir(%s) in (partition=%d,dirid=%d): (%d, %08x)",
+               path, partition_id, dir_id, mobj_val.size, mobj_val.value);
+
+    ACQUIRE_MUTEX(&(mdb.mtx_leveldb), "metadb_create_dir(%s)", path);
+
+    leveldb_put(mdb.db, mdb.insert_options,
+                (const char*) &mobj_key, METADB_KEY_LEN,
+                mobj_val.value, mobj_val.size, &err);
+
+    RELEASE_MUTEX(&(mdb.mtx_leveldb), "metadb_create_dir(%s)", path);
 
     free_metadb_val(&mobj_val);
 

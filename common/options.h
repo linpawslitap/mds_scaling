@@ -59,7 +59,10 @@ typedef enum backends {
 #define SPLIT_THRESH    8000            // Default directory split theshold
 #define CONFIG_FILE     "/tmp/.giga"    // Default config file location
 
-#define ROOT_DIR_ID     0
+#define ROOT_DIR_ID     1
+
+#define PARENT_OF_ROOT      0   
+#define PARTITION_OF_ROOT   0
 
 // Configuration options used by GIGA+ client and server.
 //

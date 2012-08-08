@@ -67,7 +67,7 @@ void run_test(int nargs, char* args[]) {
     int partition_id = 0;
 
     char filename[MAX_FILENAME_LEN];
-    int num_test_entries = 1000;
+    int num_test_entries = 50000;
 
     metadb_val_dir_t dir_map;
     metadb_val_dir_t dir_map_ret;

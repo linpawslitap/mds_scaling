@@ -64,7 +64,7 @@ void run_test(int nargs, char* args[]) {
     metadb_init(&mdb, dbname);
 
     int dir_id = 0;
-    int partition_id = 0;
+    int partition_id = -1;
 
     char filename[MAX_FILENAME_LEN];
     int num_test_entries = 50000;

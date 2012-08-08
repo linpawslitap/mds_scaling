@@ -690,7 +690,15 @@ int metadb_readdir(struct MetaDB mdb,
     *num_entries = 0;
     *more_entries_flag = 0;
     metadb_key_t mobj_key;
-    init_meta_obj_seek_key(&mobj_key, dir_id, partition_id, start_key);
+    if (start_key == NULL) {
+        if (partition_id < 0) {
+            init_meta_obj_seek_key(&mobj_key, dir_id, 0, NULL);
+        } else {
+            init_meta_obj_seek_key(&mobj_key, dir_id, partition_id, start_key);
+        }
+    } else {
+        memcpy(&mobj_key, start_key, METADB_KEY_LEN);
+    }
 
     ACQUIRE_MUTEX(&(mdb.mtx_leveldb),
                 "metadb_readdir(p[%d])", partition_id);
@@ -705,12 +713,13 @@ int metadb_readdir(struct MetaDB mdb,
             size_t klen;
             iter_key = (metadb_key_t*) leveldb_iter_key(iter, &klen);
             if (iter_key->parent_id == dir_id &&
-                iter_key->partition_id == partition_id) {
+                (iter_key->partition_id == partition_id ||
+                 partition_id < 0)) {
                 iter_val.value =
                     (char *) leveldb_iter_value(iter, &iter_val.size);
                 int fret = readdir_filler(buf, buf_len, &buf_offset, iter_val);
                 if (fret > 0) {
-                    memcpy(end_key, iter_key->name_hash, HASH_LEN);
+                    memcpy(end_key, iter_key, METADB_KEY_LEN);
                     // Check if there is no more entries
                     leveldb_iter_next(iter);
                     if (leveldb_iter_valid(iter)) {

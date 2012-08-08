@@ -677,7 +677,7 @@ int metadb_readdir_iter_get_stat(metadb_readdir_iterator_t *iter,
 
 int metadb_readdir(struct MetaDB mdb,
                    const metadb_inode_t dir_id,
-                   const int partition_id,
+                   int* partition_id,
                    const char* start_key,
                    char* buf,
                    const size_t buf_len,
@@ -690,18 +690,14 @@ int metadb_readdir(struct MetaDB mdb,
     *num_entries = 0;
     *more_entries_flag = 0;
     metadb_key_t mobj_key;
-    if (start_key == NULL) {
-        if (partition_id < 0) {
-            init_meta_obj_seek_key(&mobj_key, dir_id, 0, NULL);
-        } else {
-            init_meta_obj_seek_key(&mobj_key, dir_id, partition_id, start_key);
-        }
+    if (*partition_id < 0) {
+        init_meta_obj_seek_key(&mobj_key, dir_id, 0, NULL);
     } else {
-        memcpy(&mobj_key, start_key, METADB_KEY_LEN);
+        init_meta_obj_seek_key(&mobj_key, dir_id, *partition_id, start_key);
     }
 
     ACQUIRE_MUTEX(&(mdb.mtx_leveldb),
-                "metadb_readdir(p[%d])", partition_id);
+                "metadb_readdir(p[%d])", *partition_id);
 
     leveldb_iterator_t* iter =
         leveldb_create_iterator(mdb.db, mdb.scan_options);
@@ -713,22 +709,25 @@ int metadb_readdir(struct MetaDB mdb,
             size_t klen;
             iter_key = (metadb_key_t*) leveldb_iter_key(iter, &klen);
             if (iter_key->parent_id == dir_id &&
-                (iter_key->partition_id == partition_id ||
-                 partition_id < 0)) {
+                (iter_key->partition_id == *partition_id ||
+                 *partition_id < 0)) {
                 iter_val.value =
                     (char *) leveldb_iter_value(iter, &iter_val.size);
                 int fret = readdir_filler(buf, buf_len, &buf_offset, iter_val);
                 if (fret > 0) {
-                    memcpy(end_key, iter_key, METADB_KEY_LEN);
+                    memcpy(end_key, iter_key->name_hash, HASH_LEN);
                     // Check if there is no more entries
                     leveldb_iter_next(iter);
                     if (leveldb_iter_valid(iter)) {
                         iter_key =
                             (metadb_key_t*) leveldb_iter_key(iter, &klen);
                         if (iter_key->parent_id == dir_id &&
-                            (iter_key->partition_id == partition_id ||
-                             partition_id < 0)) {
+                            (iter_key->partition_id == *partition_id ||
+                             *partition_id < 0)) {
                             *more_entries_flag = 1;
+                            if (*partition_id < 0) {
+                                *partition_id = iter_key->partition_id;
+                            }
                         }
                     }
                     break;
@@ -747,7 +746,7 @@ int metadb_readdir(struct MetaDB mdb,
     leveldb_iter_destroy(iter);
 
     RELEASE_MUTEX(&(mdb.mtx_leveldb),
-                "metadb_readdir(p[%d])", partition_id);
+                "metadb_readdir(p[%d])", *partition_id);
     *num_entries = entry_count;
     return ret;
 }

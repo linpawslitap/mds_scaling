@@ -36,6 +36,7 @@ typedef char* scan_key;
 
 struct scan_result_t {
     scan_key    end_key;
+    int         end_partition;
     scan_list_t list;
     int         num_entries;
     int         more_entries_flag;

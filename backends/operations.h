@@ -174,7 +174,7 @@ int metadb_lookup(struct MetaDB mdb,
 
 int metadb_readdir(struct MetaDB mdb,
                    const metadb_inode_t dir_id,
-                   const int partition_id,
+                   int *partition_id,
                    const char* start_key,
                    char* buf,
                    const size_t buf_len,

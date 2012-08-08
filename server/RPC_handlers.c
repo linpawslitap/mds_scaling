@@ -309,7 +309,7 @@ bool_t giga_rpc_readdir_serial_1_svc(scan_args_t args,
     scan_list_t *ls_ptr = &(rpc_reply->readdir_return_t_u.result.list); 
     
     LOG_MSG("readdir(%d:%d:start@[%s])", dir_id, partition_id, args.start_key.scan_key_val);
-    rpc_reply->errnum = metadb_readdir(ldb_mds, dir_id, partition_id,
+    rpc_reply->errnum = metadb_readdir(ldb_mds, dir_id, &partition_id,
                                        args.start_key.scan_key_val, buf, MAX_BUF, 
                                        &num_ent, end_key, &more_ents_flag); 
     if (rpc_reply->errnum == ENOENT) {
@@ -356,11 +356,21 @@ bool_t giga_rpc_readdir_serial_1_svc(scan_args_t args,
     
     rpc_reply->readdir_return_t_u.result.more_entries_flag = more_ents_flag; 
     rpc_reply->readdir_return_t_u.result.num_entries = num_ent;  
+    rpc_reply->readdir_return_t_u.result.end_partition = partition_id;  
  
+    //XXX: code for serial readdir
     int key_len = strlen(end_key); 
     rpc_reply->readdir_return_t_u.result.end_key.scan_key_val = strdup(end_key); 
     rpc_reply->readdir_return_t_u.result.end_key.scan_key_val[key_len] = '\0'; 
     rpc_reply->readdir_return_t_u.result.end_key.scan_key_len = strlen(rpc_reply->readdir_return_t_u.result.end_key.scan_key_val);
+   
+    /*
+    //memcpy(rpc_reply->readdir_return_t_u.result.end_key.scan_key_val, end_key, 
+    //       rpc_reply->readdir_return_t_u.result.end_key.scan_key_len);
+    rpc_reply->readdir_return_t_u.result.end_key.scan_key_val = end_key;
+    rpc_reply->readdir_return_t_u.result.end_key.scan_key_len = sizeof(metadb_key_t);
+    */
+
     LOG_MSG("readdir_ret: end_key=[%s],len=%d", 
             rpc_reply->readdir_return_t_u.result.end_key.scan_key_val,
             rpc_reply->readdir_return_t_u.result.end_key.scan_key_len);

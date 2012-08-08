@@ -39,7 +39,7 @@ void myreaddir(struct MetaDB mdb,
     char* buf = (char *) malloc(MAX_BUF_SIZE);
     char end_key[128];
     char* start_key = NULL;
-    size_t num_ent = 0;
+    int num_ent = 0;
     int more_entries_flag;
     do {
         int ret = metadb_readdir(mdb, dir_id, partition_id,

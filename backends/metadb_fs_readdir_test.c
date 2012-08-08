@@ -20,14 +20,14 @@ void myreaddir(struct MetaDB mdb,
     char* buf = (char *) malloc(MAX_BUF_SIZE);
     char end_key[128];
     char* start_key = NULL;
-    size_t num_ent = 0;
+    int num_ent = 0;
     int more_entries_flag = 0;
     do {
         int ret = metadb_readdir(mdb, dir_id, partition_id,
                                  start_key, buf, MAX_BUF_SIZE,
                                  &num_ent, end_key, &more_entries_flag);
         ASSERT(ret >= 0);
-        printf("%ld\n", num_ent);
+        printf("%d\n", num_ent);
         metadb_readdir_iterator_t* iter =
             metadb_create_readdir_iterator(buf, MAX_BUF_SIZE, num_ent);
         metadb_readdir_iter_begin(iter);
@@ -64,7 +64,7 @@ void run_test(int nargs, char* args[]) {
     metadb_init(&mdb, dbname);
 
     int dir_id = 0;
-    int partition_id = 0;
+    int partition_id = -1;
 
     char filename[MAX_FILENAME_LEN];
     int num_test_entries = 50000;

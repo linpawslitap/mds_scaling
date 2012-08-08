@@ -726,7 +726,8 @@ int metadb_readdir(struct MetaDB mdb,
                         iter_key =
                             (metadb_key_t*) leveldb_iter_key(iter, &klen);
                         if (iter_key->parent_id == dir_id &&
-                            iter_key->partition_id == partition_id) {
+                            (iter_key->partition_id == partition_id ||
+                             partition_id < 0)) {
                             *more_entries_flag = 1;
                         }
                     }

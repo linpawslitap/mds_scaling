@@ -47,18 +47,22 @@ typedef enum backends {
 //
 
 #define MAX_BUF     4096*256
+#define MAX_LEN     512
 
 #define GIGA_CLIENT     12345           // Magic identifier
 #define DEFAULT_MNT     "/tmp/giga_c"
 
-#define GIGA_SERVER     67890           // Magic identifier
+#define GIGA_SERVER     67891           // Magic identifier
 
 #define MAX_SERVERS     128             // MAX number of GIGA+ servers
 #define DEFAULT_PORT    45678           // Default port used by GIGA+ servers
 #define SPLIT_THRESH    8000            // Default directory split theshold
 #define CONFIG_FILE     "/tmp/.giga"    // Default config file location
 
-#define ROOT_DIR_ID     0
+#define ROOT_DIR_ID     1
+
+#define PARENT_OF_ROOT      0   
+#define PARTITION_OF_ROOT   0
 
 // Configuration options used by GIGA+ client and server.
 //

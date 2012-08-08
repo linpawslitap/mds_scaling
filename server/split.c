@@ -89,7 +89,7 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
         LOG_MSG("SUCCESS: p%d(%d)-->p%d(%d)", 
                 parent, dir->partition_size[parent], 
                 child, dir->partition_size[child]); 
-        ret = 0;
+        //ret = 0;
     }
 
     metadb_extract_clean(ldb_mds);
@@ -263,9 +263,8 @@ int split_in_levelDB(struct giga_directory *dir,
         giga_result_t rpc_reply;
         CLIENT *rpc_clnt = getConnection(child_srv);
 
-        LOG_MSG(">>> RPC_split_send: [d%d, (p%d-->p%d), (%d,%d)=%d fds] in %s",
-                dir->handle, parent_index, child_index, 
-                min, max, ret, split_dir_path);
+        LOG_MSG(">>> RPC_split_send: [d%d, (p%d-->p%d), send %d fds] in %s",
+                dir->handle, parent_index, child_index, ret, split_dir_path);
         
         if (giga_rpc_split_1(dir->handle, parent_index, child_index,
                              (char*)split_dir_path, min, max, ret,

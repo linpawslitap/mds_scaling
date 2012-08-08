@@ -187,7 +187,7 @@ retry:
     server_id = get_server_for_file(dir, path);
     CLIENT *rpc_clnt = getConnection(server_id);
 
-    LOG_MSG(">>> RPC_mknod(%s): to s%d]", path, server_id);
+    LOG_MSG(">>> RPC_mknod(%s): to s[%d]", path, server_id);
 
     if (giga_rpc_mknod_1(dir_id, (char*)path, mode, dev, &rpc_reply, rpc_clnt) 
         != RPC_SUCCESS) {
@@ -224,55 +224,50 @@ scan_list_t rpc_readdir(int dir_id, const char *path)
         ret = -EIO;
     }
     
-    int server_id = 0;
-    readdir_return_t rpc_reply;
-    scan_list_t ls;
     scan_list_t final_ls_start = NULL;
     scan_list_t final_ls_end = NULL;
+    
+    int server_id = 0;
+
+    giga_print_mapping(&dir->mapping);
+
+    int partitions[MAX_GIGA_PARTITIONS] = {0};
+    giga_get_all_partitions(&dir->mapping, partitions);
+
+    int i=0;
+    for (i=0; i<MAX_GIGA_PARTITIONS; i++) 
+    {   //#### start_for_loop for all partitions
+
+    if (partitions[i] == 0)
+        continue;
+    int p_id = i;
+
+    readdir_return_t rpc_reply;
+    memset(&rpc_reply, 0, sizeof(rpc_reply));
+    scan_list_t ls;
+    int more_ents_flag = 0;
 
 retry:
-    server_id = get_server_for_file(dir, path);
+    server_id = giga_get_server_for_index(&dir->mapping, p_id);
+    //server_id = get_server_for_file(dir, path);
     CLIENT *rpc_clnt = getConnection(server_id);
 
     LOG_MSG(">>> RPC_readdir(%s): to s[%d]", path, server_id);
 
-#if 0
-    int partition_id = 0;
-    if (giga_rpc_readdir_1(dir_id, partition_id, &rpc_reply, rpc_clnt) 
-        != RPC_SUCCESS) {
-        LOG_ERR("ERR_rpc_readdir(%s)", clnt_spcreateerror(path));
-        exit(1);//TODO: retry again?
-    }
-
-    
-    // check return condition 
-    //
-    ret = rpc_reply.errnum;
-    if (ret == -EAGAIN) {
-        update_client_mapping(dir, &rpc_reply.readdir_result_t_u.bitmap);
-        LOG_MSG("bitmap update from s%d -- RETRY ...", server_id); 
-        goto retry;
-    } else if (ret < 0) {
-        ;
-    } else {
-        for (ls = rpc_reply.readdir_result_t_u.list; ls != NULL; ls = ls->next)
-            LOG_MSG("readdir_result=[%s]", ls->entry_name);
-        ret = 0;
-    }
-
-
-    LOG_MSG("<<< RPC_readdir(%s): status=[%d]%s", path, ret, strerror(ret));
-   
-    return rpc_reply.readdir_result_t_u.list;
-    //return ret;
-#endif
-   
-    scan_key start_key = NULL;
-    int partition_id = 0;
+    scan_args_t args;
+    args.dir_id = dir_id;
+    args.partition_id = p_id;
+    args.start_key.scan_key_val = NULL;
+    args.start_key.scan_key_len = 0;
     
     do {
-        if (giga_rpc_readdir_req_1(dir_id, partition_id, start_key, &rpc_reply, rpc_clnt) 
-            != RPC_SUCCESS) {
+        memset(&rpc_reply, 0, sizeof(rpc_reply));
+
+        LOG_MSG("readdir_again with (%d,%d,key=[%s],len=%d)", 
+                args.dir_id, args.partition_id, 
+                args.start_key.scan_key_val, args.start_key.scan_key_len);
+
+        if (giga_rpc_readdir_serial_1(args, &rpc_reply, rpc_clnt) != RPC_SUCCESS) {
             LOG_ERR("ERR_rpc_readdir(%s)", clnt_spcreateerror(path));
             exit(1);//TODO: retry again?
         }
@@ -287,21 +282,33 @@ retry:
         } else if (ret < 0) {
             ;
         } else {
-            if (start_key == NULL) 
+            if ((args.start_key.scan_key_val == NULL) && (final_ls_start == NULL))
                 final_ls_start = rpc_reply.readdir_return_t_u.result.list;
             else 
                 final_ls_end->next =rpc_reply.readdir_return_t_u.result.list;
 
+            LOG_MSG("num_ents = %d", rpc_reply.readdir_return_t_u.result.num_entries);
             for (ls=rpc_reply.readdir_return_t_u.result.list; ls!=NULL; ls=ls->next) {
-                LOG_MSG("readdir_result=[%s]", ls->entry_name);
+                //LOG_MSG("dentry=[%s]", ls->entry_name);
                 if (ls->next == NULL) 
                         final_ls_end = ls;
             }
             
-            start_key = rpc_reply.readdir_return_t_u.result.end_key;
-            ret = 0;
+            more_ents_flag = rpc_reply.readdir_return_t_u.result.more_entries_flag;
+
+            if (more_ents_flag) {
+                args.start_key.scan_key_len = rpc_reply.readdir_return_t_u.result.end_key.scan_key_len;
+                args.start_key.scan_key_val = strdup(rpc_reply.readdir_return_t_u.result.end_key.scan_key_val);
+                args.start_key.scan_key_val[args.start_key.scan_key_len] = '\0';
+            } else {
+                update_client_mapping(dir, &rpc_reply.readdir_return_t_u.result.bitmap);
+                giga_get_all_partitions(&dir->mapping, partitions);
+            }
+            
         }
-    } while(start_key != NULL);
+    } while(more_ents_flag != 0);
+
+    } //### end_for_loop for all partitions
 
     LOG_MSG("<<< RPC_readdir(%s): status=[%d]%s", path, ret, strerror(ret));
    

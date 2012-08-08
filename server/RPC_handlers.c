@@ -177,7 +177,6 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
     struct giga_directory *dir = cache_fetch(&dir_id);
     if (dir == NULL) {
         rpc_reply->errnum = -EIO;
-        
         LOG_MSG("ERR_cache: dir(%d) missing", dir_id);
         return true;
     }
@@ -274,50 +273,57 @@ exit_func:
     return true;
 }
 
-bool_t giga_rpc_readdir_req_1_svc(giga_dir_id dir_id, int partition_id,
-                                  scan_key start_key,
-                                  readdir_return_t *rpc_reply, 
-                                  struct svc_req *rqstp)
+bool_t giga_rpc_readdir_serial_1_svc(scan_args_t args,
+                                     readdir_return_t *rpc_reply, 
+                                     struct svc_req *rqstp)
 {
     (void)rqstp;
     assert(rpc_reply);
     
+    int dir_id = args.dir_id;
+    
+    struct giga_directory *dir = cache_fetch(&dir_id);
+    if (dir == NULL) {
+        rpc_reply->errnum = -EIO;
+        LOG_MSG("ERR_cache: dir(%d) missing", dir_id);
+        return true;
+    }
+   
+    int partition_id = args.partition_id;
+
     LOG_MSG(">>> RPC_readdir(d=%d, p[%d])", dir_id, partition_id); 
 
-    bzero(rpc_reply, sizeof(readdir_result_t));
-
-    //int ret = metadb_readdir(ldb_mds, dir_id, partition_id, buf, NULL);
-    char *buf = (char*)malloc(sizeof(char)*MAX_BUF);
-    if (buf == NULL) {
+    bzero(rpc_reply, sizeof(readdir_return_t));
+    
+    char *buf;
+    if ((buf = (char*)malloc(sizeof(char)*MAX_BUF)) == NULL) {
         LOG_ERR("ERR_malloc: [%s]", strerror(errno));
         exit(1);
     }
-    //char *start_key = NULL;
-    char *end_key = NULL;
+
+    char end_key[PATH_MAX] = {0};
     int num_ent = 0;
+    int more_ents_flag = 0;
 
     scan_list_t ls;
     scan_list_t *ls_ptr = &(rpc_reply->readdir_return_t_u.result.list); 
     
+    LOG_MSG("readdir(%d:%d:start@[%s])", dir_id, partition_id, args.start_key.scan_key_val);
     rpc_reply->errnum = metadb_readdir(ldb_mds, dir_id, partition_id,
-                                       start_key, buf, MAX_BUF, 
-                                       &num_ent, &end_key); 
-                                       //&rpc_reply->readdir_return_t_u.result.num_entries), 
-                                       //&rpc_reply->readdir_return_t_u.result.end_key);  
+                                       args.start_key.scan_key_val, buf, MAX_BUF, 
+                                       &num_ent, end_key, &more_ents_flag); 
     if (rpc_reply->errnum == ENOENT) {
         LOG_ERR("ERR_mdb_readdir(d%d_p%d_sk[%s]) ...", 
-                dir_id, partition_id, start_key);
+                dir_id, partition_id, args.start_key.scan_key_val);
         goto exit_func;
     }
-
-    if (end_key == NULL) 
-        LOG_MSG("readdir(%d:%d): end_key NULL", dir_id, partition_id);
     
     metadb_readdir_iterator_t *iter = NULL;
     
     iter = metadb_create_readdir_iterator(buf, MAX_BUF, num_ent);
     metadb_readdir_iter_begin(iter);
 
+    // copy all entries in the linked list to be returned
     int entry = 0;
     LOG_MSG("PRINT_readdir() buf with %d entries ...", num_ent);
     while (metadb_readdir_iter_valid(iter)) {
@@ -332,7 +338,10 @@ bool_t giga_rpc_readdir_req_1_svc(giga_dir_id dir_id, int partition_id,
         assert((statbuf.st_mode & S_IFDIR) > 0);
         assert(memcmp(objname, realpath, len) == 0);
        
-        LOG_MSG("#%d: \t obj=[%s] \t sym=[%s]", entry, objname, realpath);
+        //LOG_MSG("#%d: \t obj=[%s] \t sym=[%s]", entry, objname, realpath);
+        //fprintf(stderr,"#%d: \t obj=[%s] \t sym=[%s]", entry, objname, realpath);
+        //
+        (void)realpath;
 
         ls = *ls_ptr = (scan_entry_t*)malloc(sizeof(scan_entry_t));
         ls->entry_name = strdup(objname);
@@ -345,23 +354,33 @@ bool_t giga_rpc_readdir_req_1_svc(giga_dir_id dir_id, int partition_id,
     *ls_ptr = NULL;
     metadb_destroy_readdir_iterator(iter);
     
+    rpc_reply->readdir_return_t_u.result.more_entries_flag = more_ents_flag; 
     rpc_reply->readdir_return_t_u.result.num_entries = num_ent;  
-  
-    if (end_key != NULL) {
-        memcpy(rpc_reply->readdir_return_t_u.result.end_key, end_key, HASH_LEN); 
-        free(end_key);
-    } else
-        rpc_reply->readdir_return_t_u.result.end_key = NULL;
+ 
+    int key_len = strlen(end_key); 
+    rpc_reply->readdir_return_t_u.result.end_key.scan_key_val = strdup(end_key); 
+    rpc_reply->readdir_return_t_u.result.end_key.scan_key_val[key_len] = '\0'; 
+    rpc_reply->readdir_return_t_u.result.end_key.scan_key_len = strlen(rpc_reply->readdir_return_t_u.result.end_key.scan_key_val);
+    LOG_MSG("readdir_ret: end_key=[%s],len=%d", 
+            rpc_reply->readdir_return_t_u.result.end_key.scan_key_val,
+            rpc_reply->readdir_return_t_u.result.end_key.scan_key_len);
+
+    if (more_ents_flag == 0) {
+        memcpy(&(rpc_reply->readdir_return_t_u.result.bitmap), 
+               &dir->mapping, sizeof(dir->mapping));
+    }
+    
     free(buf);
 
 exit_func:
 
-    LOG_MSG(">>> RPC_readdir(d=%d, p[%d]): status=[%d]", 
+    LOG_MSG("<<< RPC_readdir(d=%d, p[%d]): status=[%d]", 
             dir_id, partition_id, rpc_reply->errnum); 
 
     return true;
 }
 
+/*
 bool_t giga_rpc_readdir_1_svc(giga_dir_id dir_id, int partition_id, 
                               readdir_result_t *rpc_reply, 
                               struct svc_req *rqstp)
@@ -379,9 +398,10 @@ bool_t giga_rpc_readdir_1_svc(giga_dir_id dir_id, int partition_id,
         LOG_ERR("ERR_malloc: [%s]", strerror(errno));
         exit(1);
     }
-    char *end_key = NULL;
     char *start_key = NULL;
+    char end_key[MAX_LEN];
     int num_ent = 0;
+    int more_ents_flag = 0;
 
     scan_list_t ls;
     scan_list_t *ls_ptr = &(rpc_reply->readdir_result_t_u.list); 
@@ -389,7 +409,7 @@ bool_t giga_rpc_readdir_1_svc(giga_dir_id dir_id, int partition_id,
     do {
         rpc_reply->errnum = metadb_readdir(ldb_mds, dir_id, partition_id,
                                            start_key, buf, MAX_BUF, 
-                                           &num_ent, &end_key);
+                                           &num_ent, end_key, &more_ents_flag);
         if (rpc_reply->errnum == ENOENT) {
             LOG_ERR("ERR_mdb_readdir(d%d_p%d_sk[%s]) ...", 
                     dir_id, partition_id, start_key);
@@ -434,7 +454,7 @@ bool_t giga_rpc_readdir_1_svc(giga_dir_id dir_id, int partition_id,
         *ls_ptr = NULL;
         metadb_destroy_readdir_iterator(iter);
         start_key = end_key;
-    } while (end_key != NULL);
+    } while (more_ents_flag != 0);
     
     free(buf);
 
@@ -443,7 +463,7 @@ bool_t giga_rpc_readdir_1_svc(giga_dir_id dir_id, int partition_id,
 
     return true;
 }
-
+*/
 
 bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id, 
                             giga_pathname path, mode_t mode,

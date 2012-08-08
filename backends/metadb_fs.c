@@ -681,7 +681,7 @@ int metadb_readdir(struct MetaDB mdb,
                    const char* start_key,
                    char* buf,
                    const size_t buf_len,
-                   size_t *num_entries,
+                   int *num_entries,
                    char* end_key,
                    int* more_entries_flag) {
     int ret = 0;
@@ -740,7 +740,7 @@ int metadb_readdir(struct MetaDB mdb,
             leveldb_iter_next(iter);
         } while (leveldb_iter_valid(iter));
     } else {
-        printf("metadb_readdir: Invalid Iterator.\n");
+        //printf("metadb_readdir: Invalid Iterator.\n");
         ret = ENOENT;
     }
     leveldb_iter_destroy(iter);

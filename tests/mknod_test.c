@@ -1,3 +1,4 @@
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -113,11 +114,17 @@ static void ls_files(const char *dir)
     DIR* dp;
     struct dirent *de;
 
+    struct timeval begin;
+    struct timeval end;
+
     if ((dp = opendir(dir)) == NULL) {
         printf("[%s] ERR_opendir: %s\n",__FILE__, strerror(errno)); 
         exit(1);
     }
 
+    gettimeofday(&begin, NULL);
+
+    int num_ent = 0;
     while (1) {
         errno = 0; // to distinguish error from End of Directory
 
@@ -127,14 +134,21 @@ static void ls_files(const char *dir)
             (strcmp(de->d_name, "..") == 0))
             continue;
 
-        printf("entry=%s\n", de->d_name);
+        //printf("entry=%s\n", de->d_name);
+        num_ent += 1;
     }
+    
+    gettimeofday(&end, NULL);
 
     if (errno != 0) { 
         printf("[%s] ERR_readdir: %s\n",__FILE__, strerror(errno)); 
         exit(1);
     }
 
+    int microsec = (end.tv_sec - begin.tv_sec)*1000000 + ((int)end.tv_usec - (int)begin.tv_usec);
+    int millisec = microsec/1000;
+
+    printf("readdir_ret=%d in %d\n", num_ent, millisec);
     closedir(dp);
 }
 
@@ -173,7 +187,12 @@ int main(int argc, char **argv)
     }
 
     mknod_files(argv[1]);
-    ls_files(argv[1]);
+
+    //if ((pid%1 == 0) && (strcmp(hostname,"h0") == 0)) {
+    if ((hostname[0] == 'h') && (hostname[1] == '0')) {
+        sleep(17);
+        ls_files(argv[1]);
+    }
 
     errors = 100;
 

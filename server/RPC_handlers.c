@@ -215,9 +215,10 @@ start:
             memcpy(&(rpc_reply->giga_result_t_u.bitmap), 
                    &dir->mapping, sizeof(dir->mapping));
             if (metadb_write_bitmap(ldb_mds, dir_id, -1, NULL, &dir->mapping) != 0) {
-                LOG_ERR("mdb_write_bitmap(d%d): error reading bitmap.", dir_id);
+                LOG_ERR("mdb_write_bitmap(d%d): error writing bitmap.", dir_id);
                 exit(1);
             }
+            giga_print_mapping(&dir->mapping);
             rpc_reply->errnum = -EAGAIN;
         }
 
@@ -537,6 +538,7 @@ start:
                 LOG_ERR("mdb_write_bitmap(d%d): error reading bitmap.", dir_id);
                 exit(1);
             }
+            giga_print_mapping(&dir->mapping);
             rpc_reply->errnum = -EAGAIN;
         }
 

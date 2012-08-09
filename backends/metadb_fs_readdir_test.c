@@ -22,8 +22,9 @@ void myreaddir(struct MetaDB mdb,
     char* start_key = NULL;
     int num_ent = 0;
     int more_entries_flag = 0;
+    int real_partition_id = partition_id;
     do {
-        int ret = metadb_readdir(mdb, dir_id, &partition_id,
+        int ret = metadb_readdir(mdb, dir_id, &real_partition_id,
                                  start_key, buf, MAX_BUF_SIZE,
                                  &num_ent, end_key, &more_entries_flag);
         ASSERT(ret >= 0);
@@ -61,10 +62,10 @@ void run_test(int nargs, char* args[]) {
 
     struct MetaDB mdb;
 
-    metadb_init(&mdb, dbname);
+    printf("metadb_init return value: %d\n", metadb_init(&mdb, dbname));
 
     int dir_id = 0;
-    int partition_id = -1;
+    int partition_id = 0;
 
     char filename[MAX_FILENAME_LEN];
     int num_test_entries = 50000;

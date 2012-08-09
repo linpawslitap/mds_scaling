@@ -713,9 +713,7 @@ int metadb_readdir(struct MetaDB mdb,
             metadb_val_t  iter_val;
             size_t klen;
             iter_key = (metadb_key_t*) leveldb_iter_key(iter, &klen);
-            if (iter_key->parent_id == dir_id &&
-                (iter_key->partition_id == *partition_id ||
-                 *partition_id < 0)) {
+            if (iter_key->parent_id == dir_id) {
                 iter_val.value =
                     (char *) leveldb_iter_value(iter, &iter_val.size);
                 int fret = readdir_filler(buf, buf_len, &buf_offset, iter_val);
@@ -726,13 +724,9 @@ int metadb_readdir(struct MetaDB mdb,
                     if (leveldb_iter_valid(iter)) {
                         iter_key =
                             (metadb_key_t*) leveldb_iter_key(iter, &klen);
-                        if (iter_key->parent_id == dir_id &&
-                            (iter_key->partition_id == *partition_id ||
-                             *partition_id < 0)) {
+                        if (iter_key->parent_id == dir_id) {
                             *more_entries_flag = 1;
-                            if (*partition_id < 0) {
-                                *partition_id = iter_key->partition_id;
-                            }
+                            *partition_id = iter_key->partition_id;
                         }
                     }
                     break;

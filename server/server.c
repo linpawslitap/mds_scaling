@@ -88,8 +88,8 @@ int main(int argc, char **argv)
     memset(&giga_options_t, 0, sizeof(struct giga_options));
     initGIGAsetting(GIGA_SERVER, NULL, CONFIG_FILE);    
 
-    init_root_partition();  // init root partition on each server.
     init_giga_mapping();    // init GIGA+ mapping structure.
+    init_root_partition();  // init root partition on each server.
 
     server_socket();        // start server socket(s). 
 
@@ -350,6 +350,7 @@ void init_root_partition()
     // initialize backends for each server
     //
     char ldb_name[PATH_MAX] = {0};
+    int mdb_setup = 0;
     switch (giga_options_t.backend_type) {
         case BACKEND_RPC_LOCALFS:
             snprintf(ldb_name, sizeof(ldb_name), "%s/0/", 
@@ -363,17 +364,59 @@ void init_root_partition()
             snprintf(ldb_name, sizeof(ldb_name), 
                      "%s/l%d", DEFAULT_LEVELDB_DIR, giga_options_t.serverID);
             // FIXME: use new semantics of metadb_init.
-            if (metadb_init(&ldb_mds, ldb_name) != 1) {
-                LOG_ERR("mdb_init(%s): int error (try deleting old ldb)", ldb_name);
+            mdb_setup = metadb_init(&ldb_mds, ldb_name);
+            if (mdb_setup == -1) {
+                LOG_ERR("mdb_init(%s): init error", ldb_name);
                 exit(1);
             }
-            if (giga_options_t.serverID == 0) {
-                if (metadb_create(ldb_mds, ROOT_DIR_ID, 0, OBJ_DIR, object_id, 
-                                  "/", giga_options_t.mountpoint) < 0) 
-                {
-                    LOG_ERR("mdb_create(%s): error creating root", ldb_name);
+            else if (mdb_setup == 1) {
+                //if (giga_options_t.serverID == 0) {
+
+                    int dir_id = ROOT_DIR_ID; //FIXME: dir_id for "root"
+                    struct giga_directory *dir = cache_fetch(&dir_id);
+                    if (dir == NULL) {
+                        LOG_MSG("Dir (id=%d) not in cache!", dir_id);
+                        exit(1);
+                    }
+
+                    // special case for ROOT
+                    if (metadb_create_dir(ldb_mds, ROOT_DIR_ID, -1, NULL, 
+                                          &dir->mapping) < 0) {
+                        LOG_ERR("mdb_create(%s): error creating root", ldb_name);
+                        exit(1);
+                    }
+
+#if 0
+                    // DEPRECATED
+                    if (metadb_create(ldb_mds, PARENT_OF_ROOT, PARTITION_OF_ROOT, 
+                                      OBJ_DIR, object_id, "/", giga_options_t.mountpoint) < 0) 
+                    {
+                        LOG_ERR("mdb_create(%s): error creating root", ldb_name);
+                        exit(1);
+                    }
+#endif
+                //}
+            }
+            else if (mdb_setup == 0) {
+                int dir_id = ROOT_DIR_ID; //FIXME: dir_id for "root"
+                struct giga_directory *dir = cache_fetch(&dir_id);
+                if (dir == NULL) {
+                    LOG_MSG("Dir (id=%d) not in cache!", dir_id);
                     exit(1);
                 }
+                //struct giga_mapping_t map;
+                if (metadb_read_bitmap(ldb_mds, ROOT_DIR_ID, -1, NULL, &dir->mapping) != 0) {
+                    LOG_ERR("mdb_read(%s): error reading ROOT bitmap.", ldb_name);
+                    exit(1);
+                }
+                giga_print_mapping(&dir->mapping);
+                /*
+                int dir_id = ROOT_DIR_ID;
+                if (cache_update(&dir_id, &map) == 0) {
+                    LOG_ERR("cache_update(%d): failed", dir_id);
+                    exit(1);
+                }
+                */
             }
             break;
         default:
@@ -388,7 +431,7 @@ void init_giga_mapping()
 {
     logMessage(LOG_TRACE, __func__, "init giga mapping");
 
-    int dir_id = 0; //FIXME: dir_id for "root"
+    int dir_id = ROOT_DIR_ID; //FIXME: dir_id for "root"
 
     struct giga_directory *dir = cache_fetch(&dir_id);
     if (dir == NULL) {

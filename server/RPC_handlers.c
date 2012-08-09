@@ -127,7 +127,6 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
     struct giga_directory *dir = cache_fetch(&dir_id);
     if (dir == NULL) {
         rpc_reply->result.errnum = -EIO;
-        
         LOG_MSG("ERR_cache: dir(%d) missing", dir_id);
         return true;
     }
@@ -215,6 +214,10 @@ start:
         } else {
             memcpy(&(rpc_reply->giga_result_t_u.bitmap), 
                    &dir->mapping, sizeof(dir->mapping));
+            if (metadb_write_bitmap(ldb_mds, dir_id, -1, NULL, &dir->mapping) != 0) {
+                LOG_ERR("mdb_write_bitmap(d%d): error reading bitmap.", dir_id);
+                exit(1);
+            }
             rpc_reply->errnum = -EAGAIN;
         }
 
@@ -530,6 +533,10 @@ start:
         } else {
             memcpy(&(rpc_reply->giga_result_t_u.bitmap), 
                    &dir->mapping, sizeof(dir->mapping));
+            if (metadb_write_bitmap(ldb_mds, dir_id, -1, NULL, &dir->mapping) != 0) {
+                LOG_ERR("mdb_write_bitmap(d%d): error reading bitmap.", dir_id);
+                exit(1);
+            }
             rpc_reply->errnum = -EAGAIN;
         }
 

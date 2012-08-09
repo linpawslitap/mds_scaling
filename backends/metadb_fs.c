@@ -253,6 +253,9 @@ void metadb_log_destroy() {
     metric_thread_errors = 100;
 }
 
+
+// Returns "0" if a new LDB is created successfully, "1" if an existing LDB is
+// opened successfully, and "-1" on error.
 int metadb_init(struct MetaDB *mdb, const char *mdb_name)
 {
     char* err = NULL;
@@ -366,7 +369,8 @@ int metadb_create(struct MetaDB mdb,
 
 int metadb_create_dir(struct MetaDB mdb,
                       const metadb_inode_t dir_id, const int partition_id,
-                      const metadb_inode_t inode_id, const char *path,
+                      //const metadb_inode_t inode_id, 
+                      const char *path,
                       metadb_val_dir_t* dir_mapping)
 {
     int ret = 0;
@@ -374,6 +378,7 @@ int metadb_create_dir(struct MetaDB mdb,
     metadb_val_t mobj_val;
     char* err = NULL;
 
+    metadb_inode_t inode_id = dir_mapping->id; 
     init_meta_obj_key(&mobj_key, dir_id, partition_id, path);
 
     if (path != NULL) {

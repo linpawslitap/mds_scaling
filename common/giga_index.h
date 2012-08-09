@@ -42,6 +42,7 @@ typedef int index_t;                    // Index is the position in the bitmap
 // -- Current radix of the header table.
 //
 struct giga_mapping_t {
+    int id;                             // unique identifier (for each dir)
     bitmap_t bitmap[MAX_BMAP_LEN];      // bitmap
     unsigned int curr_radix;            // current radix (depth in tree)
     unsigned int zeroth_server;
@@ -54,10 +55,11 @@ void giga_hash_name(const char *hash_key, char hash_value[]);
 
 // Initialize the mapping table.
 //
-void giga_init_mapping(struct giga_mapping_t *mapping, int flag, 
+void giga_init_mapping(struct giga_mapping_t *mapping, int flag, int id, 
                        unsigned int zeroth_server, unsigned int server_count);
 void giga_init_mapping_from_bitmap(struct giga_mapping_t *mapping,
                                    bitmap_t bitmap[], int bitmap_len, 
+                                   int id,
                                    unsigned int zeroth_server, 
                                    unsigned int server_count); 
 

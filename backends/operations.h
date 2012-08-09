@@ -46,6 +46,10 @@ scan_list_t rpc_readdir(int dir_id, const char *path);
 int rpc_opendir(int dir_id, const char *path);
 int rpc_releasedir(int dir_id, const char *path);
 
+/*
+ * Operations for MDB
+ */
+
 typedef enum MetaDB_obj_type {
     OBJ_DIR,
     OBJ_FILE,
@@ -157,7 +161,7 @@ int metadb_create(struct MetaDB mdb,
 int metadb_create_dir(struct MetaDB mdb,
                       const metadb_inode_t dir_id,
                       const int partition_id,
-                      const metadb_inode_t inode_id,
+                      //const metadb_inode_t inode_id,
                       const char *path,
                       metadb_val_dir_t* dir_mapping);
 
@@ -209,57 +213,6 @@ int metadb_write_bitmap(struct MetaDB mdb,
                         const int partition_id,
                         const char* path,
                         struct giga_mapping_t* map_val);
-
-/* SVP: trying new leveldb code as is ... */
-/******************************************/
-
-struct LevelDB {
-    leveldb_t* db;              // DB instance
-    leveldb_comparator_t* cmp;  // Compartor object that allows user-defined
-                                // object comparions functions.
-    leveldb_cache_t* cache;     // Cache object: If set, individual blocks 
-                                // (of levelDB files) are cached using LRU.
-    leveldb_env_t* env;
-
-    leveldb_options_t* options;
-
-    leveldb_readoptions_t*  roptions;
-    leveldb_writeoptions_t* woptions;
-};
-
-struct LevelDB ldb;
-
-struct LevelDB_key {
-    int dir_id;
-    int partition_id;
-    char obj_name[PATH_MAX];
-};
-
-struct LevelDB_val {
-    struct stat statbuf;
-    char realpath[PATH_MAX];
-};
-
-
-int leveldb_init(const char* ldb_name, struct LevelDB level_db);
-
-int leveldb_create(struct LevelDB ldb,
-                   const int dir_id, const int partition_id,
-                   const char *obj_name, const char *link_path);
-
-int leveldb_lookup(struct LevelDB ldb,
-                   const int dir_id, const int partition_id,
-                   const char *obj_name, struct stat *stbuf);
-
-
-/*
-void leveldb_mkdir(struct LevelDB level_db, 
-                   int if_exists_flag);
-int leveldb_create(struct LevelDB level_db, 
-                   const char *path, mode_t mode);
-int leveldb_lookup(struct LevelDB level_db, 
-                   const char *path, struct stat *stbuf);
-*/
 
 
 #endif /* OPERATIONS_H */

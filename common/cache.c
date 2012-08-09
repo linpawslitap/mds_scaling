@@ -119,10 +119,10 @@ int cache_init()
         exit(1);
     }
 
-    dircache->handle = 0;
+    dircache->handle = ROOT_DIR_ID;
     
     int zeroth_srv = 0; //FIXME: how do you get zeroth server info?
-    giga_init_mapping(&dircache->mapping, -1, zeroth_srv, giga_options_t.num_servers);
+    giga_init_mapping(&dircache->mapping, -1, dircache->handle, zeroth_srv, giga_options_t.num_servers);
     dircache->refcount = 1;
     dircache->split_flag = 0;
     pthread_mutex_init(&dircache->split_mtx, NULL);
@@ -153,3 +153,19 @@ struct giga_directory* cache_fetch(DIR_handle_t *handle)
     return dircache;
 }
 
+int cache_update(DIR_handle_t *handle, struct giga_mapping_t *mapping)
+{
+    if (dircache == NULL) {
+        logMessage(LOG_DEBUG, __func__, "Cache_NULL: dir(%d)", *handle); 
+        cache_init();
+    }
+    
+    if (dircache->handle != *handle) {
+        logMessage(LOG_DEBUG, __func__, "Cache_MISS: dir(%d)", *handle); 
+        return 0;   // failure
+    }
+    
+    giga_update_cache(&dircache->mapping, mapping);
+
+    return 1;
+}

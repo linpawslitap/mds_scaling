@@ -128,13 +128,15 @@ static void ls_files(const char *dir)
     while (1) {
         errno = 0; // to distinguish error from End of Directory
 
-        if ((de = readdir(dp)) == NULL)
+        if ((de = readdir(dp)) == NULL) {
+            printf("err=%s\n", strerror(errno));
             break;
+        }
         if ((strcmp(de->d_name, ".") == 0) ||
             (strcmp(de->d_name, "..") == 0))
             continue;
 
-        //printf("entry=%s\n", de->d_name);
+        printf("entry=%s\n", de->d_name);
         num_ent += 1;
     }
     

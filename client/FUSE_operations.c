@@ -328,6 +328,7 @@ int GIGAreaddir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offse
             for (ls = ret_ls; ls != NULL; ls = ls->next) {
                 if (filler(buf, ls->entry_name, NULL, 0) != 0) {
                     ret = ENOMEM;
+                    LOG_MSG("ERR_rpc_readdir: [%s]", strerror(ret));
                     break;
                 }
             }

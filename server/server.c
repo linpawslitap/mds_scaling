@@ -74,6 +74,7 @@ int main(int argc, char **argv)
     log_fp = stderr;        
 
     signal(SIGINT, sig_handler);    // handling SIGINT
+    signal(SIGTERM, sig_handler);    // handling SIGINT
    
     // initialize logging
     char log_file[PATH_MAX] = {0};
@@ -124,7 +125,8 @@ static
 void sig_handler(const int sig)
 {
     (void)sig;
-    printf("SIGINT handled.\n");
+    metadb_close(ldb_mds);
+    LOG_ERR("SIGINT=%d handled.\n", sig);
     exit(1);
 }
 

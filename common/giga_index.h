@@ -28,7 +28,7 @@ typedef int index_t;                    // Index is the position in the bitmap
 
 #define SPLIT_TYPE                  SPLIT_T_NUM_SERVERS_BOUND
 
-#define MAX_BKTS_PER_SERVER         1
+#define MAX_BKTS_PER_SERVER         4
 
 // To avoid the signed and unsigned bit business, we just use the 7-bits in
 // every byte to represent the bitmap

@@ -342,9 +342,7 @@ bool_t giga_rpc_readdir_serial_1_svc(scan_args_t args,
         assert((statbuf.st_mode & S_IFDIR) > 0);
         assert(memcmp(objname, realpath, len) == 0);
        
-        //LOG_MSG("#%d: \t obj=[%s] \t sym=[%s]", entry, objname, realpath);
-        //fprintf(stderr,"#%d: \t obj=[%s] \t sym=[%s]", entry, objname, realpath);
-        //
+        LOG_MSG("#%d: \t obj=[%s] \t sym=[%s]", entry, objname, realpath);
         (void)realpath;
 
         ls = *ls_ptr = (scan_entry_t*)malloc(sizeof(scan_entry_t));

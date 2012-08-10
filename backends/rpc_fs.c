@@ -286,7 +286,7 @@ retry:
 
             LOG_MSG("num_ents[s%d] = %d", server_id, rpc_reply.readdir_return_t_u.result.num_entries);
             for (ls=rpc_reply.readdir_return_t_u.result.list; ls!=NULL; ls=ls->next) {
-                //LOG_MSG("dentry=[%s]", ls->entry_name);
+                LOG_MSG("dentry=[%s]", ls->entry_name);
                 if (ls->next == NULL) {
                         final_ls_end = ls;
                 }

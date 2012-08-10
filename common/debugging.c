@@ -20,10 +20,10 @@ static char *log_level_str[5] = {
 };
 */
 
-static int log_msg(FILE *fp, const char *location, const char *format, va_list ap);
+static int log_msg(FILE *fp, const char *location, int newline_flag, const char *format, va_list ap);
 
 static int
-log_msg(FILE *fp, const char *location, const char *format, va_list ap)
+log_msg(FILE *fp, const char *location, int new_line_flag, const char *format, va_list ap)
 {
     char buffer[MAX_ERR_BUF_SIZE], *bptr = buffer;
     int bsize = sizeof(buffer);
@@ -56,7 +56,8 @@ log_msg(FILE *fp, const char *location, const char *format, va_list ap)
             return -errno;
     }
 
-    strcat(buffer, "\n");
+    if (new_line_flag)
+        strcat(buffer, "\n");
     if (fprintf(fp, "%s", buffer) < 0)
         return -errno;
     
@@ -71,7 +72,23 @@ void logMessage(log_level_t level, const char *location, const char *format, ...
         va_list ap;
 
         va_start(ap, format);
-        if (log_msg(log_fp, location, format, ap) < 0) {
+        if (log_msg(log_fp, location, 1, format, ap) < 0) {
+            fprintf(stdout, "ERROR: debugging error.\n");
+            //exit(1);
+        }
+
+        va_end(ap);
+    }
+
+}
+
+void logMessage_sameline(log_level_t level, const char *format, ...)
+{
+    if (level <= sys_log_level) {
+        va_list ap;
+
+        va_start(ap, format);
+        if (log_msg(log_fp, NULL, 0, format, ap) < 0) {
             fprintf(stdout, "ERROR: debugging error.\n");
             //exit(1);
         }

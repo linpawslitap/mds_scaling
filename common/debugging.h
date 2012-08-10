@@ -55,6 +55,7 @@ FILE *log_fp;                       /* Log file stream */
 int logOpen(const char *logFilename, log_level_t level);
 void logClose(void);
 
+void logMessage_sameline(log_level_t level, const char *format, ...);
 void logMessage(log_level_t lev, const char *location, const char *format, ...);
 
 #define LOG_ERR(format, ...) \

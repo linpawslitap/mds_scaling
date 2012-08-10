@@ -84,6 +84,7 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
     } else {
         // update bitmap and partition size
         giga_update_mapping(&(dir->mapping), child);
+        
         dir->partition_size[parent] -= ret;
 
         LOG_MSG("SUCCESS: p%d(%d)-->p%d(%d)", 
@@ -131,17 +132,20 @@ bool_t giga_rpc_split_1_svc(giga_dir_id dir_id,
 
         // update bitmap and partition size
         giga_update_mapping(&(dir->mapping), child_index);
+        
         dir->partition_size[child_index] = num_entries; 
+        
+        if (metadb_write_bitmap(ldb_mds, dir_id, -1, NULL, &dir->mapping) != 0) {
+            LOG_ERR("mdb_write_bitmap(d%d): error writing bitmap.", dir_id);
+            exit(1);
+        }
         
         rpc_reply->errnum = num_entries; 
         
         LOG_MSG("p%d: %d entries and updated bitmap.", 
                 child_index, dir->partition_size[child_index]); 
+        giga_print_mapping(&dir->mapping);
             
-        if (metadb_write_bitmap(ldb_mds, dir_id, -1, NULL, &dir->mapping) != 0) {
-            LOG_ERR("mdb_write_bitmap(d%d): error reading bitmap.", dir_id);
-            exit(1);
-        }
         
         //TODO: optimization follows -- exchange bitmap on splits
         //

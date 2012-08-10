@@ -369,35 +369,34 @@ void init_root_partition()
                 LOG_ERR("mdb_init(%s): init error", ldb_name);
                 exit(1);
             }
-            else if (mdb_setup == 1) {
-                //if (giga_options_t.serverID == 0) {
+            else if (mdb_setup == 1) {    
+                LOG_MSG("creating new file system in %s", ldb_name);
+                int dir_id = ROOT_DIR_ID; //FIXME: dir_id for "root"
+                struct giga_directory *dir = cache_fetch(&dir_id);
+                if (dir == NULL) {
+                    LOG_MSG("Dir (id=%d) not in cache!", dir_id);
+                    exit(1);
+                }
 
-                    int dir_id = ROOT_DIR_ID; //FIXME: dir_id for "root"
-                    struct giga_directory *dir = cache_fetch(&dir_id);
-                    if (dir == NULL) {
-                        LOG_MSG("Dir (id=%d) not in cache!", dir_id);
-                        exit(1);
-                    }
-
-                    // special case for ROOT
-                    if (metadb_create_dir(ldb_mds, ROOT_DIR_ID, -1, NULL, 
-                                          &dir->mapping) < 0) {
-                        LOG_ERR("mdb_create(%s): error creating root", ldb_name);
-                        exit(1);
-                    }
+                // special case for ROOT
+                if (metadb_create_dir(ldb_mds, ROOT_DIR_ID, -1, NULL, 
+                                      &dir->mapping) < 0) {
+                    LOG_ERR("mdb_create(%s): error creating root", ldb_name);
+                    exit(1);
+                }
 
 #if 0
-                    // DEPRECATED
-                    if (metadb_create(ldb_mds, PARENT_OF_ROOT, PARTITION_OF_ROOT, 
-                                      OBJ_DIR, object_id, "/", giga_options_t.mountpoint) < 0) 
-                    {
-                        LOG_ERR("mdb_create(%s): error creating root", ldb_name);
-                        exit(1);
-                    }
+                // DEPRECATED
+                if (metadb_create(ldb_mds, PARENT_OF_ROOT, PARTITION_OF_ROOT, 
+                                  OBJ_DIR, object_id, "/", giga_options_t.mountpoint) < 0) 
+                {
+                    LOG_ERR("mdb_create(%s): error creating root", ldb_name);
+                    exit(1);
+                }
 #endif
-                //}
             }
             else if (mdb_setup == 0) {
+                LOG_MSG("reading old file system from %s", ldb_name);
                 int dir_id = ROOT_DIR_ID; //FIXME: dir_id for "root"
                 struct giga_directory *dir = cache_fetch(&dir_id);
                 if (dir == NULL) {

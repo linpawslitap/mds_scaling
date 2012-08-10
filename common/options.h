@@ -64,6 +64,8 @@ typedef enum backends {
 #define PARENT_OF_ROOT      0   
 #define PARTITION_OF_ROOT   0
 
+#define DEFAULT_DIR_CACHE_SIZE  4096
+
 // Configuration options used by GIGA+ client and server.
 //
 struct giga_options {

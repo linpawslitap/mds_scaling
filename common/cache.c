@@ -234,7 +234,14 @@ int cache_init()
 
 struct giga_directory* cache_fetch(DIR_handle_t *handle)
 {
-    (void) handle;
+    if (dircache == NULL) {
+        cache_init();
+    }
+
+    if (dircache->handle != *handle) {
+        return NULL;
+    }
+
     return dircache;
 }
 

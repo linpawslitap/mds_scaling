@@ -68,7 +68,7 @@ void run_test(int nargs, char* args[]) {
     int partition_id = 0;
 
     char filename[MAX_FILENAME_LEN];
-    int num_test_entries = 50000;
+    int num_test_entries = 1000;
 
     metadb_val_dir_t dir_map;
     metadb_val_dir_t dir_map_ret;
@@ -76,7 +76,7 @@ void run_test(int nargs, char* args[]) {
     dir_map.server_count = 222;
     dir_map.curr_radix = 333;
 
-    ASSERT(metadb_create_dir(mdb, 0, 0, 0, NULL, &dir_map) == 0);
+    ASSERT(metadb_create_dir(mdb, 0, 0, NULL, &dir_map) == 0);
     ASSERT(metadb_read_bitmap(mdb, 0, 0, NULL, &dir_map_ret) == 0);
     ASSERT(dir_map_ret.zeroth_server == 111);
     ASSERT(dir_map_ret.server_count == 222);

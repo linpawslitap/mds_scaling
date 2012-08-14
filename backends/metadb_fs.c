@@ -1102,7 +1102,6 @@ int metadb_extract_clean(struct MetaDB mdb) {
                 while ((de = readdir(dp)) != NULL) {
                   if (strcmp(de->d_name,".")!=0 && strcmp(de->d_name,"..")!=0) {
                     sprintf(fullpath+prefix_len+1, "%s", de->d_name);
-                    printf("%s\n", fullpath);
                     unlink(fullpath);
                   }
                 }

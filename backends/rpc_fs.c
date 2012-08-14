@@ -142,6 +142,13 @@ retry:
         if (stbuf == NULL)
             LOG_MSG("ERR_getattr(%s): statbuf is NULL!", path);
         //TODO: check for IS_DIR flag in statbuf
+        if (S_ISDIR(stbuf->st_mode)) {
+            LOG_MSG("GETATTR(%s) returns a directory for d%d", path, stbuf->st_ino);
+            struct giga_directory *new = new_cache_entry((DIR_handle_t*)&stbuf->st_ino, rpc_reply.result.giga_result_t_u.bitmap.zeroth_server); 
+            cache_insert((DIR_handle_t*)&stbuf->st_ino, new);
+            update_client_mapping(new, &rpc_reply.result.giga_result_t_u.bitmap); 
+            cache_release(new);
+        }
     }
 
     cache_release(dir);
@@ -155,7 +162,7 @@ int rpc_mkdir(int dir_id, const char *path, mode_t mode)
 {
     int ret = 0;
     
-    struct giga_directory *dir = cache_fetch(&dir_id);
+    struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
         LOG_MSG("ERROR_cache: dir(%d) missing!", dir_id);
         ret = -EIO;
@@ -258,7 +265,7 @@ void *readdir_thread(void *params)
     int dir_id = (int)a->dir_id;
     int server_id = (int)a->server_id;
 
-    struct giga_directory *dir = cache_fetch(&dir_id);
+    struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
         LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
         //ret = -EIO;

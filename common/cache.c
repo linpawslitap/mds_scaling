@@ -31,7 +31,9 @@ typedef struct ShardCache {
     struct LRUCache shards[NUM_SHARDS];
 } shard_cache_t;
 
-static struct ShardCache my_dircache;
+static shard_cache_t my_dircache;
+
+static struct fuse_cache_entry* fuse_cache;
 
 void double_list_remove(struct giga_directory* entry) {
     entry->next->prev = entry->prev;
@@ -284,6 +286,8 @@ int cache_init()
 
     shard_cache_init(&my_dircache, DEFAULT_DIR_CACHE_SIZE);
 
+    fuse_cache = NULL;
+
     return 0;
 }
 
@@ -306,4 +310,24 @@ int cache_update(DIR_handle_t *handle, struct giga_mapping_t *mapping)
     giga_update_cache(&dircache->mapping, mapping);
     return 1;
 }
+
+void fuse_cache_insert(char* path, DIR_handle_t dir_id) {
+    struct fuse_cache_entry* entry
+        = (struct fuse_cache_entry*) malloc(sizeof(struct fuse_cache_entry));
+    entry->pathname = (char *) malloc(strlen(path)+1);
+    strcpy(entry->pathname, path);
+    entry->dir_id = dir_id;
+    HASH_ADD_KEYPTR(hh, fuse_cache, entry->pathname, strlen(entry->pathname), entry);
+}
+
+DIR_handle_t fuse_cache_lookup(char* path) {
+    struct fuse_cache_entry* ret;
+    HASH_FIND_STR(fuse_cache, path, ret);
+    if (ret == NULL) {
+        return -1;
+    } else {
+        return ret->dir_id;
+    }
+}
+
 

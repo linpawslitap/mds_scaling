@@ -29,6 +29,11 @@ struct giga_directory {
     UT_hash_handle hh;
 };
 
+struct fuse_cache_entry {
+    char* pathname;
+    DIR_handle_t dir_id;
+    UT_hash_handle hh;
+};
 
 // initialize the directory cache
 int cache_init();
@@ -54,5 +59,9 @@ void cache_evict(DIR_handle_t *handle);
 void cache_destory();
 
 struct giga_directory* new_cache_entry(DIR_handle_t *handle, int srv_id);
+
+void fuse_cache_insert(char* path, DIR_handle_t dir_id);
+
+DIR_handle_t fuse_cache_lookup(char* path);
 
 #endif

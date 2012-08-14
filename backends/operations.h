@@ -155,25 +155,25 @@ int metadb_create(struct MetaDB mdb,
                   const int partition_id,
                   metadb_obj_type_t entry_type,
                   const metadb_inode_t inode_id,
-                  const char *path,
+                  const char *objname,
                   const char *realpath);
 
 int metadb_create_dir(struct MetaDB mdb,
                       const metadb_inode_t dir_id,
                       const int partition_id,
                       //const metadb_inode_t inode_id,
-                      const char *path,
+                      const char *objname,
                       metadb_val_dir_t* dir_mapping);
 
 int metadb_remove(struct MetaDB mdb,
                   const metadb_inode_t dir_id,
                   const int partition_id,
-                  const char *path);
+                  const char *objname);
 
 int metadb_lookup(struct MetaDB mdb,
                   const metadb_inode_t dir_id,
                   const int partition_id,
-                  const char *path,
+                  const char *objname,
                   struct stat *stbuf);
 
 int metadb_readdir(struct MetaDB mdb,
@@ -205,13 +205,13 @@ int metadb_bulkinsert(struct MetaDB mdb,
 int metadb_read_bitmap(struct MetaDB mdb,
                        const metadb_inode_t dir_id,
                        const int partition_id,
-                       const char* path,
+                       const char* objname,
                        struct giga_mapping_t* map_val);
 
 int metadb_write_bitmap(struct MetaDB mdb,
                         const metadb_inode_t dir_id,
                         const int partition_id,
-                        const char* path,
+                        const char* objname,
                         struct giga_mapping_t* map_val);
 
 

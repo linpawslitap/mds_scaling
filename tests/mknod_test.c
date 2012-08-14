@@ -129,14 +129,14 @@ static void ls_files(const char *dir)
         errno = 0; // to distinguish error from End of Directory
 
         if ((de = readdir(dp)) == NULL) {
-            printf("err=%s\n", strerror(errno));
+            //printf("err=%s\n", strerror(errno));
             break;
         }
         if ((strcmp(de->d_name, ".") == 0) ||
             (strcmp(de->d_name, "..") == 0))
             continue;
 
-        printf("entry=%s\n", de->d_name);
+        //printf("entry=%s\n", de->d_name);
         num_ent += 1;
     }
     
@@ -173,26 +173,31 @@ int main(int argc, char **argv)
         printf("ERROR during gethostname(): %s", strerror(errno));
         return -1;
     }
-    
-    pthread_t tid;
-    int ret;
-    if ((ret = pthread_create(&tid, NULL, timer_thread, NULL))){
-        fprintf(stderr, "pthread_create() error: %d\n",
-                ret);
-        exit(1);
-    }
-    
-    if ((ret = pthread_detach(tid))){
-        fprintf(stderr, "pthread_detach() error: %d\n",
-                ret);
-        exit(1);
-    }
+   
+    if (num_files != -1) {
+        pthread_t tid;
+        int ret;
+        if ((ret = pthread_create(&tid, NULL, timer_thread, NULL))){
+            fprintf(stderr, "pthread_create() error: %d\n",
+                    ret);
+            exit(1);
+        }
+        
+        if ((ret = pthread_detach(tid))){
+            fprintf(stderr, "pthread_detach() error: %d\n",
+                    ret);
+            exit(1);
+        }
 
-    mknod_files(argv[1]);
+        mknod_files(argv[1]);
 
-    //if ((pid%1 == 0) && (strcmp(hostname,"h0") == 0)) {
-    if ((hostname[0] == 'h') && (hostname[1] == '0')) {
-        sleep(17);
+        if ((hostname[0] == 'h') && (hostname[1] == '0')) {
+            //sleep(17);
+            //ls_files(argv[1]);
+        }
+
+    }
+    else {
         ls_files(argv[1]);
     }
 

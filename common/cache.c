@@ -203,8 +203,60 @@ void shard_cache_erase(shard_cache_t* dircache,
                     handle);
 }
 
+struct giga_directory* cache_lookup(DIR_handle_t *handle)
+{
+    return shard_cache_lookup(&my_dircache, *handle);
+}
+
+void cache_insert(DIR_handle_t *handle,
+                  struct giga_directory* giga_dir) {
+    shard_cache_insert(&my_dircache, *handle, giga_dir);
+}
+
+void cache_release(struct giga_directory* giga_dir) {
+    shard_cache_release(&my_dircache, giga_dir);
+}
+
+void cache_evict(DIR_handle_t *handle) {
+    shard_cache_erase(&my_dircache, *handle);
+}
+
+void cache_destory() {
+    shard_cache_destroy(&my_dircache);
+}
+
+struct giga_directory* new_cache_entry(DIR_handle_t *handle, int srv_id)
+{
+    int i = 0;
+
+    struct giga_directory *d = NULL;
+    if ((d = (struct giga_directory*)malloc(sizeof(struct giga_directory))) == NULL) {
+        logMessage(LOG_FATAL, __func__, "malloc_err: %s", strerror(errno));
+        exit(1);
+    }
+
+    d->handle = *handle;
+    giga_init_mapping(&d->mapping, -1, d->handle, srv_id, giga_options_t.num_servers);
+    
+    d->refcount = 1;
+    d->split_flag = 0;
+    pthread_mutex_init(&d->split_mtx, NULL);
+    
+    logMessage(CACHE_LOG, __func__, "init %d  partitions ...", MAX_NUM);
+    for (i=0; i < MAX_NUM; i++) {
+        d->partition_size[i] = 0;
+        pthread_mutex_init(&d->partition_mtx[i], NULL);
+    }
+    
+    logMessage(CACHE_LOG, __func__, "Cache_CREATE: dir(%d)", d->handle);
+
+    return d;
+}
+
 int cache_init()
 {
+
+#if 0
     int i = 0;
 
     dircache = (struct giga_directory*)malloc(sizeof(struct giga_directory));
@@ -226,6 +278,7 @@ int cache_init()
         pthread_mutex_init(&dircache->partition_mtx[i], NULL);
     }
     logMessage(LOG_TRACE, __func__, "Cache_CREATE: dir(%d)", dircache->handle);
+#endif 
 
     shard_cache_init(&my_dircache, DEFAULT_DIR_CACHE_SIZE);
 
@@ -252,24 +305,3 @@ int cache_update(DIR_handle_t *handle, struct giga_mapping_t *mapping)
     return 1;
 }
 
-struct giga_directory* cache_lookup(DIR_handle_t *handle)
-{
-    return shard_cache_lookup(&my_dircache, *handle);
-}
-
-void cache_insert(DIR_handle_t *handle,
-                  struct giga_directory* giga_dir) {
-    shard_cache_insert(&my_dircache, *handle, giga_dir);
-}
-
-void cache_release(struct giga_directory* giga_dir) {
-    shard_cache_release(&my_dircache, giga_dir);
-}
-
-void cache_evict(DIR_handle_t *handle) {
-    shard_cache_erase(&my_dircache, *handle);
-}
-
-void cache_destory() {
-    shard_cache_destroy(&my_dircache);
-}

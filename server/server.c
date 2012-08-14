@@ -373,51 +373,50 @@ void init_root_partition()
             }
             else if (mdb_setup == 1) {    
                 LOG_MSG("creating new file system in %s", ldb_name);
+
+#if 0
                 int dir_id = ROOT_DIR_ID; //FIXME: dir_id for "root"
                 struct giga_directory *dir = cache_fetch(&dir_id);
                 if (dir == NULL) {
                     LOG_MSG("Dir (id=%d) not in cache!", dir_id);
                     exit(1);
                 }
-
+#endif
                 // special case for ROOT
+                //
+                int dir_id = ROOT_DIR_ID;
+                struct giga_directory *dir = cache_lookup(&dir_id);
+
                 if (metadb_create_dir(ldb_mds, ROOT_DIR_ID, -1, NULL, 
                                       &dir->mapping) < 0) {
                     LOG_ERR("mdb_create(%s): error creating root", ldb_name);
                     exit(1);
                 }
 
-#if 0
-                // DEPRECATED
-                if (metadb_create(ldb_mds, PARENT_OF_ROOT, PARTITION_OF_ROOT, 
-                                  OBJ_DIR, object_id, "/", giga_options_t.mountpoint) < 0) 
-                {
-                    LOG_ERR("mdb_create(%s): error creating root", ldb_name);
-                    exit(1);
-                }
-#endif
+                cache_release(dir);
+
             }
             else if (mdb_setup == 0) {
                 LOG_MSG("reading old file system from %s", ldb_name);
+                
+#if 0                
                 int dir_id = ROOT_DIR_ID; //FIXME: dir_id for "root"
                 struct giga_directory *dir = cache_fetch(&dir_id);
                 if (dir == NULL) {
                     LOG_MSG("Dir (id=%d) not in cache!", dir_id);
                     exit(1);
                 }
-                //struct giga_mapping_t map;
-                if (metadb_read_bitmap(ldb_mds, ROOT_DIR_ID, -1, NULL, &dir->mapping) != 0) {
+#endif
+                
+                int dir_id = ROOT_DIR_ID;
+                struct giga_directory *dir = cache_lookup(&dir_id);
+                
+                if (metadb_read_bitmap(ldb_mds, dir_id, -1, NULL, &dir->mapping) != 0) {
                     LOG_ERR("mdb_read(%s): error reading ROOT bitmap.", ldb_name);
                     exit(1);
                 }
                 giga_print_mapping(&dir->mapping);
-                /*
-                int dir_id = ROOT_DIR_ID;
-                if (cache_update(&dir_id, &map) == 0) {
-                    LOG_ERR("cache_update(%d): failed", dir_id);
-                    exit(1);
-                }
-                */
+                cache_release(dir);
             }
             break;
         default:
@@ -433,12 +432,19 @@ void init_giga_mapping()
     logMessage(LOG_TRACE, __func__, "init giga mapping");
 
     int dir_id = ROOT_DIR_ID; //FIXME: dir_id for "root"
+    int srv_id = 0;
+    
+    cache_init();
+    struct giga_directory *dir = new_cache_entry(&dir_id, srv_id);
+    cache_insert(&dir_id, dir);
 
+#if 0
     struct giga_directory *dir = cache_fetch(&dir_id);
     if (dir == NULL) {
         logMessage(LOG_DEBUG, __func__, "Dir (id=%d) not in cache!", dir_id);
         exit(1);
     }
+#endif
 
     giga_print_mapping(&dir->mapping);
 

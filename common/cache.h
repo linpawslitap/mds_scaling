@@ -53,4 +53,6 @@ void cache_evict(DIR_handle_t *handle);
 
 void cache_destory();
 
+struct giga_directory* new_cache_entry(DIR_handle_t *handle, int srv_id);
+
 #endif

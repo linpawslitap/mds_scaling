@@ -415,7 +415,6 @@ void init_root_partition()
                     LOG_ERR("mdb_read(%s): error reading ROOT bitmap.", ldb_name);
                     exit(1);
                 }
-                giga_print_mapping(&dir->mapping);
                 cache_release(dir);
             }
             break;
@@ -437,6 +436,7 @@ void init_giga_mapping()
     cache_init();
     struct giga_directory *dir = new_cache_entry(&dir_id, srv_id);
     cache_insert(&dir_id, dir);
+    cache_release(dir);
 
 #if 0
     struct giga_directory *dir = cache_fetch(&dir_id);
@@ -444,9 +444,9 @@ void init_giga_mapping()
         logMessage(LOG_DEBUG, __func__, "Dir (id=%d) not in cache!", dir_id);
         exit(1);
     }
+    giga_print_mapping(&dir->mapping);
 #endif
 
-    giga_print_mapping(&dir->mapping);
 
     return;
 }

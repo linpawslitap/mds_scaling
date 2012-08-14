@@ -96,7 +96,7 @@ void lru_cache_insert(lru_cache_t* lru,
 
     HASH_ADD_INT(lru->table, handle, entry);
     double_list_append(&(lru->dummy), entry);
-    entry->refcount = 1;
+    entry->refcount = 2;
 
     while (lru->length_ > lru->capacity_ && lru->dummy.next != &(lru->dummy)) {
         struct giga_directory* old = lru->dummy.next;
@@ -242,7 +242,7 @@ struct giga_directory* new_cache_entry(DIR_handle_t *handle, int srv_id)
     d->handle = *handle;
     giga_init_mapping(&d->mapping, -1, d->handle, srv_id, giga_options_t.num_servers);
     
-    d->refcount = 1;
+    //d->refcount = 1;
     d->split_flag = 0;
     pthread_mutex_init(&d->split_mtx, NULL);
     
@@ -287,6 +287,7 @@ int cache_init()
     shard_cache_init(&my_dircache, DEFAULT_DIR_CACHE_SIZE);
 
     fuse_cache = NULL;
+    fuse_cache_insert("/", ROOT_DIR_ID);
 
     return 0;
 }

@@ -168,7 +168,10 @@ int GIGAgetattr(const char *path, struct stat *statbuf)
         case BACKEND_RPC_LEVELDB:
             parse_path_components(path, file, dir);
             //TODO: convert "dir" to "dir_id"
+            dir_id = fuse_cache_lookup(dir);
             ret = rpc_getattr(dir_id, file, statbuf);
+            if (S_ISDIR(statbuf->st_mode))
+                fuse_cache_insert((char*)path, statbuf->st_ino);
             ret = FUSE_ERROR(ret);
             break;
         case BACKEND_RPC_LOCALFS:
@@ -210,6 +213,7 @@ int GIGAmkdir(const char *path, mode_t mode)
             break;
         case BACKEND_RPC_LEVELDB:
             parse_path_components(path, file, dir);
+            dir_id = fuse_cache_lookup(dir);
             ret = rpc_mkdir(dir_id, file, mode);
             ret = FUSE_ERROR(ret);
             break;
@@ -254,6 +258,7 @@ int GIGAmknod(const char *path, mode_t mode, dev_t dev)
             ;
         case BACKEND_RPC_LEVELDB:
             parse_path_components(path, file, dir);
+            dir_id = fuse_cache_lookup(dir);
             ret = rpc_mknod(dir_id, file, mode, dev);
             ret = FUSE_ERROR(ret);
             break;
@@ -285,6 +290,7 @@ int GIGAopendir(const char *path, struct fuse_file_info *fi)
             break;
         case BACKEND_RPC_LEVELDB:
             parse_path_components(path, file, dir);
+            dir_id = fuse_cache_lookup(dir);
             ret = rpc_opendir(dir_id, dir);
             break;
         default:
@@ -324,6 +330,7 @@ int GIGAreaddir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offse
             break;
         case BACKEND_RPC_LEVELDB:
             parse_path_components(path, file, dir);
+            dir_id = fuse_cache_lookup(dir);
             ret_ls = (scan_list_t)rpc_readdir(dir_id, dir);
             for (ls = ret_ls; ls != NULL; ls = ls->next) {
                 if (filler(buf, ls->entry_name, NULL, 0) != 0) {
@@ -358,6 +365,7 @@ int GIGAreleasedir(const char *path, struct fuse_file_info *fi)
             break;
         case BACKEND_RPC_LEVELDB:
             parse_path_components(path, file, dir);
+            dir_id = fuse_cache_lookup(dir);
             ret = rpc_releasedir(dir_id, dir);
             break;
         default:

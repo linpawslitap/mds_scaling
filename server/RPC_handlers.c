@@ -153,6 +153,8 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
                                                      dir_id, index, path,
                                                      &rpc_reply->statbuf);
             if (S_ISDIR(rpc_reply->statbuf.st_mode)) {
+                LOG_MSG("rpc_getattr(%s) returns a directory for d%d", 
+                        path, rpc_reply->statbuf.st_ino);
                 struct giga_directory *tmp = new_cache_entry((DIR_handle_t*)&rpc_reply->statbuf.st_ino, 0); 
                 if (metadb_read_bitmap(ldb_mds, dir_id, index, path, &tmp->mapping) != 0) {
                     LOG_ERR("mdb_read(%s): error reading dir=%d bitmap.", path, dir_id);
@@ -161,6 +163,9 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
                 cache_insert((DIR_handle_t*)&rpc_reply->statbuf.st_ino, tmp);
                 memcpy(&(rpc_reply->result.giga_result_t_u.bitmap), 
                        &tmp->mapping, sizeof(tmp->mapping));
+                giga_print_mapping(&rpc_reply->result.giga_result_t_u.bitmap);
+                rpc_reply->result.errnum = -EAGAIN;
+                cache_release(tmp);
             }
 
             break;  

@@ -43,10 +43,29 @@ int get_server_for_file(struct giga_directory *dir, const char *name)
     //return giga_get_server_for_file(&dir->mapping, name);
 }
 
+static
+void init_cache()
+{
+    int dir_id = ROOT_DIR_ID; //FIXME: dir_id for "root"
+    int srv_id = 0;
+    
+    cache_init();
+    struct giga_directory *dir = new_cache_entry(&dir_id, srv_id);
+    cache_insert(&dir_id, dir);
+
+    giga_print_mapping(&dir->mapping);
+
+    return;
+}
+
 int rpc_init()
 {
     int ret = 0;
+    
+    int dir_id = ROOT_DIR_ID; // update root server's bitmap
     int server_id = 0;
+    
+    init_cache();
     
     CLIENT *rpc_clnt = getConnection(server_id);
     giga_result_t rpc_reply;
@@ -61,8 +80,7 @@ int rpc_init()
 
     int errnum = rpc_reply.errnum;
     if (errnum == -EAGAIN) {
-        int dir_id = 0; // update root server's bitmap
-        struct giga_directory *dir = cache_fetch(&dir_id);
+        struct giga_directory *dir = cache_lookup(&dir_id);
         if (dir == NULL) {
             LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
             ret = -EIO;
@@ -71,9 +89,12 @@ int rpc_init()
             update_client_mapping(dir, &rpc_reply.giga_result_t_u.bitmap); 
             ret = 0;
         }
+        giga_print_mapping(&dir->mapping);
+        cache_release(dir);
     } else if (errnum < 0) {
         ret = errnum;
     }
+
     
     LOG_MSG("<<< RPC_init: s[%d]", server_id);
 
@@ -84,7 +105,7 @@ int rpc_getattr(int dir_id, const char *path, struct stat *stbuf)
 {
     int ret = 0;
     
-    struct giga_directory *dir = cache_fetch(&dir_id);
+    struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
         LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
         ret = -EIO;
@@ -120,7 +141,10 @@ retry:
         *stbuf = rpc_reply.statbuf;
         if (stbuf == NULL)
             LOG_MSG("ERR_getattr(%s): statbuf is NULL!", path);
+        //TODO: check for IS_DIR flag in statbuf
     }
+
+    cache_release(dir);
 
     LOG_MSG("<<< RPC_getattr(%s): status=[%d]%s", path, ret, strerror(ret));
     
@@ -137,7 +161,7 @@ int rpc_mkdir(int dir_id, const char *path, mode_t mode)
         ret = -EIO;
     }
     
-    int server_id = 0;
+    int server_id = 0;      //TODO: randomize zeroth server
     giga_result_t rpc_reply;
 
 retry:
@@ -164,6 +188,8 @@ retry:
     } else {
         ret = 0;
     }
+    
+    cache_release(dir);
 
     LOG_MSG("<<< RPC_mkdir(%s): status=[%d]%s", path, ret, strerror(ret));
     
@@ -174,7 +200,7 @@ int rpc_mknod(int dir_id, const char *path, mode_t mode, dev_t dev)
 {
     int ret = 0;
     
-    struct giga_directory *dir = cache_fetch(&dir_id);
+    struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
         LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
         ret = -EIO;
@@ -208,6 +234,7 @@ retry:
         ret = 0;
     }
 
+    cache_release(dir);
 
     LOG_MSG("<<< RPC_mknod(%s): status=[%d]%s", path, ret, strerror(ret));
     
@@ -286,7 +313,7 @@ retry:
 
             LOG_MSG("num_ents[s%d] = %d", server_id, rpc_reply.readdir_return_t_u.result.num_entries);
             for (ls=rpc_reply.readdir_return_t_u.result.list; ls!=NULL; ls=ls->next) {
-                //LOG_MSG("dentry=[%s]", ls->entry_name);
+                LOG_MSG("dentry=[%s]", ls->entry_name);
                 if (ls->next == NULL) {
                         final_ls_end = ls;
                 }

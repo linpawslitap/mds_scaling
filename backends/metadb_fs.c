@@ -714,24 +714,30 @@ int metadb_readdir(struct MetaDB mdb,
             size_t klen;
             iter_key = (metadb_key_t*) leveldb_iter_key(iter, &klen);
             if (iter_key->parent_id == dir_id) {
-                iter_val.value =
-                    (char *) leveldb_iter_value(iter, &iter_val.size);
-                int fret = readdir_filler(buf, buf_len, &buf_offset, iter_val);
-                if (fret > 0) {
-                    memcpy(end_key, iter_key->name_hash, HASH_LEN);
-                    // Check if there is no more entries
-                    leveldb_iter_next(iter);
-                    if (leveldb_iter_valid(iter)) {
-                        iter_key =
-                            (metadb_key_t*) leveldb_iter_key(iter, &klen);
-                        if (iter_key->parent_id == dir_id) {
-                            *more_entries_flag = 1;
-                            *partition_id = iter_key->partition_id;
+                if (iter_key->partition_id >= 0) {
+                    iter_val.value =
+                        (char *) leveldb_iter_value(iter, &iter_val.size);
+                    int fret = readdir_filler(buf, buf_len, &buf_offset, iter_val);
+                    if (fret > 0) {
+                        memcpy(end_key, iter_key->name_hash, HASH_LEN);
+                        *more_entries_flag = 1;
+                        *partition_id = iter_key->partition_id;
+                        // Check if there is no more entries
+                        /*
+                        leveldb_iter_next(iter);
+                        if (leveldb_iter_valid(iter)) {
+                            iter_key =
+                                (metadb_key_t*) leveldb_iter_key(iter, &klen);
+                            if (iter_key->parent_id == dir_id) {
+                                *more_entries_flag = 1;
+                                *partition_id = iter_key->partition_id;
+                            }
                         }
+                        */
+                        break;
+                    } else {
+                        entry_count += 1;
                     }
-                    break;
-                } else {
-                    entry_count += 1;
                 }
             } else {
                 break;

@@ -83,7 +83,7 @@ bool_t giga_rpc_init_1_svc(int rpc_req,
     // send bitmap for the "root" directory.
     //
     int dir_id = 0;
-    struct giga_directory *dir = cache_fetch(&dir_id);
+    struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
         rpc_reply->errnum = -EIO;
         LOG_MSG("ERR_cache: dir(%d) missing", dir_id);
@@ -92,6 +92,8 @@ bool_t giga_rpc_init_1_svc(int rpc_req,
     rpc_reply->errnum = -EAGAIN;
     memcpy(&(rpc_reply->giga_result_t_u.bitmap), 
            &dir->mapping, sizeof(dir->mapping));
+
+    cache_release(dir);
 
     LOG_MSG("<<< RPC_init: [status=%d]", rpc_reply->errnum);
 
@@ -124,7 +126,7 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
 
     bzero(rpc_reply, sizeof(giga_getattr_reply_t));
 
-    struct giga_directory *dir = cache_fetch(&dir_id);
+    struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
         rpc_reply->result.errnum = -EIO;
         LOG_MSG("ERR_cache: dir(%d) missing", dir_id);
@@ -154,6 +156,8 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
         default:
             break;
     }
+
+    cache_release(dir);
 
     LOG_MSG("<<< RPC_getattr(d=%d,p=%s): status=[%d]", 
             dir_id, path, rpc_reply->result.errnum);
@@ -342,9 +346,7 @@ bool_t giga_rpc_readdir_serial_1_svc(scan_args_t args,
         assert((statbuf.st_mode & S_IFDIR) > 0);
         assert(memcmp(objname, realpath, len) == 0);
        
-        //LOG_MSG("#%d: \t obj=[%s] \t sym=[%s]", entry, objname, realpath);
-        //fprintf(stderr,"#%d: \t obj=[%s] \t sym=[%s]", entry, objname, realpath);
-        //
+        LOG_MSG("#%d: \t obj=[%s] \t sym=[%s]", entry, objname, realpath);
         (void)realpath;
 
         ls = *ls_ptr = (scan_entry_t*)malloc(sizeof(scan_entry_t));

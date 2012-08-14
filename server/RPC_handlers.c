@@ -152,6 +152,17 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
             rpc_reply->result.errnum = metadb_lookup(ldb_mds,
                                                      dir_id, index, path,
                                                      &rpc_reply->statbuf);
+            if (S_ISDIR(rpc_reply->statbuf.st_mode)) {
+                struct giga_directory *tmp = new_cache_entry((DIR_handle_t*)&rpc_reply->statbuf.st_ino, 0); 
+                if (metadb_read_bitmap(ldb_mds, dir_id, index, path, &tmp->mapping) != 0) {
+                    LOG_ERR("mdb_read(%s): error reading dir=%d bitmap.", path, dir_id);
+                    exit(1);
+                }
+                cache_insert((DIR_handle_t*)&rpc_reply->statbuf.st_ino, tmp);
+                memcpy(&(rpc_reply->result.giga_result_t_u.bitmap), 
+                       &tmp->mapping, sizeof(tmp->mapping));
+            }
+
             break;  
         default:
             break;
@@ -177,7 +188,7 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
 
     bzero(rpc_reply, sizeof(giga_result_t));
 
-    struct giga_directory *dir = cache_fetch(&dir_id);
+    struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
         rpc_reply->errnum = -EIO;
         LOG_MSG("ERR_cache: dir(%d) missing", dir_id);
@@ -290,7 +301,7 @@ bool_t giga_rpc_readdir_serial_1_svc(scan_args_t args,
     
     int dir_id = args.dir_id;
     
-    struct giga_directory *dir = cache_fetch(&dir_id);
+    struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
         rpc_reply->errnum = -EIO;
         LOG_MSG("ERR_cache: dir(%d) missing", dir_id);
@@ -494,10 +505,9 @@ bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id,
 
     bzero(rpc_reply, sizeof(giga_result_t));
 
-    struct giga_directory *dir = cache_fetch(&dir_id);
+    struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
         rpc_reply->errnum = -EIO;
-        
         LOG_MSG("ERR_cache: dir(%d) missing", dir_id);
         return true;
     }
@@ -556,14 +566,12 @@ start:
     
     char path_name[PATH_MAX];
 
-    switch (giga_options_t.backend_type) {
-        case BACKEND_RPC_LOCALFS:
+    if (giga_options_t.backend_type == BACKEND_RPC_LOCALFS) {
             snprintf(path_name, sizeof(path_name), 
                      "%s/%d/%s", giga_options_t.mountpoint, index, path);
             rpc_reply->errnum = local_mkdir(path_name, mode);
-            break;
-        case BACKEND_RPC_LEVELDB:
-            // create object in the underlying file system
+    }
+    else if (giga_options_t.backend_type == BACKEND_RPC_LEVELDB) {
             // FIXME: we need it for NON-directory objects only.
             /*
             snprintf(path_name, sizeof(path_name), 
@@ -576,25 +584,37 @@ start:
             */
             
             // create object entry (metadata) in levelDB
-            object_id += 1;  //TODO: do we need this for non-dir objects?? 
-            LOG_MSG("d=%d,p=%d,o=%d,p=%s,rp=%s", 
-                    dir_id, index,object_id, path,path_name);
-            rpc_reply->errnum = metadb_create(ldb_mds, dir_id, index,
-                                              OBJ_DIR,
-                                              object_id, path, path_name);
+            // and create partition entry for this object
+
+            object_id += 1;         //TODO: do we need this for non-dir objects?? 
+            int zeroth_server = giga_options_t.serverID;  //FIXME: randomize please!
+            struct giga_directory *new_dir = new_cache_entry(&object_id, zeroth_server);
+            cache_insert(&object_id, new_dir);
+
+            LOG_MSG("d=%d,p=%d,o=%d,p=%s", dir_id, index, object_id, path);
+
+            rpc_reply->errnum = metadb_create_dir(ldb_mds, dir_id, index,
+                                                  path, &new_dir->mapping);
             if (rpc_reply->errnum < 0)
                 LOG_ERR("ERR_mdb_create(%s): p%d of d%d", path, index, dir_id);
-            else
+            else {
                 dir->partition_size[index] += 1;
-            break;
-        default:
-            break;
 
+                //XXX: needs an RPC
+                rpc_reply->errnum = metadb_create_dir(ldb_mds, object_id, -1, NULL, 
+                                                      &new_dir->mapping);
+                if (rpc_reply->errnum < 0)
+                    LOG_ERR("ERR_mdb_create(%s): partition entry, d%d", path, object_id);
+            }
+
+            cache_release(new_dir);
     }
 
 exit_func:
 
     RELEASE_MUTEX(&dir->partition_mtx[index], "mkdir(%s)", path);
+
+    cache_release(dir);
 
     LOG_MSG("<<< RPC_mkdir(d=%d,p=%d): status=[%d]", 
             dir_id, path, rpc_reply->errnum);

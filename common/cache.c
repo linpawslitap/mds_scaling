@@ -9,7 +9,8 @@
 #include <errno.h>
 #include <stdio.h>
 
-#define CACHE_LOG LOG_DEBUG
+#define CACHE_LOG LOG_WARN
+
 #define NUM_SHARDS_BITS 4
 #define NUM_SHARDS (1 << NUM_SHARDS_BITS)
 
@@ -214,6 +215,7 @@ void cache_insert(DIR_handle_t *handle,
 }
 
 void cache_release(struct giga_directory* giga_dir) {
+    giga_print_mapping(&giga_dir->mapping);
     shard_cache_release(&my_dircache, giga_dir);
 }
 

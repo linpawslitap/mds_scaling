@@ -1,14 +1,14 @@
 #!/bin/bash
 
-#MNT="/tmp"
-MNT="/m/pvfs"
-GIGA="${MNT}/giga_s/"
-LDB="${MNT}/ldb/"
+MNT="/l0"
+#MNT="/m/pvfs"
+GIGA="${MNT}/giga_srv/"
+LDB="${MNT}/giga_ldb/"
 
 if [ $# -lt 1 ]
 then
     echo "Usage : $0 <v | g | n | c>"
-    echo "where ... {v=valgridn, g=gdb, n=normal, c=cleanup}"
+    echo "where ... {v=valgrind, g=gdb, f=fore, n=normal, c=clean}"
     exit
 fi
 
@@ -35,9 +35,14 @@ g) # GDB execution
 gdb --args ../giga_server
 ;;
 
+f) # foreground server execution
+   #
+../giga_server 
+;;
+
 n) # normal server execution
    #
-../giga_server
+../giga_server &
 ;;
 
 *) echo "Invalid option: <$1>"

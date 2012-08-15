@@ -1,6 +1,5 @@
 
 #include "common/debugging.h"
-#include "common/defaults.h"
 
 #include "operations.h"
 
@@ -90,7 +89,6 @@ int local_mknod(const char *path, mode_t mode, dev_t dev)
 {
     int ret = 0;
 
-    /*
     // On Linux this could just be 'mknod(path, mode, rdev)' but this
     //  is more portable
     if (S_ISREG(mode)) {
@@ -121,13 +119,14 @@ int local_mknod(const char *path, mode_t mode, dev_t dev)
             ret = (errno);
         }
 	}
-    */
 
+    /*
     if ((ret = mknod(path, mode, dev)) < 0) {
         logMessage(LOG_FATAL, __func__,
                    "mknod(%s) failed: %s", path, strerror(errno));
         ret = (errno);
     }
+    */
 
     return ret;
 }

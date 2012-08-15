@@ -2,7 +2,6 @@
 #include "common/cache.h"
 #include "common/connection.h"
 #include "common/debugging.h"
-#include "common/defaults.h"
 #include "common/rpc_giga.h"
 
 #include "backends/operations.h"
@@ -13,17 +12,21 @@
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
+#include <dirent.h>
 #include <fuse.h>
 #include <rpc/rpc.h>
 #include <unistd.h>
 
-#define FUSE_LOG LOG_DEBUG
+#define _LEVEL_     LOG_DEBUG
+
+#define LOG_MSG(format, ...) \
+    logMessage(_LEVEL_, __func__, format, __VA_ARGS__); 
 
 static struct MetaDB ldb_mds;
 static uint64_t object_id = 0;
 
 static int  parse_path_components(const char *path, char *file, char *dir);
-static void get_full_path(char fpath[MAX_LEN], const char *path);
+static void get_full_path(char fpath[], const char *path);
 
 #define FUSE_ERROR(x)   -(x)
 
@@ -49,18 +52,18 @@ static int parse_path_components(const char *path, char *file, char *dir)
 
     int pathlen = strlen(path);
 
-    if (pathlen > MAX_LEN)
+    if (pathlen > PATH_MAX)
         return -ENAMETOOLONG;
     
     p += pathlen;
 	while ( (*p) != '/' && p != path)
 		p--; // Come back till '/'
 
-    if (pathlen - (int)(p - path) > MAX_LEN)
+    if (pathlen - (int)(p - path) > PATH_MAX)
         return -ENAMETOOLONG;
 
     // Copy after slash till end into filename
-	strncpy(file, p+1, MAX_LEN); 
+	strncpy(file, p+1, PATH_MAX); 
 	if (dir) {
 		if (path == p)
 			strncpy(dir, "/", 2);
@@ -70,9 +73,8 @@ static int parse_path_components(const char *path, char *file, char *dir)
 			dir[(int)(p - path)] = '\0';
 		}
 	}
-    
-    logMessage(FUSE_LOG, __func__,
-               "parsed [%s] to {file=[%s],dir=[%s]}", path, file, dir);
+
+    LOG_MSG("parsed [%s] to {file=[%s],dir=[%s]}", path, file, dir);
 	return 0;
 }
 
@@ -80,60 +82,50 @@ static int parse_path_components(const char *path, char *file, char *dir)
  * Appends a given path name with something else.
  *
  */
-static void get_full_path(char fpath[MAX_LEN], const char *path)
+static void get_full_path(char fpath[PATH_MAX], const char *path)
 {
-    strncpy(fpath, 
-            giga_options_t.mountpoint, strlen(giga_options_t.mountpoint)+1);  
-    strncat(fpath, path, MAX_LEN);          //XXX: long path names with break!
+    strncpy(fpath, DEFAULT_SRV_BACKEND, strlen(DEFAULT_SRV_BACKEND)+1); 
+            //giga_options_t.mountpoint, strlen(giga_options_t.mountpoint)+1);  
+    strncat(fpath, path, PATH_MAX);          //XXX: long path names with break!
 
-    logMessage(FUSE_LOG, __func__, "converted [%s] to [%s]", path, fpath);
+    LOG_MSG("converted [%s] to [%s]", path, fpath);
 
     return;
 }
 
 void* GIGAinit(struct fuse_conn_info *conn)
 {
-    logMessage(FUSE_LOG, __func__, ">>> FUSE_init()");
+    LOG_MSG(">>> FUSE_init(%d)", ROOT_DIR_ID);
 
     (void)conn;
-
-    char ldb_name[MAX_LEN];
-
+    
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_LEVELDB:
-            snprintf(ldb_name, sizeof(ldb_name),
-                     "%s/%d-%s",
-                     DEFAULT_LEVELDB_DIR, 0,
-                     DEFAULT_LEVELDB_PREFIX);
-            metadb_init(&ldb_mds, ldb_name);
+            metadb_init(&ldb_mds, DEFAULT_LEVELDB_DIR);
             object_id = 0;
             if (metadb_create(ldb_mds,
                               ROOT_DIR_ID, 0,
                               OBJ_DIR,
                               object_id, "/", giga_options_t.mountpoint) < 0) {
-                logMessage(LOG_FATAL, __func__, "root entry creation error.");
+                LOG_ERR("root entry creation error(%s)", ROOT_DIR_ID);
                 exit(1);
             }
             break;
         case BACKEND_RPC_LOCALFS:
-            ;
+            break;
         case BACKEND_RPC_LEVELDB:
-            if (rpcConnect() < 0) {
-                logMessage(LOG_FATAL, __func__, "RPC_conn_err:%s", strerror(errno));
-                exit(1);
-            }
-            
+            rpcInit();
+            //rpcConnect();     //FIXME: I don't need this 
             if (rpc_init() < 0) {
-                logMessage(FUSE_LOG, __func__, "RPC_init_err!!!");
+                LOG_ERR("RPC_init_err(%s)", ROOT_DIR_ID);
                 exit(1);
             }  
-            
             break;
         default:
             break;
     }
     
-    logMessage(FUSE_LOG, __func__, "<<< FUSE_init()");
+    LOG_MSG("<<< FUSE_init(%d)", ROOT_DIR_ID);
     return NULL;
 }
 
@@ -143,7 +135,7 @@ void GIGAdestroy(void * unused)
 
     logClose();
     
-    logMessage(FUSE_LOG, __func__, ">>> FUSE_destroy() <<<");
+    LOG_MSG(">>> FUSE_destroy(%d) <<<", ROOT_DIR_ID);
 
     // FIXME: check cleanup code.
     //rpc_disconnect();
@@ -152,13 +144,12 @@ void GIGAdestroy(void * unused)
 
 int GIGAgetattr(const char *path, struct stat *statbuf)
 {
-    logMessage(FUSE_LOG, __func__,
-               ">>> FUSE_getattr(p=[%s]): stat=[0x%08x]", path, statbuf);
+    LOG_MSG(">>> FUSE_getattr(%s): stat=[0x%08x]", path, statbuf);
 
     int ret = 0;
-    char fpath[MAX_LEN] = {0};
-    char dir[MAX_LEN] = {0};
-    char file[MAX_LEN] = {0};
+    char fpath[PATH_MAX] = {0};
+    char dir[PATH_MAX] = {0};
+    char file[PATH_MAX] = {0};
     int dir_id = 0;
    
     switch (giga_options_t.backend_type) {
@@ -166,18 +157,21 @@ int GIGAgetattr(const char *path, struct stat *statbuf)
             get_full_path(fpath, path);
             ret = local_getattr(fpath, statbuf);
             ret = FUSE_ERROR(ret);
+            //if ((ret = lstat(fpath, statbuf)) < 0)
+            //    ret = FUSE_ERROR(ret);
             break;
         case BACKEND_LOCAL_LEVELDB:
             parse_path_components(path, file, dir);
-            ret  = metadb_lookup(ldb_mds,
-                                 0, 0, file,
-                                 statbuf);
+            ret  = metadb_lookup(ldb_mds, 0, 0, file, statbuf);
             ret = FUSE_ERROR(ret);
             break;
         case BACKEND_RPC_LEVELDB:
             parse_path_components(path, file, dir);
             //TODO: convert "dir" to "dir_id"
+            dir_id = fuse_cache_lookup(dir);
             ret = rpc_getattr(dir_id, file, statbuf);
+            if (S_ISDIR(statbuf->st_mode))
+                fuse_cache_insert((char*)path, statbuf->st_ino);
             ret = FUSE_ERROR(ret);
             break;
         case BACKEND_RPC_LOCALFS:
@@ -190,27 +184,19 @@ int GIGAgetattr(const char *path, struct stat *statbuf)
             break;
     }
 
-    logMessage(FUSE_LOG, __func__, 
-               "<<< FUSE_getattr(p=%s): ret=[%d]", path, ret);
-    /*
-    if (ret == 0) {
-        logMessage(FUSE_LOG, __func__,
-                "==> getattr: gid=%d, uid=%d, mode=%08d",
-                statbuf->st_gid, statbuf->st_uid, statbuf->st_mode);
-    }
-    */
+    LOG_MSG("<<< FUSE_getattr(%s): ret=[%d]", path, ret);
+    
     return ret;
 }
 
 int GIGAmkdir(const char *path, mode_t mode)
 {
-    logMessage(FUSE_LOG, __func__, 
-               ">>> FUSE_mkdir(p=[%s]): mode=[%lo]", path, (unsigned long)mode);
+    LOG_MSG(">>> FUSE_mkdir(%s): mode=[%lo]", path, (unsigned long)mode);
 
     int ret = 0;
-    char fpath[MAX_LEN] = {0};
-    char dir[MAX_LEN] = {0};
-    char file[MAX_LEN] = {0};
+    char fpath[PATH_MAX] = {0};
+    char dir[PATH_MAX] = {0};
+    char file[PATH_MAX] = {0};
     int dir_id = 0;
     
     switch (giga_options_t.backend_type) {
@@ -222,13 +208,12 @@ int GIGAmkdir(const char *path, mode_t mode)
         case BACKEND_LOCAL_LEVELDB:
             parse_path_components(path, file, dir);
             object_id += 1;
-            ret  = metadb_create(ldb_mds, 0, 0,
-                                 OBJ_DIR,
-                                 object_id, file, path);
+            ret = metadb_create(ldb_mds, 0, 0, OBJ_DIR, object_id, file, path);
             ret = FUSE_ERROR(ret);
             break;
         case BACKEND_RPC_LEVELDB:
             parse_path_components(path, file, dir);
+            dir_id = fuse_cache_lookup(dir);
             ret = rpc_mkdir(dir_id, file, mode);
             ret = FUSE_ERROR(ret);
             break;
@@ -241,21 +226,20 @@ int GIGAmkdir(const char *path, mode_t mode)
             break;
     }
     
-    logMessage(FUSE_LOG, __func__, 
-               "<<< FUSE_mkdir(p=%s): status=[%d] ", path, ret);
+    LOG_MSG("<<< FUSE_mkdir(%s): status=[%d] ", path, ret);
+    
     return ret;
 }
 
     
 int GIGAmknod(const char *path, mode_t mode, dev_t dev)
 {
-    logMessage(FUSE_LOG, __func__, 
-               ">>> FUSE_mknod(p=[%s]): mode=[0%3o],dev=[%lld]", path, mode, dev);
+    LOG_MSG(">>> FUSE_mknod(%s): mode=[0%3o],dev=[%lld]", path, mode, dev);
 
     int ret = 0;
     char fpath[PATH_MAX];
-    char dir[MAX_LEN] = {0};
-    char file[MAX_LEN] = {0};
+    char dir[PATH_MAX] = {0};
+    char file[PATH_MAX] = {0};
     int dir_id = 0;
     
     switch (giga_options_t.backend_type) {
@@ -267,15 +251,14 @@ int GIGAmknod(const char *path, mode_t mode, dev_t dev)
         case BACKEND_LOCAL_LEVELDB:
             parse_path_components(path, file, dir);
             object_id += 1;
-            ret  = metadb_create(ldb_mds, 0, 0,
-                                 OBJ_MKNOD,
-                                 object_id, file, path);
+            ret = metadb_create(ldb_mds, 0, 0, OBJ_MKNOD, object_id, file, path);
             ret = FUSE_ERROR(ret);
             break;
         case BACKEND_RPC_LOCALFS:
             ;
         case BACKEND_RPC_LEVELDB:
             parse_path_components(path, file, dir);
+            dir_id = fuse_cache_lookup(dir);
             ret = rpc_mknod(dir_id, file, mode, dev);
             ret = FUSE_ERROR(ret);
             break;
@@ -283,101 +266,645 @@ int GIGAmknod(const char *path, mode_t mode, dev_t dev)
             break;
     }
     
-    logMessage(FUSE_LOG, __func__, 
-               "<<< FUSE_mknod(p=%s): status=[%d] ", path, ret);
+    LOG_MSG("<<< FUSE_mknod(%s): status=[%d] ", path, ret);
     return ret;
 }
 
-/*
-#######
-*/
-
-
-int GIGAsymlink(const char *path, const char *link)
+int GIGAopendir(const char *path, struct fuse_file_info *fi)
 {
-    logMessage(FUSE_LOG, __func__,
-               " ==> symlink(path=[%s], link=[%s])", path, link);
-
-    int ret = 0;
-    char flink[MAX_LEN] = {0};
-
-    switch (giga_options_t.backend_type) {
-        case BACKEND_LOCAL_FS:
-            get_full_path(flink, link);
-            ret = local_symlink(path, flink);
-            ret = FUSE_ERROR(ret);
-            break;
-        case BACKEND_RPC_LEVELDB:
-            break;
-        default:
-            break;
-    }
-    
-    return ret;
-}
-
-
-int GIGAreadlink(const char *path, char *link, size_t size)
-{
-    logMessage(FUSE_LOG, __func__,
-               " ==> readlink(path=[%s],link=[%s],size[%d])", path, link, size);
+    LOG_MSG(">>> FUSE_opendir(%s): fi=[0x%08x])", path, fi);
     
     int ret = 0;
-    char fpath[MAX_LEN] = {0};
+    char fpath[PATH_MAX] = {0};
+    char dir[PATH_MAX] = {0};
+    char file[PATH_MAX] = {0};
+    int dir_id = 0;
+    DIR *dp;
 
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
             get_full_path(fpath, path);
-            ret = local_readlink(fpath, link, size);
-            ret = FUSE_ERROR(ret);
+            if ((dp = opendir(fpath)) == NULL)
+                ret = errno;
+            fi->fh = (intptr_t) dp;
             break;
         case BACKEND_RPC_LEVELDB:
+            parse_path_components(path, file, dir);
+            dir_id = fuse_cache_lookup((char*)path);
+            ret = rpc_opendir(dir_id, dir);
             break;
         default:
+            ret = ENOTSUP;
             break;
     }
     
-    logMessage(FUSE_LOG, __func__,
-               "ret_readlink(link=[%s], size[%d])", path, link, strlen(link));
+    LOG_MSG("<<< FUSE_opendir(%s): ret=[%d:%s]", path, ret, strerror(ret));
+        
+    return FUSE_ERROR(ret);
+}
+
+int GIGAreaddir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset,
+                struct fuse_file_info *fi)
+{
+    LOG_MSG(">>> FUSE_readdir(%s): offset=%lld", path, offset);
     
-    return ret;
+    int ret = 0;
+    char dir[PATH_MAX] = {0};
+    char file[PATH_MAX] = {0};
+    int dir_id = 0;
+    struct dirent *de;
+    DIR *dp = (DIR*) (uintptr_t) fi->fh;
+
+    scan_list_t ls;
+    scan_list_t ret_ls; 
+    switch (giga_options_t.backend_type) {
+        case BACKEND_LOCAL_FS:
+            if ((de = readdir(dp)) == 0) {
+                ret = errno;
+                break;
+            }
+            do {
+                if (filler(buf, de->d_name, NULL, 0) != 0) 
+                    ret = ENOMEM;
+            } while ((de = readdir(dp)) != NULL);
+            break;
+        case BACKEND_RPC_LEVELDB:
+            parse_path_components(path, file, dir);
+            dir_id = fuse_cache_lookup((char*)path);
+            ret_ls = (scan_list_t)rpc_readdir(dir_id, dir);
+            for (ls = ret_ls; ls != NULL; ls = ls->next) {
+                if (filler(buf, ls->entry_name, NULL, 0) != 0) {
+                    ret = ENOMEM;
+                    LOG_MSG("ERR_rpc_readdir(%s): [%s]", path, strerror(ret));
+                    break;
+                }
+            }
+            break;
+        default:
+            ret = ENOTSUP;
+            break;
+    }
+    
+    LOG_MSG("<<< FUSE_readdir(%s): ret=[%d:%s]", path, ret, strerror(ret));
+        
+    return FUSE_ERROR(ret);
+}
+
+int GIGAreleasedir(const char *path, struct fuse_file_info *fi)
+{
+    LOG_MSG(">>> FUSE_releasedir(%s): fi=[0x%08x])", path, fi);
+    
+    int ret = 0;
+    char dir[PATH_MAX] = {0};
+    char file[PATH_MAX] = {0};
+    int dir_id = 0;
+    
+    switch (giga_options_t.backend_type) {
+        case BACKEND_LOCAL_FS:
+            closedir((DIR*)(uintptr_t)fi->fh);
+            break;
+        case BACKEND_RPC_LEVELDB:
+            parse_path_components(path, file, dir);
+            dir_id = fuse_cache_lookup((char*)path);
+            ret = rpc_releasedir(dir_id, dir);
+            break;
+        default:
+            ret = ENOTSUP;
+            break;
+    }
+    
+    
+    LOG_MSG("<<< FUSE_releasedir(%s): ret=[%d:%s]", path, ret, strerror(ret));
+        
+    return FUSE_ERROR(ret);
+}
+
+// =========================================================
+
+int GIGAunlink(const char *path)
+{
+    LOG_MSG(">>> FUSE_unlink(%s): ", path);
+    
+    int ret = 0;
+    char fpath[PATH_MAX] = {0};
+
+    switch (giga_options_t.backend_type) {
+        case BACKEND_LOCAL_FS:
+            get_full_path(fpath, path);
+            if ((ret = unlink(fpath)) < 0)
+                ret = errno;
+            break;
+        default:
+            ret = ENOTSUP;
+            break;
+    }
+    
+    LOG_MSG("<<< FUSE_unlink(%s): ret=[%d:%s]", path, ret, strerror(ret));
+    
+    return FUSE_ERROR(ret);
+}
+
+int GIGArmdir(const char *path)
+{
+    LOG_MSG(">>> FUSE_rmdir(%s): ", path);
+    
+    int ret = 0;
+    char fpath[PATH_MAX] = {0};
+
+    switch (giga_options_t.backend_type) {
+        case BACKEND_LOCAL_FS:
+            get_full_path(fpath, path);
+            if ((ret = rmdir(fpath)) < 0)
+                ret = errno;
+            break;
+        default:
+            ret = ENOTSUP;
+            break;
+    }
+    
+    LOG_MSG("<<< FUSE_rmdir(%s): ret=[%d:%s]", path, ret, strerror(ret));
+    
+    return FUSE_ERROR(ret);
+}
+
+int GIGAsymlink(const char *path, const char *link)
+{
+    LOG_MSG(">>> FUSE_symlink(%s): link=[%s])", path, link);
+
+    int ret = 0;
+    char flink[PATH_MAX] = {0};
+
+    switch (giga_options_t.backend_type) {
+        case BACKEND_LOCAL_FS:
+            get_full_path(flink, link);
+            if ((ret = symlink(path, flink)) < 0)
+                ret = errno;
+            break;
+        default:
+            ret = ENOTSUP;
+            break;
+    }
+    
+    LOG_MSG("<<< FUSE_symlink(%s): ret=[%d:%s]", path, ret, strerror(ret));
+    
+    return FUSE_ERROR(ret);
+}
+
+int GIGArename(const char *path, const char *newpath)
+{
+    LOG_MSG(">>> FUSE_rename(%s): to [%s]", path, newpath);
+    
+    int ret = 0;
+    char fpath[PATH_MAX] = {0};
+    char fnewpath[PATH_MAX] = {0};
+
+    switch (giga_options_t.backend_type) {
+        case BACKEND_LOCAL_FS:
+            get_full_path(fpath, path);
+            get_full_path(fnewpath, newpath);
+            if ((ret = rename(fpath, fnewpath)) < 0)
+                ret = errno;
+            break;
+        default:
+            ret = ENOTSUP;
+            break;
+    }
+    
+    LOG_MSG("<<< FUSE_rename(%s): ret=[%d:%s]", path, ret, strerror(ret));
+        
+    return FUSE_ERROR(ret);
+}
+
+int GIGAlink(const char *path, const char *newpath)
+{
+    LOG_MSG(">>> FUSE_link(%s): to [%s]", path, newpath);
+    
+    int ret = 0;
+    char fpath[PATH_MAX] = {0};
+    char fnewpath[PATH_MAX] = {0};
+
+    switch (giga_options_t.backend_type) {
+        case BACKEND_LOCAL_FS:
+            get_full_path(fpath, path);
+            get_full_path(fnewpath, newpath);
+            if ((ret = link(fpath, fnewpath)) < 0)
+                ret = errno;
+            break;
+        default:
+            ret = ENOTSUP;
+            break;
+    }
+    
+    LOG_MSG("<<< FUSE_link(%s): ret=[%d:%s]", path, ret, strerror(ret));
+        
+    return FUSE_ERROR(ret);
+}
+
+int GIGAchmod(const char *path, mode_t mode)
+{
+    LOG_MSG(">>> FUSE_chmod(%s): mode=%3o ", path, mode);
+    
+    int ret = 0;
+    char fpath[PATH_MAX] = {0};
+
+    switch (giga_options_t.backend_type) {
+        case BACKEND_LOCAL_FS:
+            get_full_path(fpath, path);
+            if ((ret = chmod(fpath, mode)) < 0)
+                ret = errno;
+            break;
+        default:
+            ret = ENOTSUP;
+            break;
+    }
+    
+    LOG_MSG("<<< FUSE_chmod(%s): ret=[%d:%s]", path, ret, strerror(ret));
+        
+    return FUSE_ERROR(ret);
+}
+
+int GIGAchown(const char *path, uid_t uid, gid_t gid)
+{
+    LOG_MSG(">>> FUSE_chown(%s): uid=%d, gid=%d ", path, uid, gid);
+    
+    int ret = 0;
+    char fpath[PATH_MAX] = {0};
+
+    switch (giga_options_t.backend_type) {
+        case BACKEND_LOCAL_FS:
+            get_full_path(fpath, path);
+            if ((ret = chown(fpath, uid, gid)) < 0)
+                ret = errno;
+            break;
+        default:
+            ret = ENOTSUP;
+            break;
+    }
+    
+    LOG_MSG("<<< FUSE_chown(%s): ret=[%d:%s]", path, ret, strerror(ret));
+        
+    return FUSE_ERROR(ret);
+}
+
+int GIGAtruncate(const char *path, off_t newsize)
+{
+    LOG_MSG(">>> FUSE_truncate(%s): ", path);
+    
+    int ret = 0;
+    char fpath[PATH_MAX] = {0};
+
+    switch (giga_options_t.backend_type) {
+        case BACKEND_LOCAL_FS:
+            get_full_path(fpath, path);
+            if ((ret = truncate(fpath, newsize)) < 0)
+                ret = errno;
+            break;
+        default:
+            ret = ENOTSUP;
+            break;
+    }
+    
+    LOG_MSG("<<< FUSE_truncate(%s): ret=[%d:%s]", path, ret, strerror(ret));
+        
+    return FUSE_ERROR(ret);
+}
+
+int GIGAutime(const char *path, struct utimbuf *ubuf)
+{
+    LOG_MSG(">>> FUSE_utime(%s): ", path);
+    
+    int ret = 0;
+    char fpath[PATH_MAX] = {0};
+
+    switch (giga_options_t.backend_type) {
+        case BACKEND_LOCAL_FS:
+            get_full_path(fpath, path);
+            if ((ret = utime(fpath, ubuf)) < 0)
+                ret = errno;
+            break;
+        default:
+            ret = ENOTSUP;
+            break;
+    }
+    
+    LOG_MSG("<<< FUSE_utime(%s): ret=[%d:%s]", path, ret, strerror(ret));
+        
+    return FUSE_ERROR(ret);
 }
 
 int GIGAopen(const char *path, struct fuse_file_info *fi)
 {
-    logMessage(FUSE_LOG, __func__, 
-               " ==> open(path=[%s], fi=[0x%08x])", path, fi);
+    LOG_MSG(">>> FUSE_open(%s): fi=[0x%08x])", path, fi);
     
     int ret = 0;
-    char fpath[MAX_LEN] = {0};
+    char fpath[PATH_MAX] = {0};
     int fd;
 
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
             get_full_path(fpath, path);
-            if ((ret = local_open(fpath, fi->flags, &fd)) < 0)
-                ret = FUSE_ERROR(ret);
+            if ((fd = open(fpath, fi->flags)) < 0) 
+                ret = errno;
             fi->fh = fd;
             break;
-        case BACKEND_RPC_LEVELDB:
+        default:
+            ret = FUSE_ERROR(ENOTSUP);
+            break;
+    }
+
+    LOG_MSG("<<< FUSE_open(%s): ret=[%d:%s] and fi=[0x%08x])", 
+            path, ret, strerror(ret), fi->fh);
+    
+    return FUSE_ERROR(ret);
+}
+
+int GIGAread(const char *path, char *buf, size_t size, off_t offset, 
+             struct fuse_file_info *fi)
+{
+    LOG_MSG(">>> FUSE_read(%s): size=%d,offset=%d,buf=[0x%08x] and fi=[0x%08x] ", 
+	        path, buf, size, offset, fi);
+    
+    int ret = 0;
+
+    switch (giga_options_t.backend_type) {
+        case BACKEND_LOCAL_FS:
+            if ((ret = pread(fi->fh, buf, size, offset)) < 0)
+                ret = FUSE_ERROR(ret);
             break;
         default:
+            ret = FUSE_ERROR(ENOTSUP);
             break;
     }
-
-    /*
-    if ((fd = open(fpath, fi->flags)) < 0) {
-        logMessage(LOG_FATAL, __func__,
-                   "open(%s) failed: %s", fpath, strerror(errno));
-        ret = FUSE_ERROR(errno);
-    }
     
-    fi->fh = fd;
-    */
-
-    logMessage(FUSE_LOG, __func__, 
-               " ret_open(path=[%s], fi=[%d])", path, fi->fh);
-    
+    LOG_MSG("<<< FUSE_read(%s): ret=[%d:%s]", path, ret, strerror(ret));
+        
     return ret;
 }
+
+int GIGAwrite(const char *path, const char *buf, size_t size, off_t offset, 
+              struct fuse_file_info *fi)
+{
+    LOG_MSG(">>> FUSE_write(%s): size=%d,offset=%d,buf=[0x%08x] and fi=[0x%08x] ", 
+	        path, buf, size, offset, fi);
     
+    int ret = 0;
+
+    switch (giga_options_t.backend_type) {
+        case BACKEND_LOCAL_FS:
+            if ((ret = pwrite(fi->fh, buf, size, offset)) < 0)
+                ret = FUSE_ERROR(ret);
+            break;
+        default:
+            ret = FUSE_ERROR(ENOTSUP);
+            break;
+    }
+    
+    LOG_MSG("<<< FUSE_write(%s): ret=[%d:%s]", path, ret, strerror(ret));
+        
+    return ret;
+}
+
+
+int GIGAstatfs(const char *path, struct statvfs *statv)
+{
+    LOG_MSG(">>> FUSE_statfs(%s): ", path);
+    
+    int ret = 0;
+    char fpath[PATH_MAX] = {0};
+
+    switch (giga_options_t.backend_type) {
+        case BACKEND_LOCAL_FS:
+            get_full_path(fpath, path);
+            if ((ret = statvfs(fpath, statv)) < 0)
+                ret = errno;
+            break;
+        default:
+            ret = ENOTSUP;
+            break;
+    }
+    
+    LOG_MSG("<<< FUSE_statfs(%s): ret=[%d:%s]", path, ret, strerror(ret));
+        
+    return FUSE_ERROR(ret);
+}
+
+int GIGAflush(const char *path, struct fuse_file_info *fi)
+{
+    int ret = 0;
+    
+    LOG_MSG(">>> FUSE_flush(%s): fi=[0x%08x])", path, fi);
+    // no need to get fpath on this one, since I work from fi->fh not the path
+
+    return ret;
+}
+	
+int GIGArelease(const char *path, struct fuse_file_info *fi)
+{
+    LOG_MSG(">>> FUSE_release(%s): fi=[0x%08x])", path, fi);
+    
+    int ret = 0;
+    ret = close(fi->fh);
+    
+    LOG_MSG("<<< FUSE_release(%s): ret=[%d:%s]", path, ret, strerror(ret));
+        
+    return FUSE_ERROR(ret);
+}
+
+int GIGAfsync(const char *path, int datasync, struct fuse_file_info *fi)
+{
+    LOG_MSG(">>> FUSE_fsync(%s): datasync=%d and fi=[0x%08x]", path, datasync, fi);
+    
+    int ret = 0;
+
+    switch (giga_options_t.backend_type) {
+        case BACKEND_LOCAL_FS:
+            if (datasync)
+                ret = fdatasync(fi->fh);
+            else
+                ret = fsync(fi->fh);
+
+            if (ret < 0)
+                ret = errno;
+            break;
+        default:
+            ret = ENOTSUP;
+            break;
+    }
+    
+    LOG_MSG("<<< FUSE_fsync(%s): ret=[%d:%s]", path, ret, strerror(ret));
+        
+    return FUSE_ERROR(ret);
+}
+
+
+int GIGAfsyncdir(const char *path, int datasync, struct fuse_file_info *fi)
+{
+    LOG_MSG(">>> FUSE_fsyncdir(%s): dsync=%d and fi=[0x%08x]", path, datasync, fi);
+    
+    int ret = 0;
+
+    switch (giga_options_t.backend_type) {
+        case BACKEND_LOCAL_FS:
+            break;
+        default:
+            ret = ENOTSUP;
+            break;
+    }
+    
+    LOG_MSG("<<< FUSE_fsync(%s): ret=[%d:%s]", path, ret, strerror(ret));
+        
+    return FUSE_ERROR(ret);
+}
+
+int GIGAaccess(const char *path, int mask)
+{
+    LOG_MSG(">>> FUSE_access(%s): mask=[0%o]", path, mask);
+    
+    int ret = 0;
+    char fpath[PATH_MAX] = {0};
+
+    switch (giga_options_t.backend_type) {
+        case BACKEND_LOCAL_FS:
+            get_full_path(fpath, path);
+            if ((ret = access(fpath, mask)) < 0)
+                ret = errno;
+            break;
+        default:
+            ret = ENOTSUP;
+            break;
+    }
+    
+    LOG_MSG("<<< FUSE_access(%s): ret=[%d:%s]", path, ret, strerror(ret));
+        
+    return FUSE_ERROR(ret);
+}
+
+int GIGAcreate(const char *path, mode_t mode, struct fuse_file_info *fi)
+{
+    LOG_MSG(">>> FUSE_create(%s): mode=[0%03o]", path, mode);
+    
+    int ret = 0;
+    char fpath[PATH_MAX] = {0};
+    char dir[PATH_MAX] = {0};
+    char file[PATH_MAX] = {0};
+    int fd = 0;
+
+    switch (giga_options_t.backend_type) {
+        case BACKEND_LOCAL_FS:
+            get_full_path(fpath, path);
+            if ((fd = creat(fpath, mode)) < 0)
+                ret = errno;
+            fi->fh = fd;
+            ret = FUSE_ERROR(ret);
+            break;
+        case BACKEND_LOCAL_LEVELDB:
+            parse_path_components(path, file, dir);
+            object_id += 1;
+            ret = metadb_create(ldb_mds, 0, 0, OBJ_MKNOD, object_id, file, path);
+            ret = FUSE_ERROR(ret);
+            break;
+        default:
+            ret = ENOTSUP;
+            ret = FUSE_ERROR(ret);
+            break;
+    }
+    
+    LOG_MSG("<<< FUSE_create(%s): ret=[%d:%s]", path, ret, strerror(ret));
+        
+    return ret;
+}
+
+int GIGAftruncate(const char *path, off_t offset, struct fuse_file_info *fi)
+{
+    LOG_MSG(">>> FUSE_ftruncate(%s): offset=%lld", path, offset);
+    
+    int ret = 0;
+
+    switch (giga_options_t.backend_type) {
+        case BACKEND_LOCAL_FS:
+            if ((ret = ftruncate(fi->fh, offset)) < 0)
+                ret = errno;
+            break;
+        default:
+            ret = ENOTSUP;
+            break;
+    }
+    
+    LOG_MSG("<<< FUSE_truncate(%s): ret=[%d:%s]", path, ret, strerror(ret));
+        
+    return FUSE_ERROR(ret);
+}
+
+int GIGAfgetattr(const char *path, struct stat *statbuf, struct fuse_file_info *fi)
+{
+    LOG_MSG(">>> FUSE_fgetattr(%s): statbuf=[0x%08x] fi=[0x%08x]", 
+            path, statbuf, fi);
+    
+    int ret = 0;
+
+    switch (giga_options_t.backend_type) {
+        case BACKEND_LOCAL_FS:
+            if ((ret = fstat(fi->fh, statbuf)) < 0)
+                ret = errno;
+            break;
+        default:
+            ret = ENOTSUP;
+            break;
+    }
+    
+    LOG_MSG("<<< FUSE_fgetattr(%s): ret=[%d:%s]", path, ret, strerror(ret));
+        
+    return FUSE_ERROR(ret);
+}
+
+
+
+int GIGAreadlink(const char *path, char *link, size_t size)
+{
+    LOG_MSG(">>> FUSE_readlink(%s): link=[%s],size[%d])", path, link, size);
+    
+    int ret = 0;
+    char fpath[PATH_MAX] = {0};
+
+    switch (giga_options_t.backend_type) {
+        case BACKEND_LOCAL_FS:
+            get_full_path(fpath, path);
+            if ((ret = readlink(fpath, link, size-1)) < 0) {
+                ret = errno;
+            } else {
+                link[ret] = '\0';
+                ret = 0;
+            }
+            break;
+        default:
+            ret = ENOTSUP;
+            break;
+    }
+    
+    LOG_MSG("<<< FUSE_readlink(%s): ret=[%d:%s]", path, ret, strerror(ret));
+    
+    return FUSE_ERROR(ret);
+}
+
+/*
+{
+    LOG_MSG(">>> FUSE_XXX(%s): ", path);
+    
+    int ret = 0;
+    char fpath[PATH_MAX] = {0};
+
+    switch (giga_options_t.backend_type) {
+        case BACKEND_LOCAL_FS:
+            get_full_path(fpath, path);
+            ret = local_XXX();
+            break;
+        default:
+            ret = ENOTSUP;
+            break;
+    }
+    
+    LOG_MSG("<<< FUSE_XXX(%s): ret=[%d:%s]", path, ret, strerror(ret));
+        
+    return FUSE_ERROR(ret);
+}
+*/

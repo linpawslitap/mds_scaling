@@ -90,6 +90,10 @@ class Env {
   // Store the size of fname in *file_size.
   virtual Status GetFileSize(const std::string& fname, uint64_t* file_size) = 0;
 
+  // Copy file src to target.
+  virtual Status CopyFile(const std::string& src,
+                          const std::string& target) = 0;
+  
   // Rename file src to target.
   virtual Status RenameFile(const std::string& src,
                             const std::string& target) = 0;
@@ -292,6 +296,9 @@ class EnvWrapper : public Env {
   Status DeleteDir(const std::string& d) { return target_->DeleteDir(d); }
   Status GetFileSize(const std::string& f, uint64_t* s) {
     return target_->GetFileSize(f, s);
+  }
+  Status CopyFile(const std::string& s, const std::string& t) {
+    return target_->CopyFile(s, t);
   }
   Status RenameFile(const std::string& s, const std::string& t) {
     return target_->RenameFile(s, t);

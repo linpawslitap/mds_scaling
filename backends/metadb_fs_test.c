@@ -1,15 +1,17 @@
 #include "operations.h"
-#include <assert.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <string.h>
 
+
 #define MAX_FILENAME_LEN 1024
-#define MAX_NUM_ENTRIES 10000
+#define MAX_NUM_ENTRIES 100000
 #define FILE_FORMAT "%016lx"
+#define MAX_BUF_SIZE (2 << 20)
+#define ASSERT(x) \
+  if (!((x))) { fprintf(stderr, "%s %d failed\n", __FILE__, __LINE__); }
 
 int num_print_entries;
-char* entry_list[MAX_NUM_ENTRIES];
 
 static
 void print_meta_obj_key(metadb_key_t *mkey) {
@@ -21,16 +23,6 @@ void print_meta_obj_key(metadb_key_t *mkey) {
 }
 
 static
-void print_entries(void* buf, metadb_key_t* iter_key, metadb_obj_t* iter_obj) {
-    if (entry_list[num_print_entries] != NULL) {
-        memcpy(entry_list[num_print_entries], iter_key, sizeof(metadb_key_t));
-    }
-    ++num_print_entries;
-    if (iter_obj != NULL && buf == NULL)
-        print_meta_obj_key(iter_key);
-}
-
-static
 void init_meta_obj_key(metadb_key_t *mkey,
                        metadb_inode_t dir_id,
                        int partition_id, const char* path)
@@ -39,6 +31,40 @@ void init_meta_obj_key(metadb_key_t *mkey,
     mkey->partition_id = partition_id;
     memset(mkey->name_hash, 0, sizeof(mkey->name_hash));
     giga_hash_name(path, mkey->name_hash);
+}
+static
+void myreaddir(struct MetaDB mdb,
+               metadb_inode_t dir_id,
+               int partition_id) {
+    char* buf = (char *) malloc(MAX_BUF_SIZE);
+    char end_key[128];
+    char* start_key = NULL;
+    int num_ent = 0;
+    int more_entries_flag;
+    do {
+        int ret = metadb_readdir(mdb, dir_id, &partition_id,
+                                 start_key, buf, MAX_BUF_SIZE,
+                                 &num_ent, end_key, &more_entries_flag);
+        ASSERT(ret >= 0);
+        metadb_readdir_iterator_t* iter =
+            metadb_create_readdir_iterator(buf, MAX_BUF_SIZE, num_ent);
+        metadb_readdir_iter_begin(iter);
+        while (metadb_readdir_iter_valid(iter)) {
+            ++num_print_entries;
+            size_t len;
+            const char* objname =
+                metadb_readdir_iter_get_objname(iter, &len);
+            const char* realpath =
+                metadb_readdir_iter_get_realpath(iter, &len);
+            struct stat statbuf;
+                metadb_readdir_iter_get_stat(iter, &statbuf);
+            ASSERT((statbuf.st_mode & S_IFDIR) > 0);
+            ASSERT(memcmp(objname, realpath, len) == 0);
+            metadb_readdir_iter_next(iter);
+        }
+        start_key = end_key;
+    } while (more_entries_flag != 0);
+    free(buf);
 }
 
 void run_test(int nargs, char* args[]) {
@@ -53,9 +79,10 @@ void run_test(int nargs, char* args[]) {
     struct MetaDB mdb;
     struct MetaDB mdb2;
 
-    metadb_init(&mdb, dbname);
-    metadb_init(&mdb2, dbname2);
+    printf("metadb_init return value %d\n", metadb_init(&mdb, dbname));
+    printf("metadb_init return value %d\n", metadb_init(&mdb2, dbname2));
 
+    int ret;
     int dir_id = 0;
     int partition_id = 0;
     int new_partition_id = 1;
@@ -67,7 +94,27 @@ void run_test(int nargs, char* args[]) {
     metadb_inode_t i = 0;
 
     snprintf(filename, MAX_FILENAME_LEN, "%08x", 10000);
-    metadb_test_put_and_get(mdb, dir_id, partition_id, filename);
+    struct giga_mapping_t mybitmap;
+
+    ASSERT(metadb_create(mdb, 0, 0, OBJ_DIR, 0, "/", "/") == 0);
+
+    ret = metadb_read_bitmap(mdb, 0, 0, "/", &mybitmap);
+    ASSERT(ret == 0);
+
+    mybitmap.curr_radix = 0;
+    mybitmap.zeroth_server = 10;
+    mybitmap.server_count = 21;
+
+    ret = metadb_write_bitmap(mdb, 0, 0, "/", &mybitmap);
+    ASSERT(ret == 0);
+
+    memset(&mybitmap, 0, sizeof(mybitmap));
+    ret = metadb_read_bitmap(mdb, 0, 0, "/", &mybitmap);
+    ASSERT(ret == 0);
+    ASSERT(mybitmap.curr_radix == 0);
+    ASSERT(mybitmap.zeroth_server == 10);
+    ASSERT(mybitmap.server_count == 21);
+
     metadb_lookup(mdb, dir_id, partition_id, filename, &statbuf);
 
     size_t num_test_entries = MAX_NUM_ENTRIES;
@@ -78,51 +125,60 @@ void run_test(int nargs, char* args[]) {
         memset(backup, 0, sizeof(filename));
         snprintf(backup, MAX_FILENAME_LEN, FILE_FORMAT, i);
 
-        assert(metadb_create(mdb, dir_id, partition_id, OBJ_DIR, i,
+        ASSERT(metadb_create(mdb, dir_id, partition_id, OBJ_DIR, i,
                              filename, filename) == 0);
         metadb_lookup(mdb, dir_id, partition_id, filename, &statbuf);
-        assert(statbuf.st_ino == i);
+        ASSERT(statbuf.st_ino == i);
         if (giga_file_migration_status(backup, new_partition_id)) {
             ++num_migrated_entries;
         }
     }
 
+    for (i = 0; i < num_test_entries; ++i) {
+        memset(filename, 0, sizeof(filename));
+        snprintf(filename, MAX_FILENAME_LEN, FILE_FORMAT, i);
+        memset(backup, 0, sizeof(filename));
+        snprintf(backup, MAX_FILENAME_LEN, FILE_FORMAT, i);
+
+        ASSERT(metadb_lookup(mdb, dir_id, partition_id, filename, &statbuf) == 0);
+        ASSERT(statbuf.st_ino == i);
+    }
+
     printf("moved entries: %d \n", num_migrated_entries);
 
-    uint64_t min_seq, max_seq;
-    int ret = metadb_extract_begin(mdb, dir_id, partition_id,
-                                   new_partition_id, extname);
-    assert(ret == 0);
+    num_print_entries = 0;
+    myreaddir(mdb, dir_id, partition_id);
 
-    ret = metadb_extract_do(mdb, &min_seq, &max_seq);
-    printf("ret: %d\n", ret);
-    assert(num_migrated_entries == ret);
+    uint64_t min_seq, max_seq;
+    ret = metadb_extract_do(mdb, dir_id, partition_id,
+                                new_partition_id, extname,
+                                &min_seq, &max_seq);
+    printf("extract entries: %d\n", ret);
+    ASSERT(num_migrated_entries == ret);
 
     printf("extname: %s\n", extname);
-    assert(metadb_bulkinsert(mdb2, extname, min_seq, max_seq) == 0);
+    ASSERT(metadb_bulkinsert(mdb2, extname, min_seq, max_seq) == 0);
 
-    ret = metadb_extract_end(mdb);
-    assert(ret == 0);
+    ret = metadb_extract_clean(mdb);
+    ASSERT(ret == 0);
 
     num_print_entries = 0;
-    int k = 0;
-    for (k = 0; k < MAX_NUM_ENTRIES; ++k)
-        entry_list[k] = (char *) malloc(sizeof(metadb_key_t));
-
-    assert(metadb_readdir(mdb2, dir_id, new_partition_id, NULL, print_entries) == 0);
+    myreaddir(mdb2, dir_id, new_partition_id);
 
     printf("%d, %d, %ld\n", num_migrated_entries, num_print_entries, max_seq);
-    assert(num_migrated_entries == num_print_entries);
+    ASSERT(num_migrated_entries == num_print_entries);
+
+    printf("\n\n");
 
     num_print_entries = 0;
-    assert(metadb_readdir(mdb2, dir_id, new_partition_id, NULL, print_entries) == 0);
-    assert(num_migrated_entries == num_print_entries);
+    myreaddir(mdb2, dir_id, new_partition_id);
+    printf("After myreaddir %d %d\n", num_migrated_entries, num_print_entries);
+    ASSERT(num_migrated_entries == num_print_entries);
 
     printf("\n\n");
 
     int num_found_entries = 0;
     metadb_key_t testkey;
-    init_meta_obj_key(&testkey, dir_id, partition_id, filename);
 
     for (i = 0; i < num_test_entries; ++i) {
         memset(filename, 0, sizeof(filename));
@@ -133,15 +189,13 @@ void run_test(int nargs, char* args[]) {
 
         ret = metadb_lookup(mdb2, dir_id, new_partition_id, filename, &statbuf);
         if (ret == 0) {
-            assert(statbuf.st_ino == i);
+            ASSERT(statbuf.st_ino == i);
             ++num_found_entries;
         }
     }
 
-    for (k = 0; k < MAX_NUM_ENTRIES; ++k)
-        free(entry_list[k]);
     printf("%d %d\n", num_migrated_entries, num_found_entries);
-    assert(num_migrated_entries == num_found_entries);
+    ASSERT(num_migrated_entries == num_found_entries);
 
     for (i = num_test_entries; i < num_test_entries*2; ++i) {
         memset(filename, 0, sizeof(filename));
@@ -149,10 +203,10 @@ void run_test(int nargs, char* args[]) {
         memset(backup, 0, sizeof(filename));
         snprintf(backup, MAX_FILENAME_LEN, FILE_FORMAT, i);
 
-        assert(metadb_create(mdb2, dir_id, partition_id, OBJ_DIR, i,
+        ASSERT(metadb_create(mdb2, dir_id, partition_id, OBJ_DIR, i,
                              filename, filename) == 0);
         metadb_lookup(mdb2, dir_id, partition_id, filename, &statbuf);
-        assert(statbuf.st_ino == i);
+        ASSERT(statbuf.st_ino == i);
     }
 
     for (i = num_test_entries; i < num_test_entries*4; ++i) {
@@ -161,10 +215,10 @@ void run_test(int nargs, char* args[]) {
         memset(backup, 0, sizeof(filename));
         snprintf(backup, MAX_FILENAME_LEN, FILE_FORMAT, i);
 
-        assert(metadb_create(mdb, dir_id, partition_id, OBJ_DIR, i,
+        ASSERT(metadb_create(mdb, dir_id, partition_id, OBJ_DIR, i,
                              filename, filename) == 0);
         metadb_lookup(mdb, dir_id, partition_id, filename, &statbuf);
-        assert(statbuf.st_ino == i);
+        ASSERT(statbuf.st_ino == i);
     }
 
     metadb_close(mdb);

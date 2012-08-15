@@ -6,5 +6,11 @@
 # Description:
 #########################################################################
 
-../giga_client /tmp/fuse
-./mknod_test /tmp/fuse/ 1000000
+mkdir /tmp/fuse1
+mkdir /tmp/fuse2
+sudo umount /tmp/fuse1
+sudo umount /tmp/fuse2
+../giga_client /tmp/fuse1
+../giga_client /tmp/fuse2
+./mknod_test /tmp/fuse1/ 10000 &
+./mknod_test /tmp/fuse2/ 10000 &

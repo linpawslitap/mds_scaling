@@ -7,8 +7,8 @@ if [ $# -lt 1 ]
 then
     ## 'f' foreground or 'n' normal
     ##
-    echo "Usage : $0 <f | n | c > [m (FUSE instances)]"   
-    echo "where ... {f=foreground, n=normal, c=cleanup}"
+    echo "Usage : $0 <f | g | n | c > [m (FUSE instances)]"   
+    echo "where ... {f=foreground, g=gdb, n=normal, c=cleanup}"
     exit
 fi
 
@@ -22,6 +22,7 @@ do
     rm -rf $dir
 done
 
+killall -9 giga_client
 rm -rf /tmp/dbg.log.c.*
 mkdir -p $MNT
 
@@ -39,13 +40,19 @@ fusermount -u -z $MNT
 ../giga_client -d $MNT
 ;;
 
+g)  # GDB mode (only single client)
+    #
+fusermount -u -z $MNT 
+gdb --args ../giga_client -d $MNT
+;;
+
+
 n)  # background, default mode (check for multiple clients)
     #
+echo '' > $NUM_FUSE_CLI     # track PIDs of FUSE clients
 if [ $# -eq 2 ]
 then
-    #echo $2 > $NUM_FUSE_CLI   # write to a file that "test_run.sh" will read
-    echo '' > $NUM_FUSE_CLI     # track PIDs of FUSE clients
-
+	echo "creating $2 FUSE instances ..."
     if [ $2 -gt 1 ]
     then
         for (( i=1; i<=$2; i++)) 

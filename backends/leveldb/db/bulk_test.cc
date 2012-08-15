@@ -128,6 +128,11 @@ class SpecialEnv : public EnvWrapper {
     }
     return s;
   }
+
+  Status LinkFile(const std::string& x, const std::string& y) {
+      Status s;
+      return s;
+  }
 };
 
 class DBTest {
@@ -538,7 +543,6 @@ TEST(DBTest, BulkInsertion2) {
   delete iter;
   ASSERT_EQ(count, new_count);
 }
-*/
 
 TEST(DBTest, BulkInsertion3) {
   std::string dirname = "/tmp/extract";
@@ -550,6 +554,13 @@ TEST(DBTest, BulkInsertion3) {
   delete iter;
   printf("new_count: %d\n", new_count);
   ASSERT_TRUE(new_count > 0);
+}
+*/
+
+TEST(DBTest, Metrics) {
+  std::string value;
+  db_->GetProperty("leveldb.stats", &value);
+  printf("stat: %s\n", value.c_str());
 }
 
 }  // namespace leveldb

@@ -1,4 +1,6 @@
-/* 
+/*
+ *
+ * return;
  * GIGA+ indexing implementation 
  *  by- Swapnil V Patil (svp at cs)
  *
@@ -21,7 +23,7 @@
 #include "giga_index.h"
 #include "sha.h"
 
-#define GIGA_LOG LOG_TRACE
+#define GIGA_LOG LOG_DEBUG
 
 #define ARRAY_LEN(array)(sizeof(array)/sizeof((array)[0])) 
 
@@ -77,8 +79,8 @@ void giga_hash_name(const char* hash_key, char hash_value[])
 // - set the radix to 1 (XXX: do we need radix??)
 // - flag indicates the number of servers if you use static partitioning
 //
-void giga_init_mapping(struct giga_mapping_t *mapping, int flag, 
-                       unsigned int zeroth_server, unsigned int server_count)
+void giga_init_mapping(struct giga_mapping_t *mapping, int flag,
+                       int id, unsigned int zeroth_server, unsigned int server_count)
 {
     int i;
     logMessage(GIGA_LOG, __func__,
@@ -88,7 +90,9 @@ void giga_init_mapping(struct giga_mapping_t *mapping, int flag,
 
     memset(mapping->bitmap, 0, MAX_BMAP_LEN);
 
+    mapping->id = id;
     mapping->zeroth_server = zeroth_server;
+
     if (server_count > 0)
         mapping->server_count = server_count;
     else
@@ -145,6 +149,7 @@ void giga_init_mapping(struct giga_mapping_t *mapping, int flag,
 //
 void giga_init_mapping_from_bitmap(struct giga_mapping_t *mapping,
                                    bitmap_t bitmap[], int bitmap_len,
+                                   int id,
                                    unsigned int zeroth_server, 
                                    unsigned int server_count)
 {
@@ -153,7 +158,7 @@ void giga_init_mapping_from_bitmap(struct giga_mapping_t *mapping,
 
 
     assert(mapping != NULL);
-    giga_init_mapping(mapping, -1, zeroth_server, server_count);
+    giga_init_mapping(mapping, -1, id, zeroth_server, server_count);
 
     int bigger_bmap = ((MAX_BMAP_LEN > bitmap_len) ? bitmap_len : MAX_BMAP_LEN);
     for (i=0; i<bigger_bmap; i++) {
@@ -175,7 +180,7 @@ void giga_copy_mapping(struct giga_mapping_t *dest, struct giga_mapping_t *src, 
     logMessage(GIGA_LOG, __func__, "copy one map into another");
     
     if (z == 0) {
-        giga_init_mapping(dest, -1, src->zeroth_server, src->server_count);
+        giga_init_mapping(dest, -1, src->id, src->zeroth_server, src->server_count);
     } 
     else {
         assert(src != NULL);
@@ -361,6 +366,17 @@ index_t giga_get_index_for_file(struct giga_mapping_t *mapping,
     return index;
 }
 
+void giga_get_all_partitions(struct giga_mapping_t *mapping, int p[])
+{
+    int i=0;
+    for (i=0; i<MAX_GIGA_PARTITIONS; i++)
+        p[i] = get_bit_status(mapping->bitmap, i);
+        //p[i] = (get_bit_status(mapping->bitmap, i) == 1) ? i : 0;
+
+    return;
+}
+
+
 // Given the hash of a file, return the server where the file should be inserted
 // or should be searched.
 //
@@ -443,6 +459,7 @@ void giga_print_mapping(struct giga_mapping_t *mapping)
     
     logMessage(GIGA_LOG, __func__, "=========="); 
     logMessage(GIGA_LOG, __func__, "printing the header table ... ");
+    logMessage(GIGA_LOG, __func__, "\tid=%d", mapping->id);
     logMessage(GIGA_LOG, __func__, "\tradix=%d", mapping->curr_radix);
     logMessage(GIGA_LOG, __func__, "\tzeroth server=%d", mapping->zeroth_server);
     logMessage(GIGA_LOG, __func__, "\tserver count=%d", mapping->server_count);
@@ -454,6 +471,7 @@ void giga_print_mapping(struct giga_mapping_t *mapping)
 
 static void print_bitmap(bitmap_t bmap[])
 {
+    /*
     if (bmap[0] && 0 == 1) {
     int i;
     char bitmap_buf[MAX_BMAP_LEN] = {0};
@@ -466,6 +484,12 @@ static void print_bitmap(bitmap_t bmap[])
     }
     logMessage(GIGA_LOG, __func__, "%s", bitmap_buf);
 
+    }
+    */
+   
+    int i;
+    for(i = 0; i < MAX_BMAP_LEN; i++) {
+        logMessage_sameline(GIGA_LOG, "%d |", bmap[i]);
     }
 }
 
@@ -551,6 +575,9 @@ static int get_radix_from_index(index_t index)
 static int get_bit_status(bitmap_t bmap[], index_t index)
 {   
     int status = 0;
+
+    //if (index == 0)
+    //    return 1;
 
     int index_in_bmap = index / BITS_PER_MAP;
     int bit_in_index = index % BITS_PER_MAP;

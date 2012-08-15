@@ -14,7 +14,7 @@ all: $(TARGETS)
 $(OBJS) : $(HDRS)
 
 ../giga_server : $(OBJS) #../common.a
-	$(CC) -o $@ $^ ../common.a $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $^ ../common.a $(LDFLAGS)
 
 clean :
 	rm -f $(TARGETS) $(OBJS)

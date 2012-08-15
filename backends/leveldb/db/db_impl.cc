@@ -39,7 +39,9 @@ namespace leveldb {
 struct DBImpl::Writer {
   Status status;
   WriteBatch* batch;
+  uint64_t new_sequence;
   bool sync;
+  bool update_sequence;
   bool done;
   port::CondVar cv;
 
@@ -506,6 +508,7 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   }
 
   CompactionStats stats;
+  stats.counter = 1;
   stats.micros = env_->NowMicros() - start_micros;
   stats.bytes_written = meta.file_size;
   stats_[level].Add(stats);
@@ -980,6 +983,7 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   input = NULL;
 
   CompactionStats stats;
+  stats.counter = 1;
   stats.micros = env_->NowMicros() - start_micros - imm_micros;
   for (int which = 0; which < 2; which++) {
     for (int i = 0; i < compact->compaction->num_input_files(which); i++) {
@@ -1104,6 +1108,7 @@ Status DBImpl::Get(const ReadOptions& options,
   mem->Unref();
   if (imm != NULL) imm->Unref();
   current->Unref();
+  op_stats_.get_count += 1;
   return s;
 }
 
@@ -1140,6 +1145,7 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* my_batch) {
   Writer w(&mutex_);
   w.batch = my_batch;
   w.sync = options.sync;
+  w.update_sequence = false;
   w.done = false;
 
   MutexLock l(&mutex_);
@@ -1153,10 +1159,10 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* my_batch) {
 
   // May temporarily unlock and wait.
   Status status = MakeRoomForWrite(my_batch == NULL);
-  uint64_t last_sequence = versions_->LastSequence();
   Writer* last_writer = &w;
   if (status.ok() && my_batch != NULL) {  // NULL batch is for compactions
     WriteBatch* updates = BuildBatchGroup(&last_writer);
+    uint64_t last_sequence = versions_->LastSequence();
     WriteBatchInternal::SetSequence(updates, last_sequence + 1);
     last_sequence += WriteBatchInternal::Count(updates);
 
@@ -1195,7 +1201,7 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* my_batch) {
   if (!writers_.empty()) {
     writers_.front()->cv.Signal();
   }
-
+  op_stats_.write_count += 1;
   return status;
 }
 
@@ -1224,6 +1230,9 @@ WriteBatch* DBImpl::BuildBatchGroup(Writer** last_writer) {
     Writer* w = *iter;
     if (w->sync && !first->sync) {
       // Do not include a sync write into a batch handled by a non-sync write.
+      break;
+    }
+    if (w->update_sequence) {
       break;
     }
 
@@ -1335,27 +1344,26 @@ bool DBImpl::GetProperty(const Slice& property, std::string* value) {
     }
   } else if (in == "stats") {
     char buf[200];
-    snprintf(buf, sizeof(buf),
-             "                               Compactions\n"
-             "Level  Files Size(MB) Time(sec) Read(MB) Write(MB)\n"
-             "--------------------------------------------------\n"
-             );
-    value->append(buf);
+    CompactionStats tot_stat;
+    int tot_files = 0;
+    double tot_size = 0;
     for (int level = 0; level < config::kNumLevels; level++) {
-      int files = versions_->NumLevelFiles(level);
-      if (stats_[level].micros > 0 || files > 0) {
-        snprintf(
-            buf, sizeof(buf),
-            "%3d %8d %8.0f %9.0f %8.0f %9.0f\n",
-            level,
-            files,
-            versions_->NumLevelBytes(level) / 1048576.0,
-            stats_[level].micros / 1e6,
-            stats_[level].bytes_read / 1048576.0,
-            stats_[level].bytes_written / 1048576.0);
-        value->append(buf);
-      }
+      tot_files += versions_->NumLevelFiles(level);
+      tot_size += versions_->NumLevelBytes(level) / 1048576.0;
+      tot_stat.Add(stats_[level]);
     }
+    snprintf(
+        buf, sizeof(buf),
+        "%8d %8.0f %9.0f %9.0f %8.0f %9.0f %8ld %8ld\n",
+        tot_files,
+        tot_size,
+        tot_stat.counter / 1.0,
+        tot_stat.micros / 1e6,
+        tot_stat.bytes_read / 1048576.0,
+        tot_stat.bytes_written / 1048576.0,
+        op_stats_.write_count,
+        op_stats_.get_count);
+    value->append(buf);
     return true;
   } else if (in == "sstables") {
     *value = versions_->current()->DebugString();
@@ -1562,7 +1570,8 @@ Status DBImpl::MigrateLevel0Table(const std::string& fname,
       (unsigned long long) meta.number);
   Status s;
   std::string new_fname = TableFileName(dbname_, meta.number);
-  s = env_->LinkFile(fname, new_fname);
+  //s = env_->RenameFile(fname, new_fname);
+  s = env_->CopyFile(fname, new_fname);
   Log(options_.info_log, "Level-0 table #%llu: %lld migrate bytes by rename file %s to file %s: %s",
       (unsigned long long) meta.number,
       (unsigned long long) meta.file_size,
@@ -1570,6 +1579,9 @@ Status DBImpl::MigrateLevel0Table(const std::string& fname,
       new_fname.c_str(),
       s.ToString().c_str());
   pending_outputs_.erase(meta.number);
+  if (!s.ok()) {
+      return s;
+  }
 
 
   // Note that if file_size is zero, the file has been deleted and
@@ -1577,9 +1589,17 @@ Status DBImpl::MigrateLevel0Table(const std::string& fname,
   Iterator* iter = table_cache_->NewIterator(
           ReadOptions(), meta.number, meta.file_size);
   iter->SeekToFirst();
-  meta.smallest.DecodeFrom(iter->key());
+  if (iter->Valid()) {
+    meta.smallest.DecodeFrom(iter->key());
+  } else {
+    return Status::IOError("Cannot get smallest key from bulkinserted files");
+  }
   iter->SeekToLast();
-  meta.largest.DecodeFrom(iter->key());
+  if (iter->Valid()) {
+    meta.largest.DecodeFrom(iter->key());
+  } else {
+    return Status::IOError("Cannot get largest key from bulkinserted files");
+  }
   delete iter;
 
   int level = 0;
@@ -1593,10 +1613,6 @@ Status DBImpl::MigrateLevel0Table(const std::string& fname,
                   meta.smallest, meta.largest);
   }
 
-  CompactionStats stats;
-  stats.micros = env_->NowMicros() - start_micros;
-  stats.bytes_written = meta.file_size;
-  stats_[level].Add(stats);
   return s;
 }
 
@@ -1608,43 +1624,61 @@ Status DBImpl::BulkInsert(const WriteOptions& write_opt,
   FileMetaData meta;
   env_->GetFileSize(fname, &meta.file_size);
 
-  TEST_CompactMemTable(); // TODO(kair): Skip if memtable does not overlap
-  MutexLock l(&mutex_);
+  Writer w(&mutex_);
+  w.batch = NULL;
+  w.sync = false;
+  w.update_sequence = true;
+  w.new_sequence = max_sequence_number;
+  w.done = false;
+  writers_.push_back(&w);
+  while (!w.done && &w != writers_.front()) {
+    w.cv.Wait();
+  }
 
   Status s;
+  if (w.done) {
+      s = Status::IOError("Fail to grep writer lock for bulkinsert");
+  }
 
-  if (!shutting_down_.Acquire_Load()) {
+  MutexLock l(&mutex_);
+  if (s.ok()) {
+      if (!shutting_down_.Acquire_Load()) {
+        VersionEdit edit;
+        Version* base = versions_->current();
+        base->Ref();
+        s = MigrateLevel0Table(fname, meta, &edit, base);
+        base->Unref();
 
-    VersionEdit edit;
-    Version* base = versions_->current();
-    base->Ref();
-    s = MigrateLevel0Table(fname, meta, &edit, base);
-    base->Unref();
+        if (s.ok() && shutting_down_.Acquire_Load()) {
+          s = Status::IOError("Deleting DB during sstable bulk-insertion");
+        }
 
-    if (s.ok() && shutting_down_.Acquire_Load()) {
-      s = Status::IOError("Deleting DB during sstable bulk-insertion");
-    }
+        // Replace immutable memtable with the generated Table
+        if (s.ok()) {
+          //TODO: simply update last_sequence by
+          //      max(max_sequence_number, old_seq)
+          //      Not consider snapshot
 
-    // Replace immutable memtable with the generated Table
-    if (s.ok()) {
-      edit.SetPrevLogNumber(0);
-      edit.SetLogNumber(logfile_number_);  // Earlier logs no longer needed
-      //TODO: simply update last_sequence by
-      //      max(max_sequence_number, old_seq)
-      //      Not consider snapshot
-      if (max_sequence_number > versions_->LastSequence())
-          versions_->SetLastSequence(max_sequence_number);
+          edit.SetPrevLogNumber(0);
+          edit.SetLogNumber(logfile_number_);  // Earlier logs no longer needed
+          s = versions_->LogAndApply(&edit, &mutex_);
+          if (s.ok()) {
+              DeleteObsoleteFiles();
+          }
 
-      s = versions_->LogAndApply(&edit, &mutex_);
-    }
+          if (w.new_sequence > versions_->LastSequence())
+            versions_->SetLastSequence(w.new_sequence);
 
-    // TODO:
-    if (s.ok()) {
-      // Commit to the new state
-      DeleteObsoleteFiles();
-    }
-  } else {
-    s = Status::IOError("Deleting DB during sstable bulk-insertion");
+        }
+      } else {
+        s = Status::IOError("Deleting DB during sstable bulk-insertion");
+      }
+  }
+
+  writers_.pop_front();
+  // Notify new head of write queue
+  if (!writers_.empty()) {
+    writers_.front()->cv.Signal();
   }
   return s;
 }

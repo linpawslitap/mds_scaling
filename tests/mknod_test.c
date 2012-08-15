@@ -99,10 +99,11 @@ static void mknod_files(const char *dir)
     
     //int i = 0;
     for (curr=0; curr<num_files; curr++) {
-        char path[512] = {0};
-        snprintf(path, sizeof(path), "%s/%s_p%d_f%d", dir, hostname, pid, curr);
-        if (mknod(path, m, d) < 0) {
-            printf ("ERROR during mknod(%s): %s\n", path, strerror(errno));
+        char p[512] = {0};
+        int i = ((int)random())%2;
+        snprintf(p, sizeof(p), "%s/d%d/%s_p%d_f%d", dir, i, hostname, pid, curr);
+        if (mknod(p, m, d) < 0) {
+            printf ("ERROR during mknod(%s): %s\n", p, strerror(errno));
             return;
         }
     }

@@ -34,7 +34,7 @@
 #define LOG_MSG(format, ...) \
     logMessage(SRV_LOG, __func__, format, __VA_ARGS__);
 
-
+#define INIT_OBJECT_ID  ((int)(giga_options_t.serverID*1000))
 
 // RPC specific functions
 //
@@ -361,8 +361,6 @@ void init_root_partition()
                 exit(1);
             break;
         case BACKEND_RPC_LEVELDB:
-            //TODO: leveldb setup and initialization
-            object_id = 0;
             snprintf(ldb_name, sizeof(ldb_name), 
                      "%s/l%d", DEFAULT_LEVELDB_DIR, giga_options_t.serverID);
             // FIXME: use new semantics of metadb_init.
@@ -373,6 +371,7 @@ void init_root_partition()
             }
             else if (mdb_setup == 1) {    
                 LOG_MSG("creating new file system in %s", ldb_name);
+                object_id = INIT_OBJECT_ID; 
 
 #if 0
                 int dir_id = ROOT_DIR_ID; //FIXME: dir_id for "root"

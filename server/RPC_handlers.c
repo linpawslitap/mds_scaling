@@ -273,7 +273,8 @@ start:
 
             // create object entry (metadata) in levelDB
             
-            object_id += 1;  //TODO: do we need this for non-dir objects?? 
+            //FIXME
+            //object_id += 1;  //TODO: do we need this for non-dir objects?? 
             LOG_MSG("d=%d,p=%d,o=%d,p=%s,rp=%s", 
                     dir_id, index,object_id, path,path_name);
             rpc_reply->errnum = metadb_create(ldb_mds, dir_id, index,
@@ -591,7 +592,7 @@ start:
             // create object entry (metadata) in levelDB
             // and create partition entry for this object
 
-            object_id += 1;         //TODO: do we need this for non-dir objects?? 
+            object_id += 1;         
             int zeroth_server = giga_options_t.serverID;  //FIXME: randomize please!
             struct giga_directory *new_dir = new_cache_entry(&object_id, zeroth_server);
             cache_insert(&object_id, new_dir);

@@ -9,7 +9,7 @@
 #include <errno.h>
 #include <stdio.h>
 
-#define CACHE_LOG LOG_WARN
+#define CACHE_LOG LOG_DEBUG
 
 #define NUM_SHARDS_BITS 4
 #define NUM_SHARDS (1 << NUM_SHARDS_BITS)
@@ -233,8 +233,8 @@ struct giga_directory* new_cache_entry(DIR_handle_t *handle, int srv_id)
 {
     int i = 0;
 
-    struct giga_directory *d = NULL;
-    if ((d = (struct giga_directory*)malloc(sizeof(struct giga_directory))) == NULL) {
+    struct giga_directory *d = (struct giga_directory*)malloc(sizeof(struct giga_directory));
+    if (d == NULL) {
         logMessage(LOG_FATAL, __func__, "malloc_err: %s", strerror(errno));
         exit(1);
     }
@@ -312,21 +312,27 @@ int cache_update(DIR_handle_t *handle, struct giga_mapping_t *mapping)
     return 1;
 }
 
-void fuse_cache_insert(char* path, DIR_handle_t dir_id) {
+void fuse_cache_insert(char* path, DIR_handle_t dir_id) 
+{
     struct fuse_cache_entry* entry
         = (struct fuse_cache_entry*) malloc(sizeof(struct fuse_cache_entry));
-    entry->pathname = (char *) malloc(strlen(path)+1);
+    entry->pathname = (char*)malloc(strlen(path)+1);
     strcpy(entry->pathname, path);
     entry->dir_id = dir_id;
+    if (fuse_cache_lookup(path) != -1)
+        return;
     HASH_ADD_KEYPTR(hh, fuse_cache, entry->pathname, strlen(entry->pathname), entry);
+    logMessage(LOG_WARN, __func__, "insert::[%s]-->[%d]", path, (int)dir_id);
 }
 
-DIR_handle_t fuse_cache_lookup(char* path) {
+DIR_handle_t fuse_cache_lookup(char* path) 
+{
     struct fuse_cache_entry* ret;
     HASH_FIND_STR(fuse_cache, path, ret);
     if (ret == NULL) {
         return -1;
     } else {
+        logMessage(LOG_WARN, __func__, "lookup::[%s]-->[%d]", path, (int)ret->dir_id);
         return ret->dir_id;
     }
 }

@@ -290,7 +290,7 @@ int GIGAopendir(const char *path, struct fuse_file_info *fi)
             break;
         case BACKEND_RPC_LEVELDB:
             parse_path_components(path, file, dir);
-            dir_id = fuse_cache_lookup(dir);
+            dir_id = fuse_cache_lookup((char*)path);
             ret = rpc_opendir(dir_id, dir);
             break;
         default:
@@ -330,12 +330,12 @@ int GIGAreaddir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offse
             break;
         case BACKEND_RPC_LEVELDB:
             parse_path_components(path, file, dir);
-            dir_id = fuse_cache_lookup(dir);
+            dir_id = fuse_cache_lookup((char*)path);
             ret_ls = (scan_list_t)rpc_readdir(dir_id, dir);
             for (ls = ret_ls; ls != NULL; ls = ls->next) {
                 if (filler(buf, ls->entry_name, NULL, 0) != 0) {
                     ret = ENOMEM;
-                    LOG_MSG("ERR_rpc_readdir: [%s]", strerror(ret));
+                    LOG_MSG("ERR_rpc_readdir(%s): [%s]", path, strerror(ret));
                     break;
                 }
             }
@@ -365,7 +365,7 @@ int GIGAreleasedir(const char *path, struct fuse_file_info *fi)
             break;
         case BACKEND_RPC_LEVELDB:
             parse_path_components(path, file, dir);
-            dir_id = fuse_cache_lookup(dir);
+            dir_id = fuse_cache_lookup((char*)path);
             ret = rpc_releasedir(dir_id, dir);
             break;
         default:

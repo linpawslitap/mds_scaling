@@ -87,9 +87,8 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
         
         dir->partition_size[parent] -= ret;
 
-        LOG_MSG("SUCCESS: p%d(%d)-->p%d(%d)", 
-                parent, dir->partition_size[parent], 
-                child, dir->partition_size[child]); 
+        LOG_MSG("SUCCESS: p%d(%d)-->p%d(%d)", parent, dir->partition_size[parent], 
+                                              child, ret); 
         //ret = 0;
     }
 
@@ -122,20 +121,18 @@ bool_t giga_rpc_split_1_svc(giga_dir_id dir_id,
     else { 
         struct giga_directory *dir = cache_lookup(&dir_id);
         if (dir == NULL) {
-            LOG_MSG("ERR_cache: dir(%d) missing! Reading from LDB...", dir_id);
+            LOG_MSG("ERR_fetching(d=%d): cache_miss ... try_LDB ...", dir_id);
             
             int zeroth_srv = 0;
             struct giga_directory *new = new_cache_entry(&dir_id, zeroth_srv);
             
-            //FIXME: need to fetch it from disk first??
-            if (metadb_read_bitmap(ldb_mds, dir_id, -1, NULL, &new->mapping) != 0) {
-                //LOG_ERR("ERR_mdb_bitmap_read(%s): for d%d ", path, dir_id);
-                //exit(1);
-            
-                LOG_MSG("Reading d%d from LDB failed ... creating", dir_id);
-                //XXX: needs an RPC
-                int ret = metadb_create_dir(ldb_mds, dir_id, -1, NULL, 
-                                            &new->mapping);
+            //need to fetch it from disk first ...
+            //
+            if (metadb_read_bitmap(ldb_mds, dir_id, -1, NULL, &new->mapping) < 0) {
+                LOG_ERR("ERR_fetching(d=%d): LDB_miss ... create in LDB", dir_id);
+           
+                // ... fetch failed, creating a new partition entry
+                int ret = metadb_create_dir(ldb_mds, dir_id, -1, NULL, &new->mapping);
                 if (ret < 0) {
                     LOG_ERR("ERR_mdb_create(%s): partition entry failed", dir_id);
                     rpc_reply->errnum = ret;

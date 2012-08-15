@@ -504,7 +504,7 @@ int metadb_lookup(struct MetaDB mdb,
         logMessage(METADB_LOG, __func__, "lookup found entry(%s).", path);
     } else {
         logMessage(METADB_LOG, __func__, "entry(%s) not found.", path);
-        ret = -ENOENT;
+        ret = ENOENT;
     }
 
     free_metadb_val(&mobj_val);
@@ -529,7 +529,7 @@ int metadb_read_bitmap(struct MetaDB mdb,
         logMessage(METADB_LOG, __func__, "read_bitmap found entry(%s).", path);
     } else {
         logMessage(METADB_LOG, __func__, "entry(%s) not found.", path);
-        ret = ENOENT;
+        ret = -1;
     }
 
     free_metadb_val(&mobj_val);
@@ -744,7 +744,7 @@ int metadb_readdir(struct MetaDB mdb,
         } while (leveldb_iter_valid(iter));
     } else {
         //printf("metadb_readdir: Invalid Iterator.\n");
-        ret = -ENOENT;
+        ret = ENOENT;
     }
     leveldb_iter_destroy(iter);
 
@@ -927,7 +927,7 @@ int metadb_extract_do(struct MetaDB mdb,
         *max_sequence_number = max_seq;
         ret = num_migrated_entries;
     } else {
-        ret = -ENOENT;
+        ret = ENOENT;
     }
 
     leveldb_writebatch_destroy(batch);
@@ -1060,7 +1060,7 @@ int metadb_extract_do(struct MetaDB mdb,
         *max_sequence_number = num_migrated_entries;
         ret = num_migrated_entries;
     } else {
-        ret = -ENOENT;
+        ret = ENOENT;
     }
 
     //TODO: Really need to compact? How to make sure all logs become sst files?
@@ -1111,7 +1111,7 @@ int metadb_extract_clean(struct MetaDB mdb) {
                 }
                 closedir(dp);
             }
-          ret = -rmdir(mdb.extraction->dir_with_new_partition);
+          ret = rmdir(mdb.extraction->dir_with_new_partition);
         }
     }
 

@@ -265,6 +265,7 @@ retry:
 }
 
 struct readdir_args {
+    struct giga_directory dir_t;;
     int dir_id;
     int server_id;
 };
@@ -278,15 +279,18 @@ void *readdir_thread(void *params)
     int ret; 
     struct readdir_args *a = (struct readdir_args*) params;
 
+    struct giga_directory dir = (struct giga_directory)a->dir_t;
     int dir_id = (int)a->dir_id;
     int server_id = (int)a->server_id;
 
+    /*
     struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
         LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
         //ret = -EIO;
         pthread_exit(NULL);
     }
+    */
     
     readdir_return_t rpc_reply;
     memset(&rpc_reply, 0, sizeof(rpc_reply));
@@ -322,12 +326,22 @@ retry:
         //
         ret = rpc_reply.errnum;
         if (ret == -EAGAIN) {
-            update_client_mapping(dir, &rpc_reply.readdir_return_t_u.bitmap);
+            //update_client_mapping(dir, &rpc_reply.readdir_return_t_u.bitmap);
+            update_client_mapping(&dir, &rpc_reply.readdir_return_t_u.bitmap);
             LOG_MSG("bitmap update from s%d -- RETRY ...", server_id); 
             goto retry;
+        } else if (ret == ENOENT) {
+            LOG_MSG("ERR_rpc_readdir(dirid=%d,s=%d) is absent", dir_id, server_id);
+            break;
         } else if (ret < 0) {
             ;
         } else {
+            
+            //if (rpc_reply.readdir_return_t_u.result.num_entries == 0) {
+            //    LOG_MSG("ERR_rpc_readdir(dirid=%d,s=%d) is absent", dir_id, server_id);
+            //    break;
+            //}
+
             ACQUIRE_MUTEX(&final_ls_mtx, "readdir_result_mtx(%d)", server_id);
             if ((args.start_key.scan_key_val == NULL) && (final_ls_start == NULL))
                 final_ls_start = rpc_reply.readdir_return_t_u.result.list;
@@ -336,7 +350,7 @@ retry:
 
             LOG_MSG("num_ents[s%d] = %d", server_id, rpc_reply.readdir_return_t_u.result.num_entries);
             for (ls=rpc_reply.readdir_return_t_u.result.list; ls!=NULL; ls=ls->next) {
-                LOG_MSG("dentry=[%s]", ls->entry_name);
+                //LOG_MSG("dentry=[%s]", ls->entry_name);
                 if (ls->next == NULL) {
                         final_ls_end = ls;
                 }
@@ -357,7 +371,7 @@ retry:
                 args.start_key.scan_key_val[args.start_key.scan_key_len] = '\0';
                
             } else {
-                update_client_mapping(dir, &rpc_reply.readdir_return_t_u.result.bitmap);
+                update_client_mapping(&dir, &rpc_reply.readdir_return_t_u.result.bitmap);
             }
             
         }
@@ -382,7 +396,15 @@ scan_list_t rpc_readdir(int dir_id, const char *path)
     final_ls_end = NULL;
     RELEASE_MUTEX(&final_ls_mtx, "readdir_result_mtx([%d][%s])", dir_id, path);
 
+    struct giga_directory *dir = cache_lookup(&dir_id);
+    if (dir == NULL) {
+        LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
+        exit(1);
+    }
+    
+    //FIXME: only for the servers that hold the partitions.
     int max_servers = giga_options_t.num_servers;
+    //int max_servers = 2; 
     pthread_t tid[max_servers];
    
     pthread_attr_t attr;
@@ -394,6 +416,7 @@ scan_list_t rpc_readdir(int dir_id, const char *path)
     void *status;
     int i=0;
     for (i=0; i<max_servers; i++) { //#### start_for_loop for all partitions
+        args[i].dir_t = *dir;
         args[i].dir_id = dir_id;
         args[i].server_id = i;
 
@@ -415,6 +438,8 @@ scan_list_t rpc_readdir(int dir_id, const char *path)
 
 
     }
+    
+    cache_release(dir);
 
     LOG_MSG("<<< RPC_readdir(%s): return", path);
    

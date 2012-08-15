@@ -36,7 +36,7 @@ void run_test(int nargs, char* args[]) {
         snprintf(filename, MAX_FILENAME_LEN, FILE_FORMAT, (int) i);
 
         metadb_lookup(mdb, dir_id, partition_id, filename, &statbuf);
-        assert(metadb_create(mdb, dir_id, partition_id, OBJ_DIR, i,
+        assert(metadb_create(mdb, dir_id, partition_id,
                              filename, filename) == 0);
         metadb_lookup(mdb, dir_id, partition_id, filename, &statbuf);
         if (giga_file_migration_status(filename, new_partition_id)) {

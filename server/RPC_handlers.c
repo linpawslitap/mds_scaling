@@ -278,8 +278,7 @@ start:
             LOG_MSG("d=%d,p=%d,o=%d,p=%s,rp=%s", 
                     dir_id, index,object_id, path,path_name);
             rpc_reply->errnum = metadb_create(ldb_mds, dir_id, index,
-                                              OBJ_MKNOD,
-                                              object_id, path, path_name);
+                                              path, path_name);
             if (rpc_reply->errnum < 0)
                 LOG_ERR("ERR_mdb_create(%s): p%d of d%d", path, index, dir_id);
             else

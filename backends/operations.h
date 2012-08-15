@@ -146,18 +146,20 @@ const char* metadb_readdir_iter_get_realpath(metadb_readdir_iterator_t *iter,
 int metadb_readdir_iter_get_stat(metadb_readdir_iterator_t *iter,
                                  struct stat *statbuf);
 
+// Returns "0" if a new LDB is created successfully, "1" if an existing LDB is
+// opened successfully, and "-1" on error.
 int metadb_init(struct MetaDB *mdb, const char *mdb_name);
 
 int metadb_close(struct MetaDB mdb);
 
+// Returns "0" if MDB creates the file successfully, otherwise "-1" on error.
 int metadb_create(struct MetaDB mdb,
                   const metadb_inode_t dir_id,
                   const int partition_id,
-                  metadb_obj_type_t entry_type,
-                  const metadb_inode_t inode_id,
                   const char *objname,
                   const char *realpath);
 
+// Returns "0" if MDB creates the directory successfully, otherwise "-1" on error.
 int metadb_create_dir(struct MetaDB mdb,
                       const metadb_inode_t dir_id,
                       const int partition_id,
@@ -165,17 +167,22 @@ int metadb_create_dir(struct MetaDB mdb,
                       const char *objname,
                       metadb_val_dir_t* dir_mapping);
 
+// Returns "0" if MDB removes the file successfully, otherwise "-1" on error.
 int metadb_remove(struct MetaDB mdb,
                   const metadb_inode_t dir_id,
                   const int partition_id,
                   const char *objname);
 
+// Returns "0" if MDB get the file stat successfully,
+// otherwise "-ENOENT" when no file is found.
 int metadb_lookup(struct MetaDB mdb,
                   const metadb_inode_t dir_id,
                   const int partition_id,
                   const char *objname,
                   struct stat *stbuf);
 
+// Returns "0" if MDB get directory entries successfully,
+// otherwise "-ENOENT" when no file is found.
 int metadb_readdir(struct MetaDB mdb,
                    const metadb_inode_t dir_id,
                    int *partition_id,
@@ -185,7 +192,8 @@ int metadb_readdir(struct MetaDB mdb,
                    int *num_entries,
                    char* end_key,
                    int* more_entries_flag);
-
+// Returns "0" if MDB extract entries successfully,
+// otherwise "-ENOENT" when the target directory is found.
 int metadb_extract_do(struct MetaDB mdb,
                       const metadb_inode_t dir_id,
                       const int old_partition_id,
@@ -194,9 +202,12 @@ int metadb_extract_do(struct MetaDB mdb,
                       uint64_t *min_sequence_number,
                       uint64_t *max_sequence_number);
 
+// Returns "0" if MDB clean extraction successfully,
+// otherwise negative integer on error.
 int metadb_extract_clean(struct MetaDB mdb);
 
-
+// Returns "0" if MDB bulkinsert entries successfully,
+// otherwise negative integer on error.
 int metadb_bulkinsert(struct MetaDB mdb,
                       const char* dir_with_new_partition,
                       uint64_t min_sequence_number,

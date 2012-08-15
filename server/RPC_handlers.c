@@ -309,9 +309,37 @@ bool_t giga_rpc_readdir_serial_1_svc(scan_args_t args,
     
     struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
-        rpc_reply->errnum = -EIO;
-        LOG_MSG("ERR_cache: dir(%d) missing", dir_id);
-        return true;
+        LOG_MSG("ERR_cache: dir(%d) missing! Reading from LDB...", dir_id);
+        
+        int zeroth_srv = 0;
+        struct giga_directory *new = new_cache_entry(&dir_id, zeroth_srv);
+        
+        //FIXME: need to fetch it from disk first??
+        if (metadb_read_bitmap(ldb_mds, dir_id, -1, NULL, &new->mapping) != 0) {
+            //LOG_ERR("ERR_mdb_bitmap_read(%s): for d%d ", path, dir_id);
+            //exit(1);
+        
+            LOG_MSG("Reading d%d from LDB failed ... creating", dir_id);
+            //XXX: needs an RPC
+            int ret = metadb_create_dir(ldb_mds, dir_id, -1, NULL, 
+                                        &new->mapping);
+            if (ret < 0) {
+                LOG_ERR("ERR_mdb_create(%s): partition entry failed", dir_id);
+                rpc_reply->errnum = ret;
+                return true;
+            }
+        }
+        cache_insert(&dir_id, new);
+        cache_release(new);
+
+        if ((dir = cache_lookup(&dir_id)) == NULL) {
+            LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
+            rpc_reply->errnum = -EIO;
+            return true;
+        }
+        //rpc_reply->errnum = -EIO;
+        //LOG_MSG("ERR_cache: dir(%d) missing", dir_id);
+        //return true;
     }
    
     int partition_id = args.partition_id;

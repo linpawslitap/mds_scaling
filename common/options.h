@@ -46,7 +46,7 @@ typedef enum backends {
 // client-side and server side defaults
 //
 
-#define MAX_BUF     4096*256
+#define MAX_BUF     2*4096*256
 #define MAX_LEN     512
 
 #define GIGA_CLIENT     12345           // Magic identifier

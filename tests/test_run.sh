@@ -40,7 +40,7 @@ do
     for ((j=1; j<=$apps; j++))
     do
         echo "test app $j of FUSE instance $i creating $files files"
-        dir=${MNT}
+        dir=${MNT}/d0
         if (( $cli>1 ))
         then
             dir=${MNT}/${i}

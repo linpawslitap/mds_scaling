@@ -23,7 +23,7 @@
     logMessage(_LEVEL_, __func__, format, __VA_ARGS__); 
 
 static struct MetaDB ldb_mds;
-static uint64_t object_id = 0;
+//static uint64_t object_id = 0;
 
 static int  parse_path_components(const char *path, char *file, char *dir);
 static void get_full_path(char fpath[], const char *path);
@@ -100,6 +100,7 @@ void* GIGAinit(struct fuse_conn_info *conn)
     (void)conn;
     
     switch (giga_options_t.backend_type) {
+        /*
         case BACKEND_LOCAL_LEVELDB:
             metadb_init(&ldb_mds, DEFAULT_LEVELDB_DIR);
             object_id = 0;
@@ -111,6 +112,7 @@ void* GIGAinit(struct fuse_conn_info *conn)
                 exit(1);
             }
             break;
+        */
         case BACKEND_RPC_LOCALFS:
             break;
         case BACKEND_RPC_LEVELDB:
@@ -205,12 +207,14 @@ int GIGAmkdir(const char *path, mode_t mode)
             ret = local_mkdir(fpath, mode);
             ret = FUSE_ERROR(ret);
             break;
+        /*
         case BACKEND_LOCAL_LEVELDB:
             parse_path_components(path, file, dir);
             object_id += 1;
             ret = metadb_create(ldb_mds, 0, 0, OBJ_DIR, object_id, file, path);
             ret = FUSE_ERROR(ret);
             break;
+        */
         case BACKEND_RPC_LEVELDB:
             parse_path_components(path, file, dir);
             dir_id = fuse_cache_lookup(dir);
@@ -248,12 +252,14 @@ int GIGAmknod(const char *path, mode_t mode, dev_t dev)
             ret = local_mknod(fpath, mode, dev);
             ret = FUSE_ERROR(ret);
             break;
+        /*
         case BACKEND_LOCAL_LEVELDB:
             parse_path_components(path, file, dir);
             object_id += 1;
             ret = metadb_create(ldb_mds, 0, 0, OBJ_MKNOD, object_id, file, path);
             ret = FUSE_ERROR(ret);
             break;
+        */
         case BACKEND_RPC_LOCALFS:
             ;
         case BACKEND_RPC_LEVELDB:
@@ -785,8 +791,10 @@ int GIGAcreate(const char *path, mode_t mode, struct fuse_file_info *fi)
     
     int ret = 0;
     char fpath[PATH_MAX] = {0};
+    /*
     char dir[PATH_MAX] = {0};
     char file[PATH_MAX] = {0};
+    */
     int fd = 0;
 
     switch (giga_options_t.backend_type) {
@@ -797,12 +805,14 @@ int GIGAcreate(const char *path, mode_t mode, struct fuse_file_info *fi)
             fi->fh = fd;
             ret = FUSE_ERROR(ret);
             break;
+        /*
         case BACKEND_LOCAL_LEVELDB:
             parse_path_components(path, file, dir);
             object_id += 1;
             ret = metadb_create(ldb_mds, 0, 0, OBJ_MKNOD, object_id, file, path);
             ret = FUSE_ERROR(ret);
             break;
+        */
         default:
             ret = ENOTSUP;
             ret = FUSE_ERROR(ret);

@@ -71,6 +71,43 @@ int check_giga_addressing(struct giga_directory *dir, giga_pathname path,
     return index;
 }
 
+static
+struct giga_directory* fetch_dir_mapping(giga_dir_id dir_id)
+{
+    struct giga_directory *dir = NULL;
+   
+    if ((dir = cache_lookup(&dir_id)) == NULL) {
+        // if cache miss, get from LDB
+        //
+        LOG_MSG("ERR_fetching(d=%d): cache_miss ... try_LDB ...", dir_id);
+        
+        int zeroth_srv = 0;
+        struct giga_directory *new = new_cache_entry(&dir_id, zeroth_srv);
+        
+        if (metadb_read_bitmap(ldb_mds, dir_id, -1, NULL, &new->mapping) != 0) {
+            LOG_ERR("ERR_fetching(d=%d): LDB_miss!", dir_id);
+            return NULL;
+            //exit(1);
+        }
+        
+        cache_insert(&dir_id, new);
+        
+        assert(new);
+        LOG_MSG("SUCCESS_fetching(d=%d): sending mapping", dir_id);
+        return new;
+    }
+
+    assert(dir);
+    LOG_MSG("SUCCESS_fetching(d=%d): sending mapping", dir_id);
+    return dir;
+}
+
+static
+void release_dir_mapping(struct giga_directory *dir)
+{
+    cache_release(dir);
+}
+
 bool_t giga_rpc_init_1_svc(int rpc_req, 
                            giga_result_t *rpc_reply, 
                            struct svc_req *rqstp)
@@ -83,17 +120,19 @@ bool_t giga_rpc_init_1_svc(int rpc_req,
     // send bitmap for the "root" directory.
     //
     int dir_id = 0;
+    struct giga_directory *dir = fetch_dir_mapping(dir_id);
+    /*
     struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
         rpc_reply->errnum = -EIO;
         LOG_MSG("ERR_cache: dir(%d) missing", dir_id);
         return true;
     }
+    */
     rpc_reply->errnum = -EAGAIN;
-    memcpy(&(rpc_reply->giga_result_t_u.bitmap), 
-           &dir->mapping, sizeof(dir->mapping));
+    memcpy(&(rpc_reply->giga_result_t_u.bitmap), &dir->mapping, sizeof(dir->mapping));
 
-    cache_release(dir);
+    release_dir_mapping(dir);
 
     LOG_MSG("<<< RPC_init: [status=%d]", rpc_reply->errnum);
 
@@ -126,12 +165,19 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
 
     bzero(rpc_reply, sizeof(giga_getattr_reply_t));
 
+    struct giga_directory *dir = fetch_dir_mapping(dir_id);
+    /*
     struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
-        rpc_reply->result.errnum = -EIO;
-        LOG_MSG("ERR_cache: dir(%d) missing", dir_id);
-        return true;
+        
+        int zeroth_srv = 0;
+        struct giga_directory *new = new_cache_entry(&dir_id, zeroth_srv);
+        if (metadb_read_bitmap(ldb_mds, dir_id, -1, NULL, &new->mapping) != 0) {
+        //rpc_reply->result.errnum = -EIO;
+        //LOG_MSG("ERR_cache: dir(%d) missing", dir_id);
+        //return true;
     }
+    */
 
     // check for giga specific addressing checks.
     //
@@ -152,28 +198,37 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
             rpc_reply->result.errnum = metadb_lookup(ldb_mds,
                                                      dir_id, index, path,
                                                      &rpc_reply->statbuf);
+
+            // check if stat-ing a directory, return the mapping structure
+            // stored in LDB for the dentry
+            // remember that for a dentry that is a directory, we store the
+            // statbuf and mapping as the value in LDB.
+            //
             if (S_ISDIR(rpc_reply->statbuf.st_mode)) {
                 LOG_MSG("rpc_getattr(%s) returns a directory for d%d", 
                         path, rpc_reply->statbuf.st_ino);
-                struct giga_directory *tmp = new_cache_entry((DIR_handle_t*)&rpc_reply->statbuf.st_ino, 0); 
+                
+                //struct giga_directory *tmp = new_cache_entry((DIR_handle_t*)&rpc_reply->statbuf.st_ino, 0); 
+                struct giga_directory *tmp = (struct giga_directory*)malloc(sizeof(struct giga_directory)); 
                 if (metadb_read_bitmap(ldb_mds, dir_id, index, path, &tmp->mapping) != 0) {
                     LOG_ERR("mdb_read(%s): error reading dir=%d bitmap.", path, dir_id);
                     exit(1);
                 }
-                cache_insert((DIR_handle_t*)&rpc_reply->statbuf.st_ino, tmp);
+                //cache_insert((DIR_handle_t*)&rpc_reply->statbuf.st_ino, tmp);
+                
                 memcpy(&(rpc_reply->result.giga_result_t_u.bitmap), 
                        &tmp->mapping, sizeof(tmp->mapping));
                 giga_print_mapping(&rpc_reply->result.giga_result_t_u.bitmap);
                 rpc_reply->result.errnum = -EAGAIN;
-                cache_release(tmp);
+                
+                //cache_release(tmp);
             }
-
             break;  
         default:
             break;
     }
 
-    cache_release(dir);
+    release_dir_mapping(dir);
 
     LOG_MSG("<<< RPC_getattr(d=%d,p=%s): status=[%d]", 
             dir_id, path, rpc_reply->result.errnum);
@@ -193,12 +248,15 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
 
     bzero(rpc_reply, sizeof(giga_result_t));
 
+    struct giga_directory *dir = fetch_dir_mapping(dir_id);
+    /*
     struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
         rpc_reply->errnum = -EIO;
         LOG_MSG("ERR_cache: dir(%d) missing", dir_id);
         return true;
     }
+    */
 
     int index = 0;
 
@@ -273,13 +331,8 @@ start:
 
             // create object entry (metadata) in levelDB
             
-            //FIXME
-            //object_id += 1;  //TODO: do we need this for non-dir objects?? 
-            LOG_MSG("d=%d,p=%d,o=%d,p=%s,rp=%s", 
-                    dir_id, index,object_id, path,path_name);
-            rpc_reply->errnum = metadb_create(ldb_mds, dir_id, index,
-                                              OBJ_MKNOD,
-                                              object_id, path, path_name);
+            LOG_MSG("d=%d,p=%d,p=%s,rp=%s", dir_id, index, path, path_name);
+            rpc_reply->errnum = metadb_create(ldb_mds, dir_id, index, path, path_name);
             if (rpc_reply->errnum < 0)
                 LOG_ERR("ERR_mdb_create(%s): p%d of d%d", path, index, dir_id);
             else
@@ -292,6 +345,8 @@ start:
 exit_func:
 
     RELEASE_MUTEX(&dir->partition_mtx[index], "mknod(%s)", path);
+    
+    release_dir_mapping(dir);
 
     LOG_MSG("<<< RPC_mknod(d=%d,p=%s): status=[%d]", dir_id, path,
             rpc_reply->errnum);
@@ -305,20 +360,60 @@ bool_t giga_rpc_readdir_serial_1_svc(scan_args_t args,
     (void)rqstp;
     assert(rpc_reply);
     
+    bzero(rpc_reply, sizeof(readdir_return_t));
+    
     int dir_id = args.dir_id;
     
-    struct giga_directory *dir = cache_lookup(&dir_id);
+    struct giga_directory *dir = fetch_dir_mapping(dir_id);
     if (dir == NULL) {
-        rpc_reply->errnum = -EIO;
-        LOG_MSG("ERR_cache: dir(%d) missing", dir_id);
+        rpc_reply->errnum = ENOENT; 
+        //rpc_reply->readdir_return_t_u.result.num_entries = 0;  
+        LOG_MSG("ERR_mdb_readdir: d%d no present at this server.", dir_id);
         return true;
     }
+    
+    /*
+    struct giga_directory *dir = cache_lookup(&dir_id);
+    if (dir == NULL) {
+        LOG_MSG("ERR_cache: dir(%d) missing! Reading from LDB...", dir_id);
+        
+        int zeroth_srv = 0;
+        struct giga_directory *new = new_cache_entry(&dir_id, zeroth_srv);
+        
+        //FIXME: need to fetch it from disk first??
+        if (metadb_read_bitmap(ldb_mds, dir_id, -1, NULL, &new->mapping) != 0) {
+            //LOG_ERR("ERR_mdb_bitmap_read(%s): for d%d ", path, dir_id);
+            //exit(1);
+        
+            LOG_MSG("Reading d%d from LDB failed ... creating", dir_id);
+            //XXX: needs an RPC
+            int ret = metadb_create_dir(ldb_mds, dir_id, -1, NULL, 
+                                        &new->mapping);
+            if (ret < 0) {
+                LOG_ERR("ERR_mdb_create(%s): partition entry failed", dir_id);
+                rpc_reply->errnum = ret;
+                return true;
+            }
+        }
+        cache_insert(&dir_id, new);
+        cache_release(new);
+
+        if ((dir = cache_lookup(&dir_id)) == NULL) {
+            LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
+            rpc_reply->errnum = -EIO;
+            return true;
+        }
+        //rpc_reply->errnum = -EIO;
+        //LOG_MSG("ERR_cache: dir(%d) missing", dir_id);
+        //return true;
+    }
+    */
    
     int partition_id = args.partition_id;
 
     LOG_MSG(">>> RPC_readdir(d=%d, p[%d])", dir_id, partition_id); 
 
-    bzero(rpc_reply, sizeof(readdir_return_t));
+    //bzero(rpc_reply, sizeof(readdir_return_t));
     
     char *buf;
     if ((buf = (char*)malloc(sizeof(char)*MAX_BUF)) == NULL) {
@@ -406,7 +501,7 @@ bool_t giga_rpc_readdir_serial_1_svc(scan_args_t args,
     free(buf);
 
 exit_func:
-
+    release_dir_mapping(dir);
     LOG_MSG("<<< RPC_readdir(d=%d, p[%d]): status=[%d]", 
             dir_id, partition_id, rpc_reply->errnum); 
 
@@ -511,12 +606,15 @@ bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id,
 
     bzero(rpc_reply, sizeof(giga_result_t));
 
+    struct giga_directory *dir = fetch_dir_mapping(dir_id);
+    /*
     struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
         rpc_reply->errnum = -EIO;
         LOG_MSG("ERR_cache: dir(%d) missing", dir_id);
         return true;
     }
+    */
 
     int index = 0;
 
@@ -606,7 +704,8 @@ start:
             else {
                 dir->partition_size[index] += 1;
 
-                //XXX: needs an RPC
+                // create the partition entry ...
+                //XXX: needs an RPC because zeroth server could be elsewhere
                 rpc_reply->errnum = metadb_create_dir(ldb_mds, object_id, -1, NULL, 
                                                       &new_dir->mapping);
                 if (rpc_reply->errnum < 0)
@@ -620,7 +719,7 @@ exit_func:
 
     RELEASE_MUTEX(&dir->partition_mtx[index], "mkdir(%s)", path);
 
-    cache_release(dir);
+    release_dir_mapping(dir);
 
     LOG_MSG("<<< RPC_mkdir(d=%d,p=%d): status=[%d]", 
             dir_id, path, rpc_reply->errnum);

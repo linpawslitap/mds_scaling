@@ -87,9 +87,8 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
         
         dir->partition_size[parent] -= ret;
 
-        LOG_MSG("SUCCESS: p%d(%d)-->p%d(%d)", 
-                parent, dir->partition_size[parent], 
-                child, dir->partition_size[child]); 
+        LOG_MSG("SUCCESS: p%d(%d)-->p%d(%d)", parent, dir->partition_size[parent], 
+                                              child, ret); 
         //ret = 0;
     }
 
@@ -112,8 +111,6 @@ bool_t giga_rpc_split_1_svc(giga_dir_id dir_id,
     LOG_MSG(">>> RPC_split_recv: [dir%d,(p%d-->p%d),path=%s]",
                dir_id, parent_index, child_index, path);
   
-    object_id += 0; //dummy FIXME
-
     ACQUIRE_MUTEX(&ldb_mds.mtx_bulkload, "bulkload(from=%s)", path);
     
     rpc_reply->errnum = metadb_bulkinsert(ldb_mds, path, min_seq, max_seq);
@@ -122,21 +119,44 @@ bool_t giga_rpc_split_1_svc(giga_dir_id dir_id,
         LOG_MSG("ERR_ldb: bulk_insert(%s) FAILED!", path);
     }
     else { 
-        struct giga_directory *dir = cache_fetch(&dir_id);
+        struct giga_directory *dir = cache_lookup(&dir_id);
         if (dir == NULL) {
-            rpc_reply->errnum = -EIO;
+            LOG_MSG("ERR_fetching(d=%d): cache_miss ... try_LDB ...", dir_id);
             
-            LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
-            return true;
+            int zeroth_srv = 0;
+            struct giga_directory *new = new_cache_entry(&dir_id, zeroth_srv);
+            
+            //need to fetch it from disk first ...
+            //
+            if (metadb_read_bitmap(ldb_mds, dir_id, -1, NULL, &new->mapping) < 0) {
+                LOG_ERR("ERR_fetching(d=%d): LDB_miss ... create in LDB", dir_id);
+           
+                // ... fetch failed, creating a new partition entry
+                int ret = metadb_create_dir(ldb_mds, dir_id, -1, NULL, &new->mapping);
+                if (ret < 0) {
+                    LOG_ERR("ERR_mdb_create(%s): partition entry failed", dir_id);
+                    rpc_reply->errnum = ret;
+                    return true;
+                }
+            }
+            cache_insert(&dir_id, new);
+            cache_release(new);
+
+            if ((dir = cache_lookup(&dir_id)) == NULL) {
+                LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
+                rpc_reply->errnum = -EIO;
+                return true;
+            }
         }
 
         // update bitmap and partition size
+        //giga_update_mapping(&(dir->mapping), parent_index);
         giga_update_mapping(&(dir->mapping), child_index);
         
         dir->partition_size[child_index] = num_entries; 
         
         if (metadb_write_bitmap(ldb_mds, dir_id, -1, NULL, &dir->mapping) != 0) {
-            LOG_ERR("mdb_write_bitmap(d%d): error writing bitmap.", dir_id);
+            LOG_ERR("ERR_mdb_write_bitmap(d%d): error writing bitmap.", dir_id);
             exit(1);
         }
         
@@ -146,12 +166,13 @@ bool_t giga_rpc_split_1_svc(giga_dir_id dir_id,
                 child_index, dir->partition_size[child_index]); 
         giga_print_mapping(&dir->mapping);
             
-        
         //TODO: optimization follows -- exchange bitmap on splits
         //
         //memcpy(&(rpc_reply->result.giga_result_t_u.bitmap), 
         //       &dir->mapping, sizeof(dir->mapping));
-        //rpc_reply->errnum = -EAGAIN;  
+        //rpc_reply->errnum = -EAGAIN; 
+        
+        cache_release(dir);
     }
     
     RELEASE_MUTEX(&ldb_mds.mtx_bulkload, "bulkload(from=%s)", path);

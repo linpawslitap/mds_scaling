@@ -96,7 +96,7 @@ void run_test(int nargs, char* args[]) {
     snprintf(filename, MAX_FILENAME_LEN, "%08x", 10000);
     struct giga_mapping_t mybitmap;
 
-    ASSERT(metadb_create(mdb, 0, 0, OBJ_DIR, 0, "/", "/") == 0);
+    ASSERT(metadb_create(mdb, 0, 0, "/", "/") == 0);
 
     ret = metadb_read_bitmap(mdb, 0, 0, "/", &mybitmap);
     ASSERT(ret == 0);
@@ -125,10 +125,9 @@ void run_test(int nargs, char* args[]) {
         memset(backup, 0, sizeof(filename));
         snprintf(backup, MAX_FILENAME_LEN, FILE_FORMAT, i);
 
-        ASSERT(metadb_create(mdb, dir_id, partition_id, OBJ_DIR, i,
+        ASSERT(metadb_create(mdb, dir_id, partition_id,
                              filename, filename) == 0);
         metadb_lookup(mdb, dir_id, partition_id, filename, &statbuf);
-        ASSERT(statbuf.st_ino == i);
         if (giga_file_migration_status(backup, new_partition_id)) {
             ++num_migrated_entries;
         }
@@ -203,10 +202,9 @@ void run_test(int nargs, char* args[]) {
         memset(backup, 0, sizeof(filename));
         snprintf(backup, MAX_FILENAME_LEN, FILE_FORMAT, i);
 
-        ASSERT(metadb_create(mdb2, dir_id, partition_id, OBJ_DIR, i,
+        ASSERT(metadb_create(mdb2, dir_id, partition_id,
                              filename, filename) == 0);
         metadb_lookup(mdb2, dir_id, partition_id, filename, &statbuf);
-        ASSERT(statbuf.st_ino == i);
     }
 
     for (i = num_test_entries; i < num_test_entries*4; ++i) {
@@ -215,10 +213,9 @@ void run_test(int nargs, char* args[]) {
         memset(backup, 0, sizeof(filename));
         snprintf(backup, MAX_FILENAME_LEN, FILE_FORMAT, i);
 
-        ASSERT(metadb_create(mdb, dir_id, partition_id, OBJ_DIR, i,
+        ASSERT(metadb_create(mdb, dir_id, partition_id,
                              filename, filename) == 0);
         metadb_lookup(mdb, dir_id, partition_id, filename, &statbuf);
-        ASSERT(statbuf.st_ino == i);
     }
 
     metadb_close(mdb);

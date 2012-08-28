@@ -37,4 +37,4 @@ metadb_insert_test : metadb_insert_test.o metadb_fs.o
 	$(CC) -o $@ $^ ../common.a $(LDFLAGS)
 
 clean :
-	rm -f *.o metadb_fs_test metadb_insert_test
+	rm -f *.o metadb_fs_test metadb_insert_test metadb_fs_readdir_test

@@ -326,9 +326,9 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name)
 }
 
 int metadb_create(struct MetaDB mdb,
-                  const metadb_inode_t dir_id, const int partition_id,
-                  metadb_obj_type_t entry_type,
-                  const metadb_inode_t inode_id, const char *path,
+                  const metadb_inode_t dir_id,
+                  const int partition_id,
+                  const char *path,
                   const char *realpath)
 {
     int ret = 0;
@@ -336,11 +336,9 @@ int metadb_create(struct MetaDB mdb,
     metadb_val_t mobj_val;
     char* err = NULL;
 
-    (void) entry_type;
-
     init_meta_obj_key(&mobj_key, dir_id, partition_id, path);
 
-    mobj_val = init_meta_val(inode_id,
+    mobj_val = init_meta_val(0,
                              strlen(path), path,
                              strlen(realpath), realpath);
 
@@ -531,7 +529,7 @@ int metadb_read_bitmap(struct MetaDB mdb,
         logMessage(METADB_LOG, __func__, "read_bitmap found entry(%s).", path);
     } else {
         logMessage(METADB_LOG, __func__, "entry(%s) not found.", path);
-        ret = ENOENT;
+        ret = -1;
     }
 
     free_metadb_val(&mobj_val);
@@ -929,7 +927,7 @@ int metadb_extract_do(struct MetaDB mdb,
         *max_sequence_number = max_seq;
         ret = num_migrated_entries;
     } else {
-        ret = -ENOENT;
+        ret = ENOENT;
     }
 
     leveldb_writebatch_destroy(batch);
@@ -1062,7 +1060,7 @@ int metadb_extract_do(struct MetaDB mdb,
         *max_sequence_number = num_migrated_entries;
         ret = num_migrated_entries;
     } else {
-        ret = -ENOENT;
+        ret = ENOENT;
     }
 
     //TODO: Really need to compact? How to make sure all logs become sst files?

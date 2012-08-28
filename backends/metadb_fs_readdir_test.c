@@ -96,7 +96,7 @@ void run_test(int nargs, char* args[]) {
         memset(filename, 0, sizeof(filename));
         snprintf(filename, MAX_FILENAME_LEN, "localhost_3234_f%d", i);
 
-        ASSERT(metadb_create(mdb, dir_id, partition_id, OBJ_FILE, i,
+        ASSERT(metadb_create(mdb, dir_id, partition_id,
                              filename, filename) == 0);
     }
 

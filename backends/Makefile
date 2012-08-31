@@ -31,9 +31,15 @@ metadb_fs_readdir_test : metadb_fs_readdir_test.o metadb_fs.o
 	$(CC) -o $@ $^ ../common.a $(LDFLAGS)
 
 metadb_insert_test.o : metadb_insert_test.c operations.h
-	$(CC) $(CFLAGS) -c metadb_insert_test.c ../common.a
+	$(CC) $(CFLAGS) -c metadb_insert_test.c
 
 metadb_insert_test : metadb_insert_test.o metadb_fs.o
+	$(CC) -o $@ $^ ../common.a $(LDFLAGS)
+
+metadb_stress_test.o : metadb_stress_test.c operations.h
+	$(CC) $(CFLAGS) -c metadb_stress_test.c
+
+metadb_stress_test : metadb_stress_test.o metadb_fs.o
 	$(CC) -o $@ $^ ../common.a $(LDFLAGS)
 
 clean :

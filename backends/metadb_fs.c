@@ -14,12 +14,13 @@
 
 #define METADB_LOG LOG_DEBUG
 
-#define DEFAULT_LEVELDB_CACHE_SIZE 100000
+#define DEFAULT_LEVELDB_CACHE_SIZE (64 << 20)
 #define DEFAULT_WRITE_BUFFER_SIZE  (16 << 20)
-#define DEFAULT_MAX_OPEN_FILES     128
+#define DEFAULT_MAX_OPEN_FILES     800
 #define DEFAULT_MAX_BATCH_SIZE     1024
 #define DEFAULT_SSTABLE_SIZE       (2 << 20)
 #define DEFAULT_METRIC_SAMPLING_INTERVAL 1
+#define DEFAULT_SYNC_INTERVAL      5
 #define DEFAULT_METADB_LOG_FILE "/tmp/metadb.log" // Default metadb log file location
 #define MAX_FILENAME_LEN 1024
 #define METADB_KEY_LEN (sizeof(metadb_key_t))
@@ -253,6 +254,59 @@ void metadb_log_destroy() {
     metric_thread_errors = 100;
 }
 
+int sync_thread_errors;
+
+void* sync_thread(void *unused) {
+    struct MetaDB* mdb = (struct MetaDB*) unused;
+
+    struct timespec ts;
+    ts.tv_sec = DEFAULT_SYNC_INTERVAL;
+    ts.tv_nsec = 0;
+
+    struct timespec rem;
+    char* err;
+
+    do {
+        int ret = nanosleep(&ts, &rem);
+        if (sync_thread_errors < 50) {
+          leveldb_put(mdb->db, mdb->sync_insert_options,
+                      "s", 1,
+                      "s", 1, &err);
+        }
+        if (ret == -1){
+            if (errno == EINTR)
+                nanosleep(&rem, NULL);
+            else
+                sync_thread_errors++;
+        }
+    } while (sync_thread_errors < 50);
+
+    return NULL;
+}
+
+void metadb_sync_init(struct MetaDB *mdb) {
+    pthread_t tid;
+    int ret;
+    sync_thread_errors = 0;
+    if ((ret = pthread_create(&tid, NULL, sync_thread, mdb))) {
+        logMessage(METADB_LOG, __func__,
+                   "pthread_create() error: %d", ret);
+        exit(1);
+    }
+    if ((ret = pthread_detach(tid))) {
+        logMessage(METADB_LOG, __func__,
+                   "pthread_detach() error: %d", ret);
+        exit(1);
+    }
+}
+
+void metadb_sync_destroy() {
+    sync_thread_errors = 100;
+}
+
+char* metadb_get_metric(struct MetaDB mdb) {
+  return leveldb_property_value(mdb.db, "leveldb.stats");
+}
 
 // Returns "0" if a new LDB is created successfully, "1" if an existing LDB is
 // opened successfully, and "-1" on error.
@@ -276,6 +330,10 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name)
     leveldb_options_set_block_size(mdb->options, 4096);
     leveldb_options_set_compression(mdb->options, leveldb_no_compression);
 
+    leveldb_options_set_filter_policy(mdb->options,
+                        leveldb_filterpolicy_create_bloom(12));
+
+
     mdb->lookup_options = leveldb_readoptions_create();
     leveldb_readoptions_set_fill_cache(mdb->lookup_options, 1);
 
@@ -287,6 +345,9 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name)
 
     mdb->ext_insert_options = leveldb_writeoptions_create();
     leveldb_writeoptions_set_sync(mdb->ext_insert_options, 0);
+
+    mdb->sync_insert_options = leveldb_writeoptions_create();
+    leveldb_writeoptions_set_sync(mdb->sync_insert_options, 1);
 
     mdb->extraction = (metadb_extract_t *) malloc(sizeof(metadb_extract_t));
 
@@ -320,7 +381,8 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name)
         }
     }
 
-    metadb_log_init(mdb);
+//    metadb_log_init(mdb);
+    metadb_sync_init(mdb);
 
     return ret;
 }
@@ -359,8 +421,10 @@ int metadb_create(struct MetaDB mdb,
 
     free_metadb_val(&mobj_val);
 
-    if (err != NULL)
+    if (err != NULL) {
+      printf("%s\n", err);
       ret = -1;
+    }
 
     return ret;
 }
@@ -554,8 +618,33 @@ int metadb_write_bitmap(struct MetaDB mdb,
                                   (void *) mapping);
 }
 
+typedef struct {
+  mode_t new_mode;
+} chmod_update_t;
+
+int metadb_chmod_handler(metadb_val_t* mobj_val, void* arg1) {
+    metadb_val_header_t* header =
+        (metadb_val_header_t*) mobj_val->value;
+    header->statbuf.st_mode = ((chmod_update_t *) arg1)->new_mode;
+    return 0;
+}
+
+int metadb_chmod(struct MetaDB mdb,
+                 const metadb_inode_t dir_id,
+                 const int partition_id,
+                 const char* path,
+                 mode_t new_mode) {
+    chmod_update_t update;
+    update.new_mode = new_mode;
+    return metadb_update_internal(mdb, dir_id, partition_id, path,
+                                  metadb_chmod_handler,
+                                  (void *) &update);
+}
+
 int metadb_close(struct MetaDB mdb) {
-    metadb_log_destroy();
+//    metadb_log_destroy();
+    metadb_sync_destroy();
+
     leveldb_close(mdb.db);
     leveldb_options_destroy(mdb.options);
     leveldb_cache_destroy(mdb.cache);

@@ -120,6 +120,7 @@ struct MetaDB {
     leveldb_readoptions_t*  scan_options;
     leveldb_writeoptions_t* insert_options;
     leveldb_writeoptions_t* ext_insert_options;
+    leveldb_writeoptions_t* sync_insert_options;
 
     metadb_extract_t*  extraction;
 
@@ -145,6 +146,8 @@ const char* metadb_readdir_iter_get_realpath(metadb_readdir_iterator_t *iter,
                                        size_t *path_len);
 int metadb_readdir_iter_get_stat(metadb_readdir_iterator_t *iter,
                                  struct stat *statbuf);
+
+char* metadb_get_metric(struct MetaDB mdb);
 
 // Returns "0" if a new LDB is created successfully, "1" if an existing LDB is
 // opened successfully, and "-1" on error.
@@ -225,5 +228,10 @@ int metadb_write_bitmap(struct MetaDB mdb,
                         const char* objname,
                         struct giga_mapping_t* map_val);
 
+int metadb_chmod(struct MetaDB mdb,
+                 const metadb_inode_t dir_id,
+                 const int partition_id,
+                 const char* path,
+                 mode_t new_mode);
 
 #endif /* OPERATIONS_H */

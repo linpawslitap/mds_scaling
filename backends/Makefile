@@ -42,5 +42,11 @@ metadb_stress_test.o : metadb_stress_test.c operations.h
 metadb_stress_test : metadb_stress_test.o metadb_fs.o
 	$(CC) -o $@ $^ ../common.a $(LDFLAGS)
 
+metadb_mix_test.o : metadb_mix_test.c operations.h
+	$(CC) $(CFLAGS) -c metadb_mix_test.c
+
+metadb_mix_test : metadb_mix_test.o metadb_fs.o
+	$(CC) -o $@ $^ ../common.a $(LDFLAGS)
+
 clean :
 	rm -f *.o metadb_fs_test metadb_insert_test metadb_fs_readdir_test

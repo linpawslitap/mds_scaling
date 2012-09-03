@@ -254,40 +254,50 @@ void metadb_log_destroy() {
     metric_thread_errors = 100;
 }
 
-int sync_thread_errors;
+volatile int stop_sync_thread;
+volatile int flag_sync_thread_finish;
+pthread_mutex_t     mtx_sync;
+pthread_cond_t      cv_sync;
 
-void* sync_thread(void *unused) {
-    struct MetaDB* mdb = (struct MetaDB*) unused;
+void* sync_thread(void *v) {
+    struct MetaDB* mdb = (struct MetaDB*) v;
 
-    struct timespec ts;
-    ts.tv_sec = DEFAULT_SYNC_INTERVAL;
-    ts.tv_nsec = 0;
-
-    struct timespec rem;
+    struct timespec wait;
+    memset(&wait, 0, sizeof(wait)); /* ensure it's initialized */ 
+    struct timeval now;
     char* err;
 
-    do {
-        int ret = nanosleep(&ts, &rem);
-        if (sync_thread_errors < 50) {
+    pthread_mutex_lock(&(mtx_sync));
+    while (stop_sync_thread == 0) {
+        gettimeofday(&now, NULL);
+        wait.tv_sec = now.tv_sec + DEFAULT_SYNC_INTERVAL;
+        int ret = pthread_cond_timedwait(&(cv_sync), &(mtx_sync), &wait);
+        if (ret == ETIMEDOUT) {
           leveldb_put(mdb->db, mdb->sync_insert_options,
                       "s", 1,
                       "s", 1, &err);
+        } else {
+          if (stop_sync_thread == 0) {
+            fprintf(stderr, "Unexpected interrupt for sync thread\n");
+            stop_sync_thread = 1;
+          }
         }
-        if (ret == -1){
-            if (errno == EINTR)
-                nanosleep(&rem, NULL);
-            else
-                sync_thread_errors++;
-        }
-    } while (sync_thread_errors < 50);
+    }
+    flag_sync_thread_finish = 1;
+    pthread_cond_broadcast(&(cv_sync));
+    pthread_mutex_unlock(&(mtx_sync));
 
     return NULL;
 }
 
 void metadb_sync_init(struct MetaDB *mdb) {
-    pthread_t tid;
+    stop_sync_thread = 0;
+    flag_sync_thread_finish = 0;
+    pthread_mutex_init(&(mtx_sync), NULL);
+    pthread_cond_init(&(cv_sync), NULL);
+
     int ret;
-    sync_thread_errors = 0;
+    pthread_t tid;
     if ((ret = pthread_create(&tid, NULL, sync_thread, mdb))) {
         logMessage(METADB_LOG, __func__,
                    "pthread_create() error: %d", ret);
@@ -301,7 +311,16 @@ void metadb_sync_init(struct MetaDB *mdb) {
 }
 
 void metadb_sync_destroy() {
-    sync_thread_errors = 100;
+  pthread_mutex_lock(&(mtx_sync));
+  stop_sync_thread = 1;
+  pthread_cond_signal(&(cv_sync));
+  while (flag_sync_thread_finish == 0) {
+    pthread_cond_wait(&(cv_sync), &(mtx_sync));
+  }
+  pthread_mutex_unlock(&(mtx_sync));
+
+  pthread_mutex_destroy(&(mtx_sync));
+  pthread_cond_destroy(&(cv_sync));
 }
 
 char* metadb_get_metric(struct MetaDB mdb) {
@@ -654,6 +673,12 @@ int metadb_close(struct MetaDB mdb) {
     leveldb_writeoptions_destroy(mdb.insert_options);
     leveldb_writeoptions_destroy(mdb.ext_insert_options);
     free(mdb.extraction);
+
+    pthread_rwlock_destroy(&(mdb.rwlock_extract));
+    pthread_mutex_destroy(&(mdb.mtx_bulkload));
+    pthread_mutex_destroy(&(mdb.mtx_leveldb));
+    pthread_mutex_destroy(&(mdb.mtx_extload));
+
     return 0;
 }
 

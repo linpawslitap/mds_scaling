@@ -14,7 +14,7 @@
 
 #define METADB_LOG LOG_DEBUG
 
-#define DEFAULT_LEVELDB_CACHE_SIZE (64 << 20)
+#define DEFAULT_LEVELDB_CACHE_SIZE (16 << 20)
 #define DEFAULT_WRITE_BUFFER_SIZE  (16 << 20)
 #define DEFAULT_MAX_OPEN_FILES     800
 #define DEFAULT_MAX_BATCH_SIZE     1024
@@ -559,6 +559,7 @@ int metadb_update_internal(struct MetaDB mdb,
             if (err != NULL) {
                 logMessage(METADB_LOG, __func__,
                            "update_internal (%s) failed (%s).", path, err);
+                printf("Update error:%s %s\n", err, path);
                 ret = -1;
             }
         }
@@ -566,6 +567,7 @@ int metadb_update_internal(struct MetaDB mdb,
         mobj_val.value = NULL;
         mobj_val.size = 0;
         ret = ENOENT;
+        printf("Update error: no entry %s\n", path);
     }
 
     RELEASE_MUTEX(&(mdb.mtx_leveldb), "metadb_update_internal(%s)", path);
@@ -660,11 +662,20 @@ int metadb_chmod(struct MetaDB mdb,
                                   (void *) &update);
 }
 
+int metadb_valid(struct MetaDB mdb) {
+  if (mdb.db != NULL) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
 int metadb_close(struct MetaDB mdb) {
 //    metadb_log_destroy();
     metadb_sync_destroy();
 
     leveldb_close(mdb.db);
+    mdb.db = NULL;
     leveldb_options_destroy(mdb.options);
     leveldb_cache_destroy(mdb.cache);
     leveldb_env_destroy(mdb.env);

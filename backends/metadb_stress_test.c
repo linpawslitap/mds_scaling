@@ -95,7 +95,7 @@ int errors;
 
 void *timer_thread(void *unused)
 {
-    (void)unused;
+    struct MetaDB* mdb = (struct MetaDB*) unused;
     int ret;
 
     struct timespec ts;
@@ -106,6 +106,11 @@ void *timer_thread(void *unused)
 
 top:
     printf("%d\n", count_files);
+    if (metadb_valid(*mdb) > 0) {
+      char* result = metadb_get_metric(*mdb);
+      printf("%s\n", result);
+      free(result);
+    }
 
     ret = nanosleep(&ts, &rem);
     if (ret == -1){
@@ -139,8 +144,8 @@ void locker_lock_memory(locker_t *locker, size_t lock_size) {
       int ret;
       if ((ret = posix_memalign(&page_start,sysconf(_SC_PAGESIZE),
                                 DEFAULT_BLOCK_SIZE)) != 0) {
-        printf("memory allocation failed %ld MB\n",
-               lock_size);
+        printf("memory allocation failed %.0f MB\n",
+               lock_size/1.0);
         exit(1);
       }
       if (mlock(page_start, DEFAULT_BLOCK_SIZE) != 0) {
@@ -261,7 +266,7 @@ void run_create(struct MetaDB mdb, trace_loader_t* loader, int num_entries) {
     }
 }
 
-void run_query(struct MetaDB mdb, trace_loader_t* loader, int num_queries, int read_ratio) {
+void run_query(struct MetaDB mdb, trace_loader_t* loader, int num_queries, int read_ratio, int range) {
     int i;
     struct stat statbuf;
     int dir_id = 0;
@@ -269,7 +274,7 @@ void run_query(struct MetaDB mdb, trace_loader_t* loader, int num_queries, int r
     printf("Run query\n");
     for (i = 0; i < num_queries; ++i) {
         ++count_files;
-        char* filename = loader->paths[rand() % loader->num_paths];
+        char* filename = loader->paths[rand() % range];
         int qi = rand() % 100;
         if (qi < read_ratio) {
           ASSERT(metadb_lookup(mdb, dir_id, partition_id, filename, &statbuf) == 0);
@@ -279,6 +284,25 @@ void run_query(struct MetaDB mdb, trace_loader_t* loader, int num_queries, int r
         }
     }
 
+}
+
+void enable_monitor_thread(struct MetaDB* mdb) {
+    pthread_t tid;
+    int ret;
+    if ((ret = pthread_create(&tid, NULL, timer_thread, mdb))){
+        fprintf(stderr, "pthread_create() error: %d\n",
+                ret);
+        exit(1);
+    }
+    if ((ret = pthread_detach(tid))){
+        fprintf(stderr, "pthread_detach() error: %d\n",
+                ret);
+        exit(1);
+    }
+}
+
+void disable_monitor_thread() {
+    errors = 100;
 }
 
 void run_test(int nargs, char* args[]) {
@@ -295,22 +319,23 @@ void run_test(int nargs, char* args[]) {
     struct MetaDB mdb;
     metadb_init(&mdb, dbname);
 
+    enable_monitor_thread(&mdb);
     clock_gettime(CLOCK_MONOTONIC, &start);
 
     if (strcmp(args[4], "create") == 0) {
       run_create(mdb, &loader, atoi(args[5]));
     } else {
-      run_query(mdb, &loader, atoi(args[5]), atoi(args[6]));
+      run_query(mdb, &loader, atoi(args[5]), atoi(args[6]), atoi(args[7]));
     }
     clock_gettime(CLOCK_MONOTONIC, &end);
+    disable_monitor_thread();
     metadb_close(mdb);
 
     uint64_t timeElapsed = timespecDiff(&end, &start);
     timeElapsed = timespecDiff(&end, &start);
-    printf("%s %d: %06lf s\n", args[4], num_test, (double) timeElapsed / 1e9);
+    printf("%s %d: %lld ns\n", args[4], num_test, timeElapsed);
 
     destroy_trace_loader(&loader);
-
     drop_buffer_cache();
 }
 
@@ -320,22 +345,7 @@ int main(int nargs, char* args[]) {
       return 1;
     }
 
-    pthread_t tid;
-    int ret;
-    if ((ret = pthread_create(&tid, NULL, timer_thread, NULL))){
-        fprintf(stderr, "pthread_create() error: %d\n",
-                ret);
-        exit(1);
-    }
-    if ((ret = pthread_detach(tid))){
-        fprintf(stderr, "pthread_detach() error: %d\n",
-                ret);
-        exit(1);
-    }
-
     run_test(nargs, args);
-
-    errors = 100;
 
     return 0;
 }

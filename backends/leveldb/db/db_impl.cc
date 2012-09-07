@@ -82,7 +82,7 @@ struct DBImpl::CompactionState {
 };
 
 struct DBImpl::DeletionState {
-  // Files produced by deletion 
+  // Files produced by deletion
   struct Output {
     uint64_t number;
     uint64_t file_size;

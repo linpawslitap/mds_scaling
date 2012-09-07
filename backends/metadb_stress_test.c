@@ -333,7 +333,11 @@ void run_test(int nargs, char* args[]) {
 
     uint64_t timeElapsed = timespecDiff(&end, &start);
     timeElapsed = timespecDiff(&end, &start);
+<<<<<<< HEAD
     printf("%s %d: %lld ns\n", args[4], num_test, timeElapsed);
+=======
+    printf("%s %d: %.1f ns\n", args[4], num_test, timeElapsed/1.0);
+>>>>>>> e2f7e661e3caa64e298284d917e720e7ad0d5177
 
     destroy_trace_loader(&loader);
     drop_buffer_cache();

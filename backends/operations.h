@@ -155,6 +155,8 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name);
 
 int metadb_close(struct MetaDB mdb);
 
+int metadb_valid(struct MetaDB mdb);
+
 // Returns "0" if MDB creates the file successfully, otherwise "-1" on error.
 int metadb_create(struct MetaDB mdb,
                   const metadb_inode_t dir_id,

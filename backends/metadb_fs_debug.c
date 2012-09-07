@@ -175,6 +175,25 @@ int metadb_create(struct MetaDB mdb,
     logMessage(METADB_LOG, __func__, "create %ld %d %d %ld %ld %ld %ld",
            dir_id, partition_id, entry_type, inode_id, path, realpath, sizeof(mdb));
 
+<<<<<<< HEAD
+            create_count += 1;
+
+            char val[5] = {'a'};
+            size_t vlen = 5;
+            char key[32] = {'a'};
+            sprintf(key, "test%016d", create_count);
+            size_t klen = 32;
+
+            leveldb_writeoptions_t* insert_options = leveldb_writeoptions_create();
+            leveldb_writeoptions_set_sync(insert_options, 0);
+
+            leveldb_put(mdb.db, insert_options,
+                        key, klen,
+                        val, vlen, &err);
+
+            leveldb_writeoptions_destroy(insert_options);
+
+=======
     create_count += 1;
 
     char val[5] = {'a'};
@@ -186,6 +205,7 @@ int metadb_create(struct MetaDB mdb,
     leveldb_put(mdb.db, mdb.insert_options,
                 key, klen,
                 val, vlen, &err);
+>>>>>>> f927a9ad6a3253bac08c0b64ef76ae601cb99c67
 
     if (err != NULL) {
         logMessage(METADB_LOG, __func__, "create(%s): err (%s)",

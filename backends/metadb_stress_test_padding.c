@@ -313,12 +313,15 @@ void run_create(struct MetaDB mdb, trace_loader_t* loader, int num_entries) {
     struct stat statbuf;
     int dir_id = 0;
     int partition_id = 0;
+    char padding[80];
+    memset(padding, 'a', 79);
+    padding[79] = '0';
     for (i = 0; i < num_entries; ++i) {
         ++count_files;
         char* filename = loader->paths[i];
         ASSERT(metadb_lookup(mdb, dir_id, partition_id, filename, &statbuf) != 0);
         ASSERT(metadb_create(mdb, dir_id, partition_id,
-                             filename, filename) == 0);
+                             filename, padding) == 0);
         ASSERT(metadb_lookup(mdb, dir_id, partition_id, filename, &statbuf) == 0);
     }
 }

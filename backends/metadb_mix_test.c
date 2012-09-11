@@ -14,7 +14,7 @@
 
 #define DEFAULT_MEASURE_INTERVAL 30
 #define MAX_FILENAME_LEN 1024
-#define NUM_BIG_ENTRIES 10000
+#define NUM_BIG_ENTRIES 1000000
 #define FILE_FORMAT "fd%d"
 #define DIR_FORMAT "d%d"
 #define MAX_BUF_SIZE (2 << 20)
@@ -379,28 +379,25 @@ int main(int nargs, char* args[]) {
 
     num_test = 0;
 
-    run_test_mix(nargs, args, 40, 1, 100);
-
-    /*
+    run_test_mix(nargs, args, 320, 1, 100);
     run_test_mix(nargs, args, 4000, 1, 100);
     run_test_mix(nargs, args, 4000, 10, 100);
     run_test_mix(nargs, args, 40000, 10, 100);
 
-    run_test_mix(nargs, args, 8, 1, 500);
-    run_test_mix(nargs, args, 80, 1, 500);
-    run_test_mix(nargs, args, 80, 10, 500);
+    run_test_mix(nargs, args, 64, 1, 500);
+    run_test_mix(nargs, args, 800, 1, 500);
+    run_test_mix(nargs, args, 800, 10, 500);
     run_test_mix(nargs, args, 8000, 10, 500);
 
-    run_test_mix(nargs, args, 1, 1, 4000);
+    run_test_mix(nargs, args, 40, 1, 4000);
     run_test_mix(nargs, args, 100, 1, 4000);
     run_test_mix(nargs, args, 100, 10, 4000);
     run_test_mix(nargs, args, 1000, 10, 4000);
 
-    run_test_mix(nargs, args, 1, 1, 16000);
+    run_test_mix(nargs, args, 10, 1, 16000);
     run_test_mix(nargs, args, 25, 1, 16000);
     run_test_mix(nargs, args, 25, 10, 16000);
     run_test_mix(nargs, args, 250, 10, 16000);
-    */
 
     return 0;
 }

@@ -73,10 +73,8 @@ int clean_db(char* dbname) {
     (void) dbname;
     char cmd[100];
     sprintf(cmd, "rm -rf %s", dbname);
-//    ASSERT(system("rm -rf /tmp/giga_ldb") == 0);
     ASSERT(system(cmd) == 0);
     sprintf(cmd, "mkdir %s", dbname);
-//    ASSERT(system("mkdir /tmp/giga_ldb") == 0);
     ASSERT(system(cmd) == 0);
     return 0;
 }
@@ -88,7 +86,7 @@ int64_t timespecDiff(struct timespec *timeA_p, struct timespec *timeB_p)
 }
 
 
-const int sampling = 1;
+const int sampling = 10;
 
 volatile int count_files = 0;
 int errors;
@@ -103,12 +101,26 @@ void *timer_thread(void *unused)
     ts.tv_nsec = 0;
 
     struct timespec rem;
+    int now_time;
 
 top:
-    printf("%d\n", count_files);
+    now_time = (int) time(NULL);
+    printf("opcount %d %d\n", now_time, count_files);
     if (metadb_valid(*mdb) > 0) {
       char* result = metadb_get_metric(*mdb);
-      printf("%s\n", result);
+      int r[8];
+      sscanf(result, "%d %d %d %d %d %d %d %d",
+             &(r[0]),&(r[1]),&(r[2]),&(r[3]),
+             &(r[4]),&(r[5]),&(r[6]),&(r[7]));
+      char* metname[8] = {
+          "num_files", "num_size", "num_compact",
+          "tot_comp_time", "tot_comp_read", "tot_comp_write",
+          "num_write_op", "num_get_op"
+      };
+      int ri;
+      for (ri = 0; ri < 8; ++ri) {
+        printf("metadb.%s %d %d\n", metname[ri], now_time, r[ri]);
+      }
       free(result);
     }
 
@@ -125,6 +137,52 @@ top:
         return NULL;
     else
         goto top;
+}
+
+void get_metric() {
+  FILE* f=fopen("/proc/diskstats", "r");
+  if (f == NULL) {
+    return;
+  }
+  char device[20];
+  long metric[11];
+  while (!feof(f)) {
+    if (fscanf(f, "%s %s %s", device, device, device) < 3) {
+      break;
+    }
+    if (strcmp(device, "sda4") == 0) {
+      if (fscanf(f, "%ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld",
+                 &metric[0], &metric[1], &metric[2], &metric[3],
+                 &metric[4], &metric[5], &metric[6], &metric[7],
+                 &metric[8], &metric[9], &metric[10]) < 11) {
+          break;
+      }
+    } else {
+      char c;
+      do {
+        c = getc(f);
+      } while (c != '\n' && c != EOF);
+    }
+  }
+  fclose(f);
+  const char* diskmetric[11] = {
+    "read_requests",        // Total number of reads completed successfully.
+    "read_merged",          // Adjacent read requests merged in a single req.
+    "read_sectors",         // Total number of sectors read successfully.
+    "msec_read",            // Total number of ms spent by all reads.
+    "write_requests",       // total number of writes completed successfully.
+    "write_merged",         // Adjacent write requests merged in a single req.
+    "write_sectors",        // total number of sectors written successfully.
+    "msec_write",           // Total number of ms spent by all writes.
+    "ios_in_progress",      // Number of actual I/O requests currently in flight
+    "msec_total",           // Amount of time during which ios_in_progress >= 1.
+    "msec_weighted_total",  // Measure of recent I/O completion time and backlog
+  };
+  int i;
+  int now_time = (int) time(NULL);
+  for (i = 0; i < 11; ++i) {
+    printf("%s %d %ld\n", diskmetric[i], now_time, metric[i]);
+  }
 }
 
 typedef struct Locker {
@@ -255,7 +313,6 @@ void run_create(struct MetaDB mdb, trace_loader_t* loader, int num_entries) {
     struct stat statbuf;
     int dir_id = 0;
     int partition_id = 0;
-    printf("Run create\n");
     for (i = 0; i < num_entries; ++i) {
         ++count_files;
         char* filename = loader->paths[i];
@@ -271,7 +328,6 @@ void run_query(struct MetaDB mdb, trace_loader_t* loader, int num_queries, int r
     struct stat statbuf;
     int dir_id = 0;
     int partition_id = 0;
-    printf("Run query\n");
     for (i = 0; i < num_queries; ++i) {
         ++count_files;
         char* filename = loader->paths[rand() % range];
@@ -333,11 +389,8 @@ void run_test(int nargs, char* args[]) {
 
     uint64_t timeElapsed = timespecDiff(&end, &start);
     timeElapsed = timespecDiff(&end, &start);
-<<<<<<< HEAD
-    printf("%s %d: %lld ns\n", args[4], num_test, timeElapsed);
-=======
-    printf("%s %d: %.1f ns\n", args[4], num_test, timeElapsed/1.0);
->>>>>>> e2f7e661e3caa64e298284d917e720e7ad0d5177
+    printf("%s.%d %d  %.1f \n", args[4], num_test,
+                   (int) time(NULL), timeElapsed/1.0);
 
     destroy_trace_loader(&loader);
     drop_buffer_cache();
@@ -350,6 +403,5 @@ int main(int nargs, char* args[]) {
     }
 
     run_test(nargs, args);
-
     return 0;
 }

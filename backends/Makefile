@@ -42,6 +42,12 @@ metadb_stress_test.o : metadb_stress_test.c operations.h
 metadb_stress_test : metadb_stress_test.o metadb_fs.o
 	$(CC) -o $@ $^ ../common.a $(LDFLAGS)
 
+metadb_stress_test_padding.o : metadb_stress_test_padding.c operations.h
+	$(CC) $(CFLAGS) -c metadb_stress_test_padding.c
+
+metadb_stress_test_padding: metadb_stress_test_padding.o metadb_fs.o
+	$(CC) -o $@ $^ ../common.a $(LDFLAGS)
+
 metadb_mix_test.o : metadb_mix_test.c operations.h
 	$(CC) $(CFLAGS) -c metadb_mix_test.c
 

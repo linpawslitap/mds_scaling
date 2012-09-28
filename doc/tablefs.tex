@@ -1,12 +1,13 @@
-\section{Table-based local store}
+%\section{Table-based local store}
+
 In GIGA+, we use a key-value store 
-one instance of \ldb \cite{LevelDB} on each GIGA+ server.
+one instance of \ldb \citep{LevelDB} on each GIGA+ server.
 This \ldb instance stores all inode attributes and the directory entries 
 for one or more directories by this server.
 
-\subsection{LevelDB}
-Inspired by a simpler structure in BigTable\cite{BigTable}, LevelDB \cite{LevelDB} is an open-source key-value storage library
-that features an Log-Structured Merge (LSM) Tree \cite{ONeil1996} for on-disk storage.
+\textbf{LevelDB -- }
+Inspired by a simpler structure in BigTable\citep{BigTable}, LevelDB \citep{LevelDB} is an open-source key-value storage library
+that features an Log-Structured Merge (LSM) Tree \citep{ONeil1996} for on-disk storage.
 It provides simple APIs such as GET, PUT, DELETE and SCAN.
 Unlike BigTable, not even single row transactions are supported in LevelDB. 
 
@@ -19,7 +20,7 @@ Unlike BigTable, not even single row transactions are supported in LevelDB.
 
 In a simple understanding of an LSM tree, an in memory buffer cache delays writing new and changed entries until it has a significant amount of change to record on disk. Delaying writes is made more durable by redundantly recording new and changed entries in a write-ahead log, which is pushed to disk periodically and asynchronously by default.
 
-In LevelDB, by default, a set of changes are spilled to disk when the total size of modified entries exceeds 4 MB.  When a spill is triggered, called a minor compaction, the changed entries are sorted, indexed and written to disk in a format called an SSTable\cite{BigTable}.  These entries may then be discarded by the in memory buffer and can be reloaded by searching each SSTable on disk, possibly stopping when the first match occurs if the SSTables are searched most recent to oldest.  The number of SSTables that need to be searched can be reduced by maintaining a Bloom filter\cite{bloomfilter} on each, but with time the cost of finding a record not in memory increases.  Major compaction, or simply ``compaction", is the process of combining multiple SSTables into a smaller number of SSTables by merge sort. Compaction is similar to \emph{online defragmentation} in traditional file systems and \emph{cleaning} in log-structured file systems \cite{LFS}.
+In LevelDB, by default, a set of changes are spilled to disk when the total size of modified entries exceeds 4 MB.  When a spill is triggered, called a minor compaction, the changed entries are sorted, indexed and written to disk in a format called an SSTable\citep{BigTable}.  These entries may then be discarded by the in memory buffer and can be reloaded by searching each SSTable on disk, possibly stopping when the first match occurs if the SSTables are searched most recent to oldest.  The number of SSTables that need to be searched can be reduced by maintaining a Bloom filter\citep{bloomfilter} on each, but with time the cost of finding a record not in memory increases.  Major compaction, or simply ``compaction", is the process of combining multiple SSTables into a smaller number of SSTables by merge sort. Compaction is similar to \emph{online defragmentation} in traditional file systems and \emph{cleaning} in log-structured file systems \citep{LFS}.
 
 As illustrated in Figure \ref{fig:leveldb}, LevelDB extends this simple approach to further reduce read costs by dividing SSTables into sets, or levels.
 The 0th level of SSTables follows the simple formulation; each SSTable in this level may contain entries with any key value, based on what was in memory at the time of its spill.
@@ -29,7 +30,8 @@ So querying for an entry in the higher levels only need read at most one SSTable
 LevelDB also sizes each of the higher levels differentially:  all SSTables have the same maximum size and the sum of the sizes of all SSTables at level $L$ will not exceed $10^L$ MB.
 This ensures that the number of level, that is, the maximum number of SSTables that need to be searched in the higher levels, grows logarithmically with increasing numbers of entries.
 
-\subsection{Table Schema}
+\textbf{Table Schema --}
+
 \giga's metadata store aggregates directory entries, 
 inode attributes and small files into one \ldb table with a row for each file.
 To link together the hierarchical structure of the user's namespace,
@@ -66,6 +68,5 @@ next component name in the pathname.
 Unlike BTRFS, \tfs does not need the second version of each directory entry
 because the entire attributes are returned in the \textit{readdir} scan.
 
-\subsection{Table Splitting}
 
 

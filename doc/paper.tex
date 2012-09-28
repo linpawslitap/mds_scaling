@@ -1,0 +1,241 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%% Generic paper template 
+%%%%%% - by, Swapnil V. Patil (svp -at- cs.cmu)
+%%%%%% - UPDATED: 1.1.11
+%%%%%% 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass[pdftex,twoside,twocolumn,10pt,letterpaper]{article}
+% -OR-
+%\documentclass[pdftex,twoside,article,10pt,letterpaper]{article}
+
+%%%%%% Page formatting
+%%%%%% 
+\pdfpagewidth 8.5in
+\pdfpageheight 11in
+
+\setlength\topmargin{0.0in}             %%%%%% Margins (top, even-/odd- pages)
+\setlength\oddsidemargin{0.0in}         %%%%%% - default=1in (i.e., 1+x)
+\setlength\evensidemargin{0.0in}
+
+\setlength\headheight{0.0in}            %%%%%% Header info
+\setlength\headsep{0in}
+
+\setlength\textwidth{6.5in}             %%%%%% Main text body 
+\setlength\textheight{9.0in}
+\setlength\topskip{0in}
+\setlength\footskip{0.25in}
+\setlength\columnsep{0.25in}
+
+%%%%%% Increase the textwidth by X, but keep the same relative placing
+%%%%%% 
+\advance\textwidth by 0in               %%%%%% X
+\advance\oddsidemargin by -0in          %%%%%% -X/2
+\advance\evensidemargin by -0in         %%%%%% -X/2
+
+%%%%%% Decrease the margins by X
+%%%%%% 
+\advance\textwidth by 0in               %%%%%% 2X
+\advance\oddsidemargin by -0in          %%%%%% -X
+\advance\evensidemargin by -0in         %%%%%% -X
+
+%%%%%% Paragraph spacing, widows/orphans 
+%%%%%%
+\setlength\parindent{0.10in}            %%%%%% Paragraph spacing 
+\setlength\parskip{0.03in}
+
+\clubpenalty=1000                       %%%%%% No orphans
+\widowpenalty=1000                      %%%%%% No widows
+\interfootnotelinepenalty=10000         %%%%%% No split footnotes
+
+%%%%%% Formatting setup for captions, sections and subsections 
+%%%%%%
+\makeatletter  % Allow the use of @ in command names
+\long\def\@makecaption#1#2{%
+  \vskip\abovecaptionskip
+  \sbox\@tempboxa{{\captionfonts #1: #2}}%
+  \ifdim \wd\@tempboxa >\hsize
+    {\captionfonts #1: #2\par}
+  \else
+    \hbox to\hsize{\hfil\box\@tempboxa\hfil}%
+  \fi
+  \vskip\belowcaptionskip}
+
+%%%%%% Captions
+%%%%%%
+\ifx\abovecaptionskip\@undefined
+  \newskip\abovecaptionskip
+  \newskip\belowcaptionskip
+\fi
+\abovecaptionskip=0.5\baselineskip
+\belowcaptionskip=-0.5\baselineskip
+\long\def\@makecaption#1#2{%
+  \vskip\abovecaptionskip
+  \sbox\@tempboxa{\small\textbf{#1} -- {#2}}%
+  \ifdim \wd\@tempboxa >\hsize
+    {\small\textbf{#1} -- {#2}\par}
+  \else
+    \global \@minipagefalse
+    \hb@xt@\hsize{\hfil\box\@tempboxa\hfil}%
+  \fi
+  \vskip\belowcaptionskip}
+
+%%%%%% Section, subsection and subsubsection formatting 
+%%%%%%
+\renewcommand\section{\@startsection 
+  {section}{1}{0mm}%                        % name, level, indent
+  {-2ex \@plus -1ex \@minus -2ex}%        % X + Y - space above SECTITLE
+  {0.5ex \@plus.2ex}%                       % for spacing after SECTITLE 
+  %{\sf\bfseries\fontsize{18}{18}\selectfont}
+  {\normalfont\bfseries\fontsize{13}{13}\selectfont}
+}
+\renewcommand\subsection{\@startsection 
+  {subsection}{2}{0mm}%                     % name, level, indent
+  {-2ex \@plus -1ex \@minus -2ex}%        % X + Y - space above SECTITLE
+  {0.5ex \@plus.2ex}%                       % for spacing after SECTITLE 
+  %{\sf\bfseries\fontsize{16}{16}\selectfont}
+  {\normalfont\bfseries\fontsize{11}{11}\selectfont}
+}
+\renewcommand\subsubsection{\@startsection 
+  {subsubsection}{3}{0mm}%                  % name, level, indent
+  {-2ex \@plus -1ex \@minus -2.2ex}%        % X + Y - space above SECTITLE
+  {-1ex \@plus.2ex}%                        % for spacing after SECTITLE 
+  %{\sf\bfseries\fontsize{14}{14}\selectfont}
+  {\normalfont\bfseries\fontsize{11}{11}\selectfont}
+}
+\makeatother
+
+%%%%%% Fonts and typesetting 
+%%%%%%
+\usepackage[T1]{fontenc}
+\usepackage{textcomp}
+\usepackage{mathptmx}           %%%%% Times + Times-like math symbols
+\usepackage{courier}
+\usepackage[scaled=0.92]{helvet}
+%%%%%% Uncomment these lines to use a GARAMOND font (if available)
+%\renewcommand{\rmdefault}{ugm} %%%%%% UGM Garamond
+%\usepackage[adobe-utopia]{mathdesign}
+%%%%%%
+
+%%%%%% Bibliography using bibtex 
+%%%%%%
+\usepackage[numbers,sort&compress, square]{natbib}   %%%%% BIBTEX
+%\usepackage{natbib}   %%%%% BIBTEX
+%\bibpunct{[}{]}{;}{a}{}{,}
+
+%%%%%% Tables and figures
+%%%%%%
+\usepackage[pdftex]{graphicx}           %%%%% PDFLATEX (for PDF figures)
+\usepackage{lscape}                     %%%%% Landscape rotation
+\usepackage{rotating}                   %%%%% ?
+\usepackage{booktabs}                   %%%%% ?
+\usepackage[table]{xcolor}              %%%%% Colors in tables
+
+%%%%%% Misc
+%%%%%%
+\usepackage{verbatim}                   %%%%% Block comments (\begin{comment}) 
+\usepackage{color}                      %%%%% Graphics
+\usepackage{thumbpdf}                   %%%%% ?
+\usepackage{url}                        %%%%% URL formatting
+
+%%%%%% Proof-reading (increase the spacing; default: singlespacing)
+%%%%%%
+\usepackage{setspace}
+\singlespacing
+% -OR-
+%\onehalfspacing
+% -OR-
+%\doublespacing
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%% Additional useful packages that need special style files
+
+%%%%%% Lists
+%%%%%%
+%\usepackage{enumitem}
+%\setlist{itemsep=0pt,parsep=0pt}        %%%%%% More compact lists
+
+%%%%%% For "To appear/appeared" in text on title page
+%%%%%% 
+%\usepackage[absolute]{textpos}
+%\newcommand{\ToAppear}{%
+%\begin{textblock*}{\textwidth}(0.95in,0.4in)
+%\begin{flushright}
+    %\noindent{\fbox{\textsf{Under submission---please do not redistribute.}}}
+    %  --OR--
+%    \noindent{\fbox{\textsf{Working draft---please do not redistribute.}}}
+    %  --OR--
+    %\noindent{\small To appear in \textit{Proceedings of the XYZ}\\
+    %\noindent{\small \textit{Conference (XYZ'99)}, City, State, Month Year}}
+%\end{flushright}
+%\end{textblock*}
+%}
+
+%%%%%% Misc
+%\usepackage{soul}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%% Title and authors 
+%%%%%%
+\title{\bf Scaling the metadata path through the data path. 
+}
+\author{
+    Swapnil Patil, Kai Ren and Garth Gibson \\
+    Carnegie Mellon University \\
+    \texttt{\small\{firstname.lastname @ cs.cmu.edu\}} \\
+    %\normalsize {Paper \#5 submitted to FAST 2011 (Sep 2, 2010)}
+%    \thanks{
+%}\\
+}
+\date{}
+
+%%%%%% Paper specific commands 
+%%%%%%
+\newcommand{\giga}{\textsc{Giga+}}       
+\newcommand{\tfs}{\textsc{TableFS}}      
+\newcommand{\ldb}{\textsc{LevelDB}}       
+
+%%%%%% for formatting (NOTE: last thing before \begin{document})
+%%%%%%
+\usepackage{microtype}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%% Start main document 
+%%%%%%
+\begin{document}
+
+\maketitle
+
+% Needs the above package
+%\ToAppear 
+
+\input{abstract}
+\input{intro}
+\input{design}
+\input{eval}
+\input{summary}
+
+
+%\pagebreak
+%\newpage
+
+\vspace{11pt}
+\hrule{}
+%\small
+%\textbf{Acknowledgements.}
+
+\vspace{11pt}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%% Add bibliography 
+%%%%%%
+\setlength{\bibsep}{8pt}
+\small
+\bibliographystyle{acm}
+%\bibliographystyle{myAuthorDate}
+\bibliography{reference}
+%\bibliography{../pubs}
+
+\end{document}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -1,15 +1,49 @@
 \section{Design}
 
-In this section, we present the design and implementation of our system.
-Section \ref{design.giga} and \ref{design.tablefs} present a primer on how we
-distribute the metadata in a highly scalable manner using the \giga{} technique
-and how we represent file system metadata using the \tfs{} approach.
-Section \ref{design.integration} describes our approach to effectively
-integrate \giga{] and \tfs{} to build a high-performance metadata management
-solution.
+\begin{figure}[t]   %% START_FIGURE
+\centerline{\includegraphics[scale=0.3]{./figs/giga-impl-leveldb-clusterfs}}
+\caption{
+\textbf{High-level design.}
+{\small
+Our approach for a scalable metadata service integrates two components: a highly 
+parallel and load-balanced indexing technique (called \giga{} \cite{GIGA}) to 
+partition
+metadata over multiple servers and an optimized metadata representation (called
+\tfs{} \cite{tablefs}) on each server. 
+Our approach aims to layer this integrated solution on top of existing cluster file 
+system deployments. 
+}
+}
+\vspace{15pt}
+\hrule
+\label{fig:design}
+\end{figure}       %% END_FIGURE
+
+Figure \ref{fig:design} shows the architecture of our scalable metadata
+service that is designed to be layered on existing deployments of cluster file
+systems. Our approach uses a client-server architecture and has three components: 
+unmodified applications running on clients, the \giga{} directory indexing service 
+on clients and servers, and the \tfs{} persistent metadata representation managed 
+by the server. 
+
+Using \giga{} and \tfs{} enables us to tackle two key challenges: highly 
+concurrent metadata distribution for ingest-intensive parallel applications
+such as checkpointing \cite{GIGA} and 
+optimized metadata representation that stores all file system
+metadata in structured, indexed files manages by existing cluster file system
+deployments \cite{tablefs}. 
+
+Remainder of this section describes more details of our approach. 
+Section \ref{design.giga} and \ref{design.tablefs} present a primer on how
+\giga{} distributes the metadata in a load-balanced manner and how \tfs{}
+stores the metadata to enable high-speed access. 
+Section \ref{design.integration} describes the challenges in effectively
+integrating \giga{} and \tfs{} to work with existing cluster file system
+deployments. 
 
 \subsection{Scalable partitioning using \giga{}}
 \label{design.giga}
+\input{giga}
 
 \subsection{Metadata layout using \tfs{}}
 \label{design.tablefs}
@@ -18,11 +52,19 @@ solution.
 \subsection{Integrating \giga{} and \tfs{}}
 \label{design.integration}
 
-\subsubsection{Partition splitting}
+The previous two sections described how \giga{} provides a highly concurrent and 
+load-balanced metadata distribution over multiple servers and how \tfs{} uses
+a optimized on-disk representation to speed-up metadata performance in local
+stores. However, to effectively integrate the distribution mechanism with the
+local representation, we tackled several challenges. 
 
-\subsubsection{Metadata-specific operations}
+\subsubsection*{Partition splitting}
 
-\subsubsection{Accessing file data}
+Each \giga{} hash partition 
 
-\subsubsection{Other challenges}
+\subsubsection*{Metadata-specific operations}
+
+\subsubsection*{Accessing file data}
+
+\subsubsection*{Other challenges}
 

@@ -1,19 +1,24 @@
-\section{Design}
+\section{Design and implementation}
 
 \begin{figure}[t]   %% START_FIGURE
 \centerline{\includegraphics[scale=0.3]{./figs/giga-impl-leveldb-clusterfs}}
 \caption{
-\textbf{High-level design.}
+%\textbf{Proposed design.}
 {\small
-Our approach for a scalable metadata service integrates two components: a highly 
-parallel and load-balanced indexing technique (called \giga{} \cite{GIGA}) to 
-partition
-metadata over multiple servers and an optimized metadata representation (called
-\tfs{} \cite{TableFS}) on each server. 
-Our approach aims to layer this integrated solution on top of existing cluster file 
-system deployments. 
+Design of our scalable metadata middleware that integrates a distributed metadata indexing
+technique with a tabular metadata-optimized on-disk layout on each server and
+layers on existing cluster file systems. 
+%Our approach for a scalable metadata service integrates two components: a highly 
+%parallel and load-balanced indexing technique (called \giga{} \cite{GIGA}) to 
+%partition
+%metadata over multiple servers and an optimized metadata representation (called
+%\tfs{} \cite{TableFS}) on each server. 
+%Our approach aims to layer this integrated solution on top of existing cluster file 
+%system deployments. 
 }
 }
+\vspace{10pt}
+\hrule 
 \label{fig:design}
 \end{figure}       %% END_FIGURE
 
@@ -21,22 +26,22 @@ Figure \ref{fig:design} shows the architecture of our scalable metadata
 service that is designed to be layered on existing deployments of cluster file
 systems. Our approach uses a client-server architecture and has three components: 
 unmodified applications running on clients, the \giga{} directory indexing service 
-on clients and servers, and the \tfs{} persistent metadata representation managed 
-by the server. 
+on clients and servers, and the \ldb{}-based persistent metadata representation 
+managed by the server. 
 
-Using \giga{} and \tfs{} enables us to tackle two key challenges: highly 
+Using \giga{} and \ldb{} enables us to tackle two key challenges: highly 
 concurrent metadata distribution for ingest-intensive parallel applications
-such as checkpointing \cite{GIGA} and 
+such as checkpointing \cite{PLFS} and 
 optimized metadata representation that stores all file system
 metadata in structured, indexed files manages by existing cluster file system
-deployments \cite{tablefs}. 
+deployments \cite{LevelDB}. 
 
 Remainder of this section describes more details of our approach. 
 Section \ref{design.giga} and \ref{design.tablefs} present a primer on how
-\giga{} distributes the metadata in a load-balanced manner and how \tfs{}
+\giga{} distributes the metadata in a load-balanced manner and how \ldb{}
 stores the metadata to speed-up metadata performance on each server. 
 Section \ref{design.integration} describes the challenges in effectively
-integrating \giga{} and \tfs{} to work with existing cluster file system
+integrating \giga{} and \ldb{} to work with existing cluster file system
 deployments. 
 
 \subsection{Scalable partitioning using \giga{}}
@@ -47,15 +52,15 @@ deployments.
 \label{design.tablefs}
 \input{tablefs}
 
-\subsection{Integrating \giga{} and \tfs{}}
+\subsection{Integrating \giga{} and \ldb{}}
 \label{design.integration}
 
 To effectively integrate the \giga{} distribution mechanism with the
-\tfs{} local representation, we tackled several challenges. 
+\ldb{}-based metadata representation, we tackled several challenges. 
 
 \subsubsection*{Metadata representation.}
 
-\tfs{} stores all metadata in the system including \giga{} hash
+\ldb{} stores all metadata in the system including \giga{} hash
 partitions for all directories, entries in each hash partition, and other
 bootstrapping information such as root entry and \giga{} configuration state.
 The general schema used to store all file is shown below in
@@ -67,7 +72,7 @@ The general schema used to store all file is shown below in
  hash(dirEntry)}       gigaMetaState}
 \end{verbatim}
 
-The main differences from the \tfs{} schema described in Section
+The main differences from the \ldb{} schema described in Section
 \ref{design.tablefs} is the addition of \texttt{gigaPartitionID} to identify a
 \giga{} hash partition and the optional \texttt{gigaMetaState} to store the
 hash partition related mapping information. \giga{} related fields are used
@@ -79,8 +84,8 @@ need for \texttt{gigaPartitionID} in the schema.}
 
 \subsubsection*{Partition splitting.}
 
-Each \giga{} hash partition and its directory entries are stored in sorted \ldb{} 
-files in local \tfs{} instance. 
+Each \giga{} hash partition and its directory entries are stored in sorted
+SSTable files in local \ldb{} instance. 
 Recall that each \giga{} server process manages its hash partition $P$ that, on 
 overflow, is split into another hash partition $P'$ which is stored on a 
 different server; this split involves migrating approximately half the entries 
@@ -91,22 +96,22 @@ One approach would be to perform a range scan on partition $P$ and for each
 entry in the scan result, check if it needs to be moved to a different server.
 All entries that need to be moved to the new partition $P'$ are batched
 together and sent in an RPC message to the server that manages partition $P'$.
-The recepient server scans the batch and inserts each key in its own \tfs{}
+The recepient server scans the batch and inserts each key in its own \ldb{}
 instance. While the simplicity of this approach makes it an attractive
 alternative, there is significant cost stemming from \ldb{} compaction
 operations: inserts in \ldb{} tables will force merging and rearranging which
 degrades performance until it completes.
 
 To minimize the overhead of these background compactions, we extended \ldb{}
-used in \tfs{} to support a three-phase split operation. 
-First, the split initiator performs a range scan on its \tfs{} instance to find all
+to support a three-phase split operation. 
+First, the split initiator performs a range scan on its \ldb{} instance to find all
 entries in the hash-range that needs to be moved to another server. The results
-of this scan are written to a separate \ldb{}-format file in a shared storage
-volume accessible to all \giga{} servers.
+of this scan are written to a separate \ldb{}-specific SSTable format file in a 
+shared storage volume accessible to all \giga{} servers.
 In the second step, the split initiator notifies the split receiver about this new
 partition split and the pointer to the new \ldb{}-format file in the shared
 storage volume. The split receiver reads this file and performs a bulk
-insertion in the \ldb{} table of its \tfs{} instance. This bulk insertion can
+insertion in the \ldb{} table. This bulk insertion can
 directly ``plug in'' the file in the \ldb{} tree structure instead of
 iteratively inserting one key at a time.
 The final step is a clean-up and commit phase: after the receiver completes the 

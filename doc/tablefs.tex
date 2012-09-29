@@ -8,12 +8,15 @@ can transform metadata updates to large, non-overwrite, sorted and indexed logs 
 which greatly reduces random disk seeks.
 The detailed design of LevelDB and how to use LevelDB to store metadata is explained as the follows.
 
-\subsubsection*{LevelDB and LSM Tree}
+\subsubsection*{LevelDB and LSM Tree. }
 
-\begin{figure}[!ht]
+%\begin{figure}[!ht]
+\begin{figure}[t]
 \centering
 \includegraphics[scale=0.4]{figs/leveldb}
 \caption{LevelDB represents data on disk in multiple SSTables that store sorted key-value pairs.}
+\vspace{10pt}
+\hrule 
 \label{fig:leveldb}
 \end{figure}
 
@@ -28,7 +31,7 @@ So querying for an entry in the higher levels only need read at most one SSTable
 LevelDB also sizes each of the higher levels differentially:  all SSTables have the same maximum size and the sum of the sizes of all SSTables at level $L$ will not exceed $10^L$ MB.
 This ensures that the number of level grows logarithmically with increasing numbers of entries.
 
-\subsubsection*{Table Schema} 
+\subsubsection*{Table Schema. } 
 
 The local metadata store aggregates directory entries, 
 inode attributes into one LevelDB table with a row for each file / directory.
@@ -41,10 +44,13 @@ such as inode number, ownership, access mode, file size, timestamps (\textit{str
 and a symoblic link that contains the actual path of the file object in the object store.
 Figure \ref{fig:schema} shows an example of storing a sample file system's metadata into one LevelDB table.
 
-\begin{figure}[!ht]
+%\begin{figure}[!ht]
+\begin{figure}[t]
 \centering
 \includegraphics[scale=0.35]{figs/schema}
 \caption{An example illustrates table schema for storing metadata into LevelDB.}
+\vspace{10pt}
+\hrule 
 \label{fig:schema}
 \end{figure}
 

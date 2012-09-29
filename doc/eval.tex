@@ -41,12 +41,12 @@ LevelDB.
 \begin{figure}[t]  %%%%%%%%%%%%%%%%%%%%%%%
 \centerline{\includegraphics[scale=0.45]{./figs/ldb_insertrate_onenode}}
 \caption{
-\textbf{Single-node LevelDB performance variability.}
+\textbf{Single-node LevelDB performance compared to three Linux filesystems.}
 {\small
-A one-server configuration with LevelDB backend shows the performance
-variability due to compactions happening during a \textit{concurrent create} 
-workload that creates one million files in a single directory. The steady state
-file create rate drops more than 35\% during this experiment.
+A one-server configuration with LevelDB backend shows the performance of creating 100 million zero-length files.
+We only graph the time until LevelDB finished inserting all 100 million zero-length files, 
+because the other file systems were much slower. LevelDB is 10X faster than the other tested file systems.
+The veritical axis is in a log scale.
 }
 }
 \vspace{15pt}

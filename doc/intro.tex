@@ -1,15 +1,57 @@
 \section{Introduction}
 
-\begin{verbatim}
-Problem
--- metadata-intensive workloads in HPC
--- examples: checkpointing, storage management
--- requirements: high-speed ingest, incremental approach,  
+Lack of a highly scalable and parallel metadata service continues to be the 
+Achilles heal for many cluster file systems deployments in both the HPC world 
+and the Internet services world.
+This is primarily because most cluster file systems were designed to scale the
+data path, i.e. provide high bandwidth parallel I/O to files that are tens to
+hunderds of gigabytes in size.
+But with proliferation of massively parallel applications that perform highly
+metadata-intensive accesses, such as large number of simultaneous file creates
+and large-scale storage management, cluster file systems need to scale the
+metadata path too.
 
-Solution
--- integrating giga+ and tablefs
----- scalable distribution and partitioning
----- high-performance metadata representation
--- challenges in integration
----- 
-\end{verbatim}
+There are numerous applications and use-cases that need concurrent and 
+high-performance metadata operations.
+One such example is checkpointing which requires the metadata service to
+handle large number of file creates and updates at very high speeds. XXX 
+Another example, storage management, is a read-intensive metadata workload. XXX
+
+Given these diverse use-cases, we set two goals for building a scalable
+metadata service for cluster file systems. The first requirement
+is the need to support very high-performance for \textit{reads} and
+\textit{writes}.
+
+The second goal is to provide extensions for existing cluster file system
+deployments that lack a full distributed metadata service.
+While much newer work in cluster file systems promises fully distributed
+metadata \cite{ceph:weil06}, there are significant number of large
+installations that are running cluster file systems that do not provide the
+entire gamut of distributed metadata support.
+Several large cluster file system installations, include Panasas PanFS running
+on Cielo at LANL \cite{panfs-cielo} and PVFS running on BlueGene at ANL
+\cite{pvfs-anl}, can benefit from a solution that provides, for instance,
+distributed directory support which can be deployed quickly without any
+modifications to the running cluster file system.
+
+To realize these goals, this paper presents the design, implementation and
+evaluation of a fully distributed metadata service that distributes both the
+file system namespace and large directories in a load-balanced and concurrent
+manner.
+Our approach synthesizes the \giga{} distributed indexing technique to partition
+metadata, including large directories, over multiple servers and the \tfs{}
+metadata-optimized representation on individual servers.
+\giga{} enables highly concurrent metadata distribution to support applications, 
+such as checkpointing, that generate massively concurrent high-ingest file 
+creation workloads.
+\tfs{} leverages a sorted, on-disk metadata representation that can benefit
+applications, such as storage management, that need to scan the entire file
+system metadata for analysis. 
+
+Integrating an optimized local store with a distributed algorithm required
+several optimizations including cross-server split operations with minimum data
+migration, decoupled data and metadata paths, and XXX.
+Our preliminary prototype show promising scalability and performance: we
+achieve linear scalability for up to 64 metadata servers and a peak performance
+of more than 180,000 file creates per second in a single directory.
+

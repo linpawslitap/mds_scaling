@@ -36,7 +36,7 @@ deployments \cite{tablefs}.
 Remainder of this section describes more details of our approach. 
 Section \ref{design.giga} and \ref{design.tablefs} present a primer on how
 \giga{} distributes the metadata in a load-balanced manner and how \tfs{}
-stores the metadata to enable high-speed access. 
+stores the metadata to speed-up metadata performance on each server. 
 Section \ref{design.integration} describes the challenges in effectively
 integrating \giga{} and \tfs{} to work with existing cluster file system
 deployments. 
@@ -52,19 +52,79 @@ deployments.
 \subsection{Integrating \giga{} and \tfs{}}
 \label{design.integration}
 
-The previous two sections described how \giga{} provides a highly concurrent and 
-load-balanced metadata distribution over multiple servers and how \tfs{} uses
-a optimized on-disk representation to speed-up metadata performance in local
-stores. However, to effectively integrate the distribution mechanism with the
-local representation, we tackled several challenges. 
+To effectively integrate the \giga{} distribution mechanism with the
+\tfs{} local representation, we tackled several challenges. 
 
-\subsubsection*{Partition splitting}
+\subsubsection*{Metadata representation.}
 
-Each \giga{} hash partition 
+\tfs{} stores all metadata in the system including including \giga{} hash
+partitions for all directories, entries in each hash partition, and other
+bootstrapping information such as root entry and \giga{} configuration state.
+The general schema used to store all file is shown below in
+\texttt{\{key\} --> \{value\}} format:
 
-\subsubsection*{Metadata-specific operations}
+\begin{verbatim}
+{parentDirID,         {attr(dirEntry),
+ gigaPartitionID, -->  symlink/data,
+ hash(dirEntry)}       gigaMetaState}
+\end{verbatim}
 
-\subsubsection*{Accessing file data}
+The main differences from the \tfs{} schema described in Section
+\ref{design.tablefs} is the addition of \texttt{gigaPartitionID} to identify a
+\giga{} hash partition and the optional \texttt{gigaMetaState} to store the
+hash partition related mapping information. \giga{} related fields are used
+only if large directories are distributed over multiple metadata servers.
+\footnote{
+Since we already store the \texttt{hash} of the directory entry, we can use the
+hash-values to identify hash partitions; this optimization will eliminate the
+need for \texttt{gigaPartitionID} in the schema.} 
 
-\subsubsection*{Other challenges}
+\subsubsection*{Partition splitting.}
+
+Each \giga{} hash partition and its directory entries are stored in sorted \ldb{} 
+files in local \tfs{} instance. 
+Recall that each \giga{} server process manages its hash partition $P$ that, on 
+overflow, is split into another hash partition $P'$ which is stored on a 
+different server; this split involves migrating approximately half the entries 
+from old partition $P$ to the new hash partition $P'$ on to another server. 
+We explored several ways to perform this cross-server partition split.
+
+One approach would be to perform a range scan on partition $P$ and for each
+entry in the scan result, check if it needs to be moved to a different server.
+All entries that need to be moved to the new partition $P'$ are batched
+together and sent in an RPC message to the server that manages partition $P'$.
+The recepient server scans the batch and inserts each key in its own \tfs{}
+instance. While the simplicity of this approach makes it an attractive
+alternative, there is significant cost stemming from \ldb{} compaction
+operations: inserts in \ldb{} tables will force merging and rearranging which
+degrades performance until it completes.
+
+To minimize the overhead of these background compactions, we extended \ldb{}
+used in \tfs{} to support a three-phase split operation. 
+First, the split initiator performs a range scan on its \tfs{} instance to find all
+entries in the hash-range that needs to be moved to another server. The results
+of this scan are written to a separate \ldb{}-format file in a shared storage
+volume accessible to all \giga{} servers.
+In the second step, the split initiator notifies the split receiver about this new
+partition split and the pointer to the new \ldb{}-format file in the shared
+storage volume. The split receiver reads this file and performs a bulk
+insertion in the \ldb{} table of its \tfs{} instance. This bulk insertion can
+directly ``plug in'' the file in the \ldb{} tree structure instead of
+iteratively inserting one key at a time.
+The final step is a clean-up and commit phase: after the receiver completes the 
+bulk insert operation, it empties the shared store volume and notifies the 
+initiator, who then deletes the hash-range from its LevelDB instance.
+\footnote
+{
+This three-phase split can be refined even further: \ldb{} can use symbolic links 
+to these split files without explicitly copying the files through shared
+storage. Because the current release of \ldb{} does not have support for links, we 
+left this optimization for future work. 
+}
+
+\subsubsection*{Metadata-specific operations.}
+
+\subsubsection*{Accessing file data.}
+
+\subsubsection*{Other challenges.}
 

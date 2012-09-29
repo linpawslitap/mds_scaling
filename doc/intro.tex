@@ -14,7 +14,7 @@ metadata path too.
 There are numerous applications and use-cases that need concurrent and 
 high-performance metadata operations.
 One such example is checkpointing which requires the metadata service to
-handle large number of file creates and updates at very high speeds. XXX 
+handle large number of file creates and updates at very high speeds \cite{PLFS, GIGA}.
 Another example, storage management, is a read-intensive metadata workload. XXX
 
 Given these diverse use-cases, we set two goals for building a scalable
@@ -29,8 +29,8 @@ metadata \cite{ceph:weil06}, there are significant number of large
 installations that are running cluster file systems that do not provide the
 entire gamut of distributed metadata support.
 Several large cluster file system installations, include Panasas PanFS running
-on Cielo at LANL \cite{panfs-cielo} and PVFS running on BlueGene at ANL
-\cite{pvfs-anl}, can benefit from a solution that provides, for instance,
+on Cielo at LANL \cite{PanFS} and PVFS running on BlueGene at ANL
+\cite{PVFS}, can benefit from a solution that provides, for instance,
 distributed directory support which can be deployed quickly without any
 modifications to the running cluster file system.
 
@@ -38,8 +38,8 @@ To realize these goals, this paper presents the design, implementation and
 evaluation of a fully distributed metadata service that distributes both the
 file system namespace and large directories in a load-balanced and concurrent
 manner.
-Our approach synthesizes the \giga{} distributed indexing technique to partition
-metadata, including large directories, over multiple servers and the \tfs{}
+Our approach synthesizes the \giga \cite{GIGA} distributed indexing technique to partition
+metadata, including large directories, over multiple servers and the \tfs \cite{TableFS}
 metadata-optimized representation on individual servers.
 \giga{} enables highly concurrent metadata distribution to support applications, 
 such as checkpointing, that generate massively concurrent high-ingest file 

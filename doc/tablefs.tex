@@ -45,10 +45,8 @@ and a 160-bit SHA-1 hash value of its filename string (final component of its pa
 The value of a row contains the file's full name and inode attributes,
 such as inode number, ownership, access mode, file size, timestamps (\textit{struct stat} in Linux),
 and a symoblic link that contains the actual path of the file object in the object store.
-In the integrated version, the value of a row also contains \giga-specific information 
-such as the partition history of a directory and the initial server holding the directory.
-
 Figure \ref{fig:schema} shows an example of storing a sample file system's metadata into one LevelDB table.
+
 \begin{figure}[!ht]
 \centering
 \includegraphics[scale=0.35]{figs/schema}

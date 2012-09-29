@@ -29,7 +29,7 @@ scale-out data partitioning on servers without any system-wide synchronization,
 allowing the use of out-of-date partition-to-server mapping state, and 
 facilitating online server addition with minimal data migration overhead
 \citep{GIGA}.
-We discuss the first two ideas in details
+We discuss the first idea in details.
 
 \textbf{Unsynchronized data partitioning -- }
 %\subsection*{Unsynchronized data partitioning}
@@ -131,6 +131,8 @@ any time, particularly for rapidly mutating directories.
 %- split into half -> split into N over N servers: adaptive fast growth
 
 %%%%%%%%%%%
+
+\begin{comment}
 \textbf{Tolerating inconsistent mapping at clients -- }
 %\subsection*{Tolerating inconsistent mapping at clients}
 %\label{indexing:inconsistency}
@@ -173,7 +175,6 @@ tradeoffs \citep{giga}; the observations that are within the scope of this work
 include the load-balancing and incremental growth strategy.
 
 
-\begin{comment}
 %%%%%%%%%%%
 \subsection*{On-line server additions}
 \label{indexing.reconfig}

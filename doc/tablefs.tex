@@ -1,19 +1,14 @@
-%\section{Table-based local store}
-
-\tfs \cite{TableFS} is a stacked local file system, 
-which uses another local file system as an object store 
-and organizes all metadata into a single sparse table backed on-disk 
-using a Log-Structured Merge (LSM) tree \cite{ONeil1996}, LevelDB\cite{LevelDB} in our experiments.
-By using an LSM tree, TableFS ensures metadata is written to disk in large, non-overwrite, sorted and indexed logs.
-The detailed design of  \tfs and LevelDB are explained as the follows.
-
-\subsubsection*{LevelDB and LSM Tree}
 Inspired by a simpler structure in BigTable\citep{BigTable}, 
 LevelDB \citep{LevelDB} is an open-source key-value storage library
 that features an Log-Structured Merge (LSM) Tree \citep{ONeil1996} for on-disk storage.
-It provides simple APIs such as GET, PUT, DELETE and SCAN.
 In a simple understanding of an LSM tree, an in memory buffer cache delays 
-writing new and changed entries until it has a significant amount of change to record on disk. 
+writing new and changed entries until it has a significant amount of change to record on disk.
+Using LevelDB as a local storage representation for metedata, 
+can transform metadata updates to large, non-overwrite, sorted and indexed logs on disks,
+which greatly reduces random disk seeks.
+The detailed design of LevelDB and how to use LevelDB to store metadata is explained as the follows.
+
+\subsubsection*{LevelDB and LSM Tree}
 
 \begin{figure}[!ht]
 \centering
@@ -35,7 +30,7 @@ This ensures that the number of level grows logarithmically with increasing numb
 
 \subsubsection*{Table Schema} 
 
-\tfs's metadata store aggregates directory entries, 
+The local metadata store aggregates directory entries, 
 inode attributes into one LevelDB table with a row for each file / directory.
 To link together the hierarchical structure of the user's namespace,
 the rows of the table are ordered by a 224-bit key consisting of 
@@ -49,7 +44,7 @@ Figure \ref{fig:schema} shows an example of storing a sample file system's metad
 \begin{figure}[!ht]
 \centering
 \includegraphics[scale=0.35]{figs/schema}
-\caption{An example illustrates table schema used by \tfs's metadata store.}
+\caption{An example illustrates table schema for storing metadata into LevelDB.}
 \label{fig:schema}
 \end{figure}
 
@@ -59,7 +54,7 @@ For $readdir$ operations, once the inode number
 of the target directory has been retrieved, 
 a scan sequentially lists all entries having 
 the directory's inode number as the first 64 bits of their table's key. 
-To resolve a single pathname, \tfs starts searching from the root inode, 
+To resolve a single pathname, the metadata server starts searching from the root inode, 
 which has a well-known global inode number $(0)$.
 Traversing the user's directory tree
 involves constructing a search key by concatenating the inode 

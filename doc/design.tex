@@ -34,8 +34,8 @@ All metadata requests, such as \texttt{create()}, \texttt{mkdir()} and
 \texttt{open()}, are handled through the \giga indexing modules that address
 the request to the appropriate server.
 Each indexing server manages its local \ldb instance to store and access all
-metadata information. This \ldb instance is stored in the underlying cluster
-file system.
+metadata information. This \ldb instance stores flat files (in its special
+format) containing changes in metadata. 
 Once the client receives the relevant metadata back from the server, our
 middleware allows clients to access the actual file contents directly through
 the cluster file system.
@@ -46,6 +46,7 @@ such as checkpointing \cite{PLFS} and
 optimized metadata representation that stores all file system
 metadata in structured, indexed files manages by existing cluster file system
 deployments \cite{LevelDB}. 
+
 Remainder of this section describes more details of our approach. 
 Section \ref{design.giga} presents a primer on how \giga{} distributes the
 metadata. 
@@ -70,15 +71,17 @@ To effectively integrate the \giga{} distribution mechanism with the
 
 \subsubsection*{Metadata representation.}
 
-\ldb{} stores all metadata in the system including \giga{} hash
-partitions for all directories, entries in each hash partition, and other
+\ldb{} stores all metadata including \giga{} hash
+partitions for directories, entries in each hash partition, and other
 bootstrapping information such as root entry and \giga{} configuration state.
-The general schema used to store all file is shown below in
-\texttt{\{key\} --> \{value\}} format:
+The general schema used to store all file is:
+%\texttt{\{key\} --> \{value\}} format:
 
 \begin{verbatim}
+    <KEY>         -->     <VALUE> 
+
 {parentDirID,         {attr(dirEntry),
- gigaPartitionID, -->  symlink/data,
+ gigaPartitionID, -->  symlink,
  hash(dirEntry)}       gigaMetaState}
 \end{verbatim}
 
@@ -86,67 +89,75 @@ The main differences from the \ldb{} schema described in Section
 \ref{design.tablefs} is the addition of \texttt{gigaPartitionID} to identify a
 \giga{} hash partition and the optional \texttt{gigaMetaState} to store the
 hash partition related mapping information. \giga{} related fields are used
-only if large directories are distributed over multiple metadata servers.
-\footnote{
+only if large directories are distributed over multiple metadata servers.\footnote{
 Since we already store the \texttt{hash} of the directory entry, we can use the
-hash-values to identify hash partitions; this optimization will eliminate the
+hash-values to identify hash partitions if we chose to use the same hash
+function for both \giga and \ldb keys. This optimization can eliminate the
 need for \texttt{gigaPartitionID} in the schema.} 
 
 \subsubsection*{Partition splitting.}
 
 Each \giga{} hash partition and its directory entries are stored in sorted
-SSTable files in local \ldb{} instance. 
-Recall that each \giga{} server process manages its hash partition $P$ that, on 
-overflow, is split into another hash partition $P'$ which is stored on a 
+SSTable files in a local \ldb{} instance. 
+Recall that each \giga{} server process splits a hash partition $P$ on 
+overflow and creates another hash partition $P'$ which is managed by a 
 different server; this split involves migrating approximately half the entries 
-from old partition $P$ to the new hash partition $P'$ on to another server. 
+from old partition $P$ to the new hash partition $P'$ on another server during
+which the key range in write locked.
 We explored several ways to perform this cross-server partition split.
 
-One approach would be to perform a range scan on partition $P$ and for each
-entry in the scan result, check if it needs to be moved to a different server.
+A simple approach to splitting would be to perform a \ldb range scan on 
+partition $P$ and deleting about half the results (corresponding to the keys
+that are migrated to the new partition) from $P$. 
 All entries that need to be moved to the new partition $P'$ are batched
-together and sent in an RPC message to the server that manages partition $P'$.
-The recipient server scans the batch and inserts each key in its own \ldb{}
-instance. While the simplicity of this approach makes it an attractive
-alternative, there is significant cost stemming from \ldb{} compaction
-operations: inserts in \ldb{} tables will force merging and rearranging which
-degrades performance until it completes.
+together and sent in an RPC message to the server that will manage partition 
+$P'$.
+The recipient server inserts each key in the batch in its own \ldb{}
+instance. While the simplicity of this approach makes it attractive, we would
+like a faster technique that to reduce the time the range is write locked. 
 
-To minimize the overhead of these background compactions, we extended \ldb{}
+The immutability of \ldb SSTables makes such a fast bulk insert possible -- an
+SSTable can be added to Level 0 without its data being pushed through the
+write-ahead log and minor compaction process.
+To take advantage of this opportunity, we extended \ldb{}
 to support a three-phase split operation. 
 First, the split initiator performs a range scan on its \ldb{} instance to find all
 entries in the hash-range that needs to be moved to another server. The results
-of this scan are written to a separate \ldb{}-specific SSTable format file in a 
-shared storage volume accessible to all \giga{} servers.
-In the second step, the split initiator notifies the split receiver about this new
-partition split and the pointer to the new \ldb{}-format file in the shared
-storage volume. The split receiver reads this file and performs a bulk
-insertion in the \ldb{} table. This bulk insertion can
-directly ``plug in'' the file in the \ldb{} tree structure instead of
-iteratively inserting one key at a time.
+of this scan are written in a \ldb{}-specific SSTable format to file in the
+underlying cluster file system. 
+In the second step, the split initiator notifies the split receiver about
+the new \ldb{}-format file in a much smaller RPC message.
+The split receiver then bulk inserts the file into the \ldb{} tree structure 
+instead of iteratively inserting one key at a time.
 The final step is a clean-up and commit phase: after the receiver completes the 
-bulk insert operation, it empties the shared store volume and notifies the 
-initiator, who then deletes the hash-range from its LevelDB instance.
-\footnote
-{
-This three-phase split can be refined even further: \ldb{} can use symbolic links 
-to these split files without explicitly copying the files through shared
-storage. Because the current release of \ldb{} does not have support for links, we 
-left this optimization for future work. 
-}
+bulk insert operation, it notifies the 
+initiator, who then deletes the migrated hash-range from its LevelDB instance
+and unlocks the range.%\footnote{
+%This three-phase split can be refined even further: \ldb{} can use symbolic links 
+%to these split files without explicitly copying the files through shared
+%storage. Because the current release of \ldb{} does not have support for links, we 
+%left this optimization for future work. 
+%}
 
-\subsubsection*{Decouple data and metadata path.}
+\subsubsection*{Decoupled data and metadata path.}
 All metadata operations go through the \giga{} server; however, following the
-same path for data operations would incur a performance penalty from shipping
-data over the network and copying data from user-mode to kernel-mode. And this
-penalty with be significant in HPC use-cases where file can easily gigabytes of
-more in size. To avoid, this penalty our middleware is designed to perform all
-data-path operations directly through the clients. Once the client completes a
+same path for data operations would incur an unnecessary performance penalty 
+of shipping data over the network on extra time. 
+This penalty can be significant in HPC use-cases where files can easily be  
+gigabytes to terabytes in size.
+
+To avoid this penalty our middleware is designed to perform all
+data-path operations directly through the cluster file system module in client
+machine. 
+Figure \ref{fig:design} illustrates this data path (in BLUE color).
+Once the client completes a
 lookup on a desired file name, it gets back a symbolic link to the physical
 path in the cluster file system. All subsequent access using this symbolic
-link forces VFS to resolve this link and pass the request using the cluster
-file system client module running on the same node as the application. Figure
-\ref{fig:design} illustrates this data path (in BLUE color).
+link force the client operating system to resolve this link into the cluster
+file system.
+While the file is open, its attributes may change relative to \ldb's per-open
+copy of the attributes. \giga will capture these changes on file close on the
+metadata path.
 
 %\subsubsection*{Other challenges.}
 

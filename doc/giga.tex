@@ -4,13 +4,13 @@
 \giga{} is a distributed hash-based indexing technique that incrementally
 divides each directory into multiple partitions that are spread over multiple 
 servers \citep{giga}.
-Each filename stored in a directory entry is hashed and mapped to a partition. 
+Each filename stored in a directory entry is hashed and mapped to a partition 
 using an index. 
-\giga{} assumes that for any distribution of unique filenames, the hash values of 
-these filenames must be uniformly distributed in the hash space.
+\giga{} selects a hash partition such that for any distribution of unique filenames, the hash values of 
+these filenames will be uniformly distributed in the hash space.
 In addition to load-balanced distribution, \giga{} also grows the directory
 index incrementally, i.e. all directories start small on a single server, and
-then expands to more servers as they grow in size. 
+then expand to more servers as they grow in size. 
 
 The core idea behind \giga{} is parallel splitting: each server splits 
 without system-wide serialization or synchronization.
@@ -22,21 +22,21 @@ partition-to-server mapping.
 Each server knows about the partition it stores and the 
 identity of another server that knows more about each ``child'' partition resulting
 from a prior split by this server. 
-This information that each server knows is called the split history of its
-partitions.
+This information is known as the per-server split history of its partitions.
 The full \giga{} index is a transitive closure of the split history on each
 server and represents the lineage of directory partitioning.
 
-This full index is also not maintained synchronously by any client.
+The full index (and split history) is also not maintained synchronously by any client.
 \giga{} clients can enumerate the partitions of a directory by traversing 
 its split histories starting with the first partition that was created during
-\texttt{mkdir()}.
-However, such a full index constructed and cached by a client may be stale at
+\texttt{mkdir}.
+However, such a full index that is cached by a client may be stale at
 any time, particularly for rapidly mutating directories.
-\giga{} allows clients to keep using the stale mapping information and updating
-it in an on-demand manner. More discussion on the cost-benefit of using
+\giga{} allows clients to keep using the stale mapping information and
+receiving mapping updates from servers. 
+More discussion on the cost-benefit of using
 inconsistent mapping state is not relevant to this work and can be found in
-prior \giga{} literature \citep{giga}. 
+prior \giga{} literature \citep{giga11, giga07}. 
 
 %%%%%%%%%%%
 

@@ -18,14 +18,16 @@ handle large number of file creates and updates at very high speeds
 \cite{PLFS}.
 Another example, storage management, produces read-intensive metadata workload
 that typically scans the metadata of the entire file system to perform
-administration tasks for analyzing and querying metadata \cite{issdm}.
+administration tasks for analyzing and querying metadata \cite{issdm,
+filemgmt-ucsc, magellan-ucsc}.
 
 We envision a scalable metadata service with two goals. 
 The first goal -- \textit{evolution, not revolution} -- emphasizes the need for
 a solution that adds new support to existing cluster file systems that lack a 
 scalable metadata path.
-Although much new work in cluster file systems promises a distributed
-metadata service \cite{ceph:weil06, 50mfiles-in-googlefs:fikes10}, it is
+Although newer cluster file systems, including Google's Colossus 
+\citep{50mfiles-in-googlefs:fikes10}, UCSC's Ceph and Copernicus,
+\citep{ceph:weil06, sfs-ucsc}, promise a distributed metadata service, it is 
 undesirable to replace existing cluster file systems running in large production
 environments just because their metadata path does not provide the desired
 scalability or the desired functionality.

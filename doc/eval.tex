@@ -18,11 +18,11 @@ directory.
 %we run a test that creates 100 million zero-length files in a single directory,
 Figure \ref{graph:ldb-singlenode} compares the instantaneous throughput of \ldb-based metadata 
 store with three Linux file systems: Ext4 \citep{Ext4}, XFS \citep{XFS}, and
-Btrfs \citep{BTRFS}.
+BTRFS \citep{BTRFS}.
 %Figure \ref{graph:ldb-singlenode} shows a throughput timeline during the test. 
 All systems perform well at the beginning of the test, but the file create
 throughput drops gradually for all systems. 
-Btrfs suffers the most serious throughput drop, slowing down to 100 operations 
+BTRFS suffers the most serious throughput drop, slowing down to 100 operations 
 per second. However, the \ldb-based store maintains a more steady performance 
 with an average speed of 2,200 operations per second respectively,
 \textit{and is 10X faster than all other tested file systems.}

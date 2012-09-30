@@ -73,6 +73,23 @@ are constant factors relative to the disk speed and splitting overhead.
 By using this estimation, after inserting 64 billion files with 64 servers,
 the system still sustains insertion rate at the speed of about 60,000 operations per second.
 
+\begin{figure}[t]  %%%%%%%%%%%%%%%%%%%%%%%
+\centerline{\includegraphics[scale=0.33]{./figs/ldb_insertrate}}
+\caption{
+{\small
+Our middleware metadata service prototype shows promising scalability
+up to 64 servers. However the interaction between LevelDB's compaction policies and 
+the Linux Ext3's implementation policies causes periodic throughput variance
+that degrades as the the number of directory entries in each LevelDB
+increases. \textit{Note that the solid lines in each configuration are Bezier
+curves to smooth the variability.}
+}
+}
+\vspace{15pt}
+\hrule 
+\label{graph:ldb-scaling}
+\end{figure}       %%%%%%%%%%%%%%%%%%%%%%%
+
 \begin{comment}
 The first reason is periodic \textit{compactions} in LevelDB that create
 ordered files 
@@ -92,20 +109,4 @@ This is expected because each LevelDB instance performs these compactions, and
 because each \giga{} server handles a uniform load, all LevelDB instances are busy
 performing compactions.  
 
-\begin{figure}[t]  %%%%%%%%%%%%%%%%%%%%%%%
-\centerline{\includegraphics[scale=0.33]{./figs/ldb_insertrate}}
-\caption{
-{\small
-Our middleware metadata service prototype shows promising scalability
-up to 64 servers. However the interaction between LevelDB's compaction policies and 
-the Linux Ext3's implementation policies causes periodic throughput variance
-that degrades as the the number of directory entries in each LevelDB
-increases. \textit{Note that the solid lines in each configuration are Bezier
-curves to smooth the variability.}
-}
-}
-\vspace{15pt}
-\hrule 
-\label{graph:ldb-scaling}
-\end{figure}       %%%%%%%%%%%%%%%%%%%%%%%
-
+\end{comment}

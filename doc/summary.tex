@@ -18,11 +18,11 @@ dereference the symbolic link. Ideally, we would like to avoid this FUSE
 interposition by changing the FUSE kernel module to support distributed file
 system file handles. 
 
-Third, we are exploring several optimizations to minimize the background
-compaction operations triggered by \ldb. These compactions are a necessary
-evil: they speed up future reads and scans, while affecting any foreground
-operations that happen during these background operations. {\bf TODO: what
-exactly are these optimizations?}
+Third, we are exploring several optimizations for partition splitting.
+Current partition splitting policy splits the affected partitions immediately.
+It is possible to delay the splitting work, and use later compactions procedure
+to split the affected partition. How to implement the delayed splitting policy
+and make LevelDB support for links remains for future work. 
 
 \section{Summary}
 \label{summary}

@@ -8,7 +8,7 @@ data path, i.e. provide high bandwidth parallel I/O to files that are
 at least gigabytes in size.
 But with proliferation of massively parallel applications that produce 
 metadata-intensive workloads, such as large number of simultaneous file creates
-\cite{PLFS} and large-scale storage management \cite{ssdm}, cluster file systems 
+\cite{PLFS} and large-scale storage management \cite{issdm}, cluster file systems 
 also need to scale metadata performance.
 
 Numerous applications and use-cases need support for concurrent and 
@@ -26,7 +26,7 @@ a solution that adds new support to existing cluster file systems that lack a
 scalable metadata path.
 Although much new work in cluster file systems promises a distributed
 metadata service \cite{ceph:weil06, 50mfiles-in-googlefs:fikes10}, it is
-infeasible to replace existing cluster file systems running in large production
+undesirable to replace existing cluster file systems running in large production
 environments just because their metadata path does not provide the desired
 scalability or the desired functionality.
 Several large cluster file system installations, such as Panasas PanFS running
@@ -58,8 +58,8 @@ The main shortcoming of the \giga{} prototype is that the splitting
 the metadata partitions for better load-balancing involves migrating the
 directory entries and the associated file data\citep{giga}.
 This is inefficient for HPC systems where files can be gigabytes or more in
-size. Our \giga{} avoids this data migration by storing all file
-system objects as symbolic links: each directory entry (the name created by the
+size. Our \giga{} avoids this data migration by interpreting directory entries
+like symbolic links: each directory entry (the name created by the
 application) has a physical pathname that points to a file in the underlying
 cluster file system that stores the contents of the file.
 This representation of directory entries is enabled through the use a novel

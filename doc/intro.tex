@@ -2,7 +2,8 @@
 
 Lack of a highly scalable and parallel metadata service is the 
 Achilles heal for many cluster file systems deployments in both the HPC world 
-and the Internet services world \citep{hecfsio:tr06, hpcs-io:2008}.
+\citep{hecfsio:tr06, hpcs-io:2008}.
+and the Internet services world \citep{HDFS}.
 This is because most cluster file systems have focused on scaling the
 data path, i.e. provide high bandwidth parallel I/O to files that are 
 at least gigabytes in size.
@@ -18,8 +19,7 @@ handle large number of file creates and updates at very high speeds
 \cite{PLFS}.
 Another example, storage management, produces read-intensive metadata workload
 that typically scans the metadata of the entire file system to perform
-administration tasks for analyzing and querying metadata \cite{issdm,
-filemgmt-ucsc, magellan-ucsc}.
+administration tasks for analyzing and querying metadata \cite{filemgmt-ucsc, magellan-ucsc}.
 
 We envision a scalable metadata service with two goals. 
 The first goal -- \textit{evolution, not revolution} -- emphasizes the need for
@@ -55,10 +55,10 @@ technique to distribute metadata with a tabular, on-disk representation of all
 file system metadata. 
 
 For distributed indexing, we re-use the concurrent, incremental, hash-based
-\giga{} indexing technique \citep{giga}.
+\giga{} indexing technique \citep{GIGA11}.
 The main shortcoming of the \giga{} prototype is that the splitting
 the metadata partitions for better load-balancing involves migrating the
-directory entries and the associated file data\citep{giga}.
+directory entries and the associated file data \citep{GIGA11}.
 This is inefficient for HPC systems where files can be gigabytes or more in
 size. Our \giga{} avoids this data migration by interpreting directory entries
 like symbolic links: each directory entry (the name created by the

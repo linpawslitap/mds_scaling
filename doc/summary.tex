@@ -1,14 +1,27 @@
 \section{Future challenges}
 \label{futurework}
 
-Before our work can be useful in real HPC deployments, we are working on
-addressing several challenges:
+Before our work can be useful in real HPC deployments, we need to address
+several challenges.
 
-\textbf{Layer on a real cluster file system.}
+First, we plan to layer our middleware on top of a real cluster file system
+such as Panasas PanFS \citep{panfs:welch08} or PVFS \citep{pvfs:www}. This will
+allow us to inherit the data path scalability when accessing the flat SSTable
+files of \ldb that are stored on the data servers. We also plan to explore how
+we can effectively leverage the fault tolerance mechanisms and system
+configuration tools already present in the cluster file systems.
 
-\textbf{Eliminate FUSE overheads.}
+Second, we would like to minimize the FUSE overheads of accessing the file.
+Even after the application gets a symbolic link pointing to the physical
+location of the file, our current prototype will rely of FUSE and VFS to
+dereference the symbolic link. Ideally, we would like to avoid this FUSE
+interposition by changing the FUSE kernel module to support distributed file
+system file handles. 
 
-\textbf{Optimizations to minimize compaction overhead.} 
+Third, we are exploring several optimizations to minimize the background
+compaction operations triggered by \ldb. These compactions are a necessary
+evil: they speed up future reads and scans, while affecting any foreground
+operations that happen during these background operations. {\bf TODO: what else?}
 
 \section{Summary}
 \label{summary}

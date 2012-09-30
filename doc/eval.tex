@@ -8,20 +8,23 @@ that was stored on a local disk running Linux Ext3 file system.
 To emulate the shared storage in cluster file systems, we used a NFS-mounted
 volume that was accessible from all machines; this volume was used to 
 test our cross-server \ldb split optimization.
-We evaluated the single-node performance of our \ldb-based metadata store and
+We evaluated the performance of a single-node \ldb-based metadata store and
 the scalability of our distributed middleware.
 
-To see the scalability of \ldb-based metadata store for supporting large directories,
-we run a test that creates 100 million zero-length files in a single directory,
-and compare \ldb-based metadata store with three modern Linux file systems:
-Ext4, XFS, and BTRFS \cite{Ext4, XFS, BTRFS}.
-Figure \ref{graph:ldb-singlenode} shows a throughput timeline during the test. 
-In later part of the test, 
-the creation throughput of all tested file systems gradually slows down. 
-BTRFS suffers the most serious throughput drop,
-slowing down to 100 operations per second.
-However, \ldb-based metadata store maintains a more steady performance with 
-an average speed of 2,200 operations per second respectively,
+We first evaluated the performance of a single-node \ldb-based metadata store
+by running a test that creates 100 million zero-length files in a single
+directory.
+%To see the scalability of \ldb-based metadata store for supporting large directories,
+%we run a test that creates 100 million zero-length files in a single directory,
+Figure \ref{graph:ldb-singlenode} compares the instantaneous throughput of \ldb-based metadata 
+store with three Linux file systems: Ext4 \citep{Ext4}, XFS \citep{XFS}, and
+Btrfs \citep{BTRFS}.
+%Figure \ref{graph:ldb-singlenode} shows a throughput timeline during the test. 
+All systems perform well at the beginning of the test, but the file create
+throughput drops gradually for all systems. 
+Btrfs suffers the most serious throughput drop, slowing down to 100 operations 
+per second. However, the \ldb-based store maintains a more steady performance 
+with an average speed of 2,200 operations per second respectively,
 \textit{and is 10X faster than all other tested file systems.}
 
 \begin{figure}[t]  %%%%%%%%%%%%%%%%%%%%%%%
@@ -39,23 +42,8 @@ file systems were much slower. Y-axis is in logarithmic scale.
 \label{graph:ldb-singlenode}
 \end{figure}       %%%%%%%%%%%%%%%%%%%%%%%
 
-\begin{figure}[t]  %%%%%%%%%%%%%%%%%%%%%%%
-\centerline{\includegraphics[scale=0.33]{./figs/ldb_insertrate}}
-\caption{
-{\small
-Our middleware metadata service prototype shows promising scalability
-up to 64 servers. However the interaction between LevelDB's compaction policies and 
-the Linux Ext3's implementation policies causes periodic throughput variance
-that degrades as the the number of directory entries in each LevelDB
-increases. \textit{Note that the solid lines in each configuration are Bezier
-curves to smooth the variability.}
-}
-}
-\vspace{15pt}
-\hrule 
-\label{graph:ldb-scaling}
-\end{figure}       %%%%%%%%%%%%%%%%%%%%%%%
 
+Next, we evaluated the scalability of our distributed metadata middleware.
 Figure \ref{graph:ldb-scaling} shows the instantaneous throughput during the 
 \textit{concurrent create} workload in a strong scaling experiment, i.e.
 creating 1 million files per server and reaching up to 64 million files in the
@@ -69,13 +57,13 @@ Before reaching steady-state, the throughput grows gradually due to the splittin
 policies adopted by \giga{}.
  
 Another observation in Figure \ref{graph:ldb-scaling} is that the system is
-unable to sustain the steady-state peak throughput as in the single node test 
-shown in in Figure \ref{graph:ldb-singlenode}: 
+unable to sustain the steady-state peak throughput (similar to our observation
+in the single-node test in Figure \ref{graph:ldb-singlenode}): 
 in fact, in large setups with 8 or more servers, 
 the peak throughput drops by as much as 25\% (in case of the 64-server setup).
-This is because when there are more entries existing entries, 
+This is because when there are more entries already existing in \ldb, 
 it requires more work to make \ldb balance when inserting a new entry.
-In theory, the work of inserting a new entry to a LSM tree is $O(\log_{B}(n))$
+In theory, the work of inserting a new entry to a LSM-tree is $O(\log_{B}(n))$
 where $n$ is the total number of inserted entries, and $B$ is a constant factor
 proportional to the average number of entries transferred in each disk request. 
 Thus we can use the formula $\frac{a\cdot S+b}{\log{T}}$ to
@@ -104,22 +92,20 @@ This is expected because each LevelDB instance performs these compactions, and
 because each \giga{} server handles a uniform load, all LevelDB instances are busy
 performing compactions.  
 
-The second reason for the degrading saw-tooth behavior in Figure
-\ref{graph:ldb-scaling} is due to the choice of LevelDB key used by \tfs{}.
-Recall that \tfs{} uses a combination of the file name, the parent directory's
-unique identifier and the hash value of the file name as the key. 
-The hash value of the file name causes an interesting tradeoff: it simplifies
-LevelDB's split optimizations but it makes LevelDB's compactions more I/O
-intensive.
-Because the hash values are uniformly random, even two lexicographically
-similar file names in the same parent directory will have random, and
-lexicographically very different, hash values.
-This makes the entire LevelDB key lexicographically different which causes
-LevelDB to read more files during compactions.
-
-To confirm our hypothesis, we compared the variability in LevelDB's insert
-throughput for different keys.
-Figure "comingInTheFuture" will hopefully how this tradeoff (XXX).
-%XXX: function of different keys and values 
-\end{comment}
+\begin{figure}[t]  %%%%%%%%%%%%%%%%%%%%%%%
+\centerline{\includegraphics[scale=0.33]{./figs/ldb_insertrate}}
+\caption{
+{\small
+Our middleware metadata service prototype shows promising scalability
+up to 64 servers. However the interaction between LevelDB's compaction policies and 
+the Linux Ext3's implementation policies causes periodic throughput variance
+that degrades as the the number of directory entries in each LevelDB
+increases. \textit{Note that the solid lines in each configuration are Bezier
+curves to smooth the variability.}
+}
+}
+\vspace{15pt}
+\hrule 
+\label{graph:ldb-scaling}
+\end{figure}       %%%%%%%%%%%%%%%%%%%%%%%
 

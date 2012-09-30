@@ -1,6 +1,6 @@
 \section{Introduction}
 
-Lack of a highly scalable and parallel metadata service continues to be the 
+Lack of a highly scalable and parallel metadata service is the 
 Achilles heal for many cluster file systems deployments in both the HPC world 
 and the Internet services world \citep{hecfsio:tr06, hpcs-io:2008}.
 This is because most cluster file systems have focused on scaling the
@@ -41,11 +41,11 @@ should also be efficient in the way metadata is distributed on multiple servers
 and the way metadata is represented on disk on each server.
 
 To realize these goals, this paper makes a case for a scalable metadata service 
-that is designed as a middleware layered on exising cluster file systems to 
-distributes the file system metadata, including the namespace tree, small 
+that is designed as a middleware layered on existing cluster file systems to 
+distribute file system metadata, including the namespace tree, small 
 directories and large directories, across multiple servers.
-The core of our approach is how to effectively synthesize a concurrent indexing 
-technique to distribute metadata and a tablular, on-disk representation of all
+Our key idea is to effectively synthesize a concurrent indexing 
+technique to distribute metadata with a tablular, on-disk representation of all
 file system metadata. 
 
 For distributed indexing, we re-use the concurrent, incremental, hash-based

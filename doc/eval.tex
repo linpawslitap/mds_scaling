@@ -37,7 +37,7 @@ X-axis only shows the time until LevelDB finished all insertions because the oth
 file systems were much slower. Y-axis is in logarithmic scale.
 }
 }
-\vspace{15pt}
+\vspace{10pt}
 \hrule 
 \label{graph:ldb-singlenode}
 \end{figure}       %%%%%%%%%%%%%%%%%%%%%%%
@@ -67,7 +67,7 @@ In theory, the work of inserting a new entry to a LSM-tree is $O(\log_{B}(n))$
 where $n$ is the total number of inserted entries, and $B$ is a constant factor
 proportional to the average number of entries transferred in each disk request. 
 Thus we can use the formula $\frac{a\cdot S+b}{\log{T}}$ to approximate the 
-throughput timelines in Figure \ref{graph:ldb-scaling}, where $S$ is the number 
+throughput timeline in Figure \ref{graph:ldb-scaling}, where $S$ is the number 
 of servers, $T$ is the time, and $a$ as well as $b$ are constant factors relative 
 to the disk speed and splitting overhead.
 This estimation shows that when inserting 64 \textit{billion} files into 64 
@@ -86,7 +86,7 @@ increases. \textit{Note that the solid lines in each configuration are Bezier
 curves to smooth the variability.}
 }
 }
-\vspace{15pt}
+\vspace{10pt}
 \hrule 
 \label{graph:ldb-scaling}
 \end{figure}       %%%%%%%%%%%%%%%%%%%%%%%

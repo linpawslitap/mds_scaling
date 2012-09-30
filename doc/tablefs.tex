@@ -3,7 +3,7 @@ LevelDB \citep{LevelDB} is an open-source key-value storage library
 that features an Log-Structured Merge (LSM) Tree \citep{ONeil1996} for on-disk storage.
 In a simple understanding of an LSM tree, an in memory buffer cache delays 
 writing new and changed entries until it has a significant amount of change to record on disk.
-Using LevelDB as a local storage representation for metedata, 
+Using LevelDB as a local storage representation for metadata, 
 can transform metadata updates to large, non-overwrite, sorted and indexed logs on disks,
 which greatly reduces random disk seeks.
 The detailed design of LevelDB and how to use LevelDB to store metadata is explained as the follows.
@@ -41,7 +41,7 @@ the 64-bit inode number of a file's parent directory
 and a 160-bit SHA-1 hash value of its filename string (final component of its pathname).
 The value of a row contains the file's full name and inode attributes,
 such as inode number, ownership, access mode, file size, timestamps (\textit{struct stat} in Linux),
-and a symoblic link that contains the actual path of the file object in the object store.
+and a symbolic link that contains the actual path of the file object in the object store.
 Figure \ref{fig:schema} shows an example of storing a sample file system's metadata into one LevelDB table.
 
 %\begin{figure}[!ht]

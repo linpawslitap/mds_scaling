@@ -5,7 +5,7 @@ Achilles heal for many cluster file systems deployments in both the HPC world
 and the Internet services world \citep{hecfsio:tr06, hpcs-io:2008}.
 This is because most cluster file systems have focused on scaling the
 data path, i.e. provide high bandwidth parallel I/O to files that are tens to
-hunderds of gigabytes in size.
+hundreds of gigabytes in size.
 But with proliferation of massively parallel applications that produce 
 metadata-intensive workloads, such as large number of simultaneous file creates
 and large-scale storage management, cluster file systems also need to scale the
@@ -34,18 +34,22 @@ Several large cluster file system installations, such as Panasas PanFS running
 on Cielo at LANL \cite{panfs:welch08,cielo} and PVFS running on Argonne BG/P 
 \cite{pvfs:www,bgp}, can 
 benefit from a solution that provides, for instance, distributed directory support 
-that doesn not require any modifications to the running cluster file system.
+that does not require any modifications to the running cluster file system.
 The second goal -- \textit{generality} -- promises a fully, distributed and
-scalable metadata service that performs well for ingest, lookups, and scans. It
-should also be efficient in the way metadata is distributed on multiple servers
-and the way metadata is represented on disk on each server.
+scalable metadata service that performs well for ingest, lookups, and scans.
+In particular, all metadata, including directory entries, i-nodes and block
+management, should be stored in one structure; this is different from
+today's file systems that use specialized on-disk structures for each type of 
+metadata.
+%It should also be efficient in the way metadata is distributed on multiple servers
+%and the way metadata is represented on disk on each server.
 
 To realize these goals, this paper makes a case for a scalable metadata service 
 that is designed as a middleware layered on existing cluster file systems to 
 distribute file system metadata, including the namespace tree, small 
 directories and large directories, across multiple servers.
 Our key idea is to effectively synthesize a concurrent indexing 
-technique to distribute metadata with a tablular, on-disk representation of all
+technique to distribute metadata with a tabular, on-disk representation of all
 file system metadata. 
 
 For distributed indexing, we re-use the concurrent, incremental, hash-based

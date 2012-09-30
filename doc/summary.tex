@@ -21,7 +21,8 @@ system file handles.
 Third, we are exploring several optimizations to minimize the background
 compaction operations triggered by \ldb. These compactions are a necessary
 evil: they speed up future reads and scans, while affecting any foreground
-operations that happen during these background operations. {\bf TODO: what else?}
+operations that happen during these background operations. {\bf TODO: what
+exactly are these optimizations?}
 
 \section{Summary}
 \label{summary}
@@ -29,7 +30,12 @@ operations that happen during these background operations. {\bf TODO: what else?
 Modern cluster file systems provide highly scalable I/O bandwidth along the
 data path by enabling highly parallel access to file data.
 Unfortunately metadata scaling is lacking behind data scaling; we propose an
-idea to re-use 
+idea that inherits the scalable data bandwidth of existing cluster file systems
+and adds support for distributed and high-performance metadata operations.
+Our idea is to integrate a distributed indexing mechanism with general-purpose
+optimized on-disk metadata store.
+Early prototype and evaluation shows that our approach outperforms most Linux
+local file systems and scales well for large number of file creations. 
 
 %inhertts data bandwidth and adds the metadata bandwidth scaling
 

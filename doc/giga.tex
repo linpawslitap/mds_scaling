@@ -1,159 +1,42 @@
 %\section*{\giga{} indexing approach}
 %\label{indexing}
 
+\giga{} is a distributed hash-based indexing technique that incrementally
+divides each directory into multiple partitions that are spread over multiple 
+servers \citep{giga}.
+Each filename stored in a directory entry is hashed and mapped to a partition. 
+using an index. 
+\giga{} assumes that for any distribution of unique filenames, the hash values of 
+these filenames must be uniformly distributed in the hash space.
+In addition to load-balanced distribution, \giga{} also grows the directory
+index incrementally, i.e. all directories start small on a single server, and
+then expands to more servers as they grow in size. 
 
-\begin{comment}
-\begin{figure*}[]   %%%%%%%%%%%%%%%%%%%%%%%
-\centerline{
-\includegraphics[scale=0.3]{figs/giga-partitioning-color}~~~
-\includegraphics[scale=0.3]{figs/giga-mapping-color-new}
-}
-\vspace{-10pt}
-\caption{\small 
-\textbf{Concurrent and unsynchronized data partitioning in \giga{}.}
-The hash-space $(0,1]$ is divided into multiple partitions ($P_i$) that
-are distributed over many servers (different colors).
-An index starts small (on one server) and scales out incrementally by 
-enabling each server to independently split its partitions \textit{without
-global co-ordination}.
-Each server has a \textit{local, partial view} of the entire index which
-includes the partitions they store and the history of splits of these
-partitions (shaded entry in the mapping table).
-}
-%\vspace{10pt}
-%\hrule depth 0.5pt
-\label{fig:giga-indexing}
-\end{figure*}    %%%%%%%%%%%%%%%%%%%%%%%
-\end{comment}
-
-\giga{} uses a combination of three ideas to push the limits of 
-scalability and concurrency of file system directories: 
-scale-out data partitioning on servers without any system-wide synchronization, 
-allowing the use of out-of-date partition-to-server mapping state, and 
-facilitating online server addition with minimal data migration overhead
-\citep{GIGA}.
-We discuss the first idea in details.
-
-\textbf{Unsynchronized data partitioning -- }
-%\subsection*{Unsynchronized data partitioning}
-%\label{indexing:partitioning}
-\giga{} uses hash-based indexing to incrementally divide each directory into
-multiple partitions that are distributed over multiple servers.
-Each filename (contained in a directory entry) is hashed and then mapped to a 
-partition using an index. 
-Our implementation uses the cryptographic MD5 hash but is not specific
-to it.
-\giga{} relies only on one property of the selected function: for any 
-distribution of unique filenames, the hash values of these filenames must 
-be uniformly distributed in the hash space \citep{md5:rfc1321}.
-
-\begin{figure}[t]   %% START_FIGURE
-\centerline{\includegraphics[scale=0.3]{./figs/giga-impl-leveldb-clusterfs}}
-\caption{
-%\textbf{Proposed design.}
-{\small
-Design of our scalable metadata middleware that integrates a distributed metadata indexing
-technique with a tabular metadata-optimized on-disk layout on each server and
-layers on existing cluster file systems. 
-%Our approach for a scalable metadata service integrates two components: a highly 
-%parallel and load-balanced indexing technique (called \giga{} \cite{GIGA}) to 
-%partition
-%metadata over multiple servers and an optimized metadata representation (called
-%\tfs{} \cite{TableFS}) on each server. 
-%Our approach aims to layer this integrated solution on top of existing cluster file 
-%system deployments. 
-}
-}
-\vspace{10pt}
-\hrule 
-\label{fig:design}
-\end{figure}       %% END_FIGURE
-
-Figure \ref{fig:giga-indexing} shows how \giga{} indexing grows incrementally.
-In this example, a directory is to be spread over three servers 
-$\{S_0, S_1, S_2\}$ in three colors.
-$P_i^{(x,y]}$ denotes the hash-space range $(x,y]$ held by a partition with the
-unique identifier $i$.
-%\footnote{For simplicity, we disallow the hash value 
-%zero from being used.}
-\giga{} uses the identifier $i$ to map $P_i$ to an appropriate server $S_i$
-using a round-robin mapping, 
-i.e., server $S_i$ is $i$~\texttt{\small{modulo}}~$num\_servers$.
-%(Section \ref{indexing.reconfig} addresses growing the number of servers)
-The color of each partition indicates the (color of the) server it resides on. 
-Initially, at time $T_0$, the directory is small and stored on a single 
-partition $P_0^{(0,1]}$ on server $S_0$.
-As the directory grows and the partition size exceeds a threshold number of
-directory entries, 
-provided this server knows of an underutilized server, 
-$S_0$ splits $P_0^{(0,1]}$ into two by moving the greater half of its
-hash-space range to a new partition $P_1^{(0.5,1]}$ on $S_1$.
-As the directory expands, servers continue to split partitions onto 
-more servers until all have about the same fraction of the hash-space
-to manage. 
-\giga{} computes a split's target partition identifier using well-known 
-radix-based techniques.
-%\footnote{
-%\giga{} calculates the identifier of partition $i$ using the depth of the tree,
-%$r$, which is derived from the number of splits of the zeroth partition $P_0$.
-%Specifically, if a partition has an identifier $i$ and is at tree depth $r$, 
-%then in the next split $P_i$ will move half of its filenames, from the  
-%larger half of its hash-range, to a new partition with identifier $i+2^r$.
-%After a split completes, both partitions will be at depth $r+1$ in the tree.
-%In Figure \ref{fig:giga-indexing}, for example, partition $P_1^{(0.5,0.75]}$,
-%with identifier $i = 1$, is at tree depth $r = 2$.
-%A split causes $P_1$ to move the larger half of its hash-space $(0.625,0.75]$ 
-%to the newly created partition $P_5$, and both partitions are then at tree 
-%depth of $r$ = 3.
-%}
-
-The key goal for \giga{} is for each server to split independently,
+The core idea behind \giga{} is parallel splitting: each server splits 
 without system-wide serialization or synchronization.
-Accordingly, servers make local decisions to split a partition. 
-The side-effect of uncoordinated growth is that \giga{} servers do not have 
-a global view of the partition-to-server mapping on any one server; each server 
-only has a partial view of the entire index (the mapping tables in Figure 
-\ref{fig:giga-indexing}).
-Other than the partitions that a server manages, a server knows only the
-identity of the server that knows more about each ``child'' partition resulting
-from a prior split by this server.
-In Figure \ref{fig:giga-indexing}, at time $T_3$, server $S_1$ manages partition
-$P_1$ at tree depth $r = 3$, and knows that it previously split $P_1$ to create 
-children partitions, $P_3$ and $P_5$, on servers $S_0$ and $S_2$ respectively.
-Servers are mostly unaware about partition splits that happen 
-on other servers (and did not target them); for instance, at time $T_3$, 
-server $S_0$ is unaware of 
-partition $P_5$ and server $S_1$ is unaware of partition $P_2$.
+Every server makes a local decision, without coordinating with other servers, 
+about when to split a partition. 
+Such uncoordinated growth causes \giga{} servers to have a partial view of the
+entire index; there is no central server that holds the global view of the 
+partition-to-server mapping.
+Each server knows about the partition it stores and the 
+identity of another server that knows more about each ``child'' partition resulting
+from a prior split by this server. 
+This information that each server knows is called the split history of its
+partitions.
+The full \giga{} index is a transitive closure of the split history on each
+server and represents the lineage of directory partitioning.
 
-Specifically, each server knows only the split history of its partitions.
-The full \giga{} index is a complete history of the directory partitioning, 
-which is the transitive closure over the local mappings on each server.
 This full index is also not maintained synchronously by any client.
 \giga{} clients can enumerate the partitions of a directory by traversing 
-its split histories starting with the zeroth partition $P_0$.
+its split histories starting with the first partition that was created during
+\texttt{mkdir()}.
 However, such a full index constructed and cached by a client may be stale at
 any time, particularly for rapidly mutating directories.
-%\footnote{
-%In the file system world, this is analogous to enumeration of all file system
-%blocks done by the consistency checker (\texttt{fsck}) which starts at the 
-%superblock and traverses the blocks of all files by following the direct-, 
-%indirect- and doubly indirect-pointers of the file's i-node.
-%}
-%This transitivity enabled by split histories is useful for two reasons.
-%First, split histories can help recreate the data-structures used to maintain
-%the \giga{} index.
-%For instance, lost or corrupted mapping information can be reconstructed by 
-%traversing the split histories of a partition to learn about other partitions
-%and their servers.
-%And second, split histories enables \giga{} to tolerate inconsistent, out-of-date
-%mapping state at the clients (described later in Section 
-%\ref{indexing:inconsistency}).
-%Split histories enable \giga{} servers to correct inconsistent, out-of-date
-%mapping state at the clients.
-
-%XXX:optimizations:
-%- splitting over all servers once is enough, but load imbalance
-%- split into half -> split into N over N servers: adaptive fast growth
+\giga{} allows clients to keep using the stale mapping information and updating
+it in an on-demand manner. More discussion on the cost-benefit of using
+inconsistent mapping state is not relevant to this work and can be found in
+prior \giga{} literature \citep{giga}. 
 
 %%%%%%%%%%%
 

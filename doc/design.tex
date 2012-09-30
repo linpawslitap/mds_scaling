@@ -27,7 +27,18 @@ service that is designed to be layered on existing deployments of cluster file
 systems. Our approach uses a client-server architecture and has three components: 
 unmodified applications running on clients, the \giga{} directory indexing service 
 on clients and servers, and the \ldb{}-based persistent metadata representation 
-managed by the server. 
+managed by the server.
+Applications interact with our middleware using the VFS interface exposed
+through the FUSE user-level file system \citep{fuse}.
+All metadata requests, such as \texttt{create()}, \texttt{mkdir()} and
+\texttt{open()}, are handled through the \giga indexing modules that address
+the request to the appropriate server.
+Each indexing server manages its local \ldb instance to store and access all
+metadata information. This \ldb instance is stored in the underlying cluster
+file system.
+Once the client receives the relevant metadata back from the server, our
+middleware allows clients to access the actual file contents directly through
+the cluster file system.
 
 Using \giga{} and \ldb{} enables us to tackle two key challenges: highly 
 concurrent metadata distribution for ingest-intensive parallel applications
@@ -35,14 +46,13 @@ such as checkpointing \cite{PLFS} and
 optimized metadata representation that stores all file system
 metadata in structured, indexed files manages by existing cluster file system
 deployments \cite{LevelDB}. 
-
 Remainder of this section describes more details of our approach. 
-Section \ref{design.giga} and \ref{design.tablefs} present a primer on how
-\giga{} distributes the metadata in a load-balanced manner and how \ldb{}
-stores the metadata to speed-up metadata performance on each server. 
+Section \ref{design.giga} presents a primer on how \giga{} distributes the
+metadata. 
+Section \ref{design.tablefs} shows how \ldb{} stores all file system metadata
+using a single on-disk structure on each server. 
 Section \ref{design.integration} describes the challenges in effectively
-integrating \giga{} and \ldb{} to work with existing cluster file system
-deployments. 
+integrating \giga{} and \ldb{} to work with existing cluster file systems.
 
 \subsection{Scalable partitioning using \giga{}}
 \label{design.giga}
@@ -96,7 +106,7 @@ One approach would be to perform a range scan on partition $P$ and for each
 entry in the scan result, check if it needs to be moved to a different server.
 All entries that need to be moved to the new partition $P'$ are batched
 together and sent in an RPC message to the server that manages partition $P'$.
-The recepient server scans the batch and inserts each key in its own \ldb{}
+The recipient server scans the batch and inserts each key in its own \ldb{}
 instance. While the simplicity of this approach makes it an attractive
 alternative, there is significant cost stemming from \ldb{} compaction
 operations: inserts in \ldb{} tables will force merging and rearranging which
@@ -125,9 +135,18 @@ storage. Because the current release of \ldb{} does not have support for links, 
 left this optimization for future work. 
 }
 
-%\subsubsection*{Metadata-specific operations.}
-
 \subsubsection*{Decouple data and metadata path.}
+All metadata operations go through the \giga{} server; however, following the
+same path for data operations would incur a performance penalty from shipping
+data over the network and copying data from user-mode to kernel-mode. And this
+penalty with be significant in HPC use-cases where file can easily gigabytes of
+more in size. To avoid, this penalty our middleware is designed to perform all
+data-path operations directly through the clients. Once the client completes a
+lookup on a desired file name, it gets back a symbolic link to the physical
+path in the cluster file system. All subsequent access using this symbolic
+link forces VFS to resolve this link and pass the request using the cluster
+file system client module running on the same node as the application. Figure
+\ref{fig:design} illustrates this data path (in BLUE color).
 
 %\subsubsection*{Other challenges.}
 

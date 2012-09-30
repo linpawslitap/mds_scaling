@@ -82,8 +82,8 @@ Thus we can use the formula $\frac{a\cdot S+b}{\log{T}}$ to
 approximate the throughput timelines in Figure \ref{graph:ldb-scaling},
 where $S$ is the number of servers, $T$ is the time, and $a$ as well as $b$ 
 are constant factors relative to the disk speed and splitting overhead.
-By using this estimation, when inserting 64 billion files into 64 servers,
-the whole system can still maintain at the speed of about 1000 operations per second per server. 
+By using this estimation, after inserting 64 billion files with 64 servers,
+the system still sustains insertion rate at the speed of about 60,000 operations per second.
 
 \begin{comment}
 The first reason is periodic \textit{compactions} in LevelDB that create

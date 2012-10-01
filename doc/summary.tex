@@ -2,7 +2,7 @@
 \label{futurework}
 
 Before our work can be useful in real HPC deployments, we need to address
-several challenges.
+several issues. 
 
 First, we will layer our middleware on top of a real cluster file system.
 This will allow us to inherit the data path scalability when accessing the 
@@ -34,7 +34,7 @@ Unfortunately metadata scaling is lagging behind data scaling.
 We propose a file system design that 
 inherits the scalable data bandwidth of existing cluster file systems
 and adds support for distributed and high-performance metadata operations.
-Our idea is to integrate a distributed indexing mechanism with general-purpose
+Our key idea is to integrate a distributed indexing mechanism with general-purpose
 optimized on-disk metadata store.
 Early prototype evaluation shows that our approach outperforms popular Linux
 local file systems and scales well with large numbers of file creations. 

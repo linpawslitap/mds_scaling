@@ -2,9 +2,8 @@
 
 \begin{figure}[t]   %% START_FIGURE
 \centerline{\includegraphics[scale=0.3]{./figs/giga-impl-leveldb-clusterfs}}
-\caption{
+\caption{\normalsize
 %\textbf{Proposed design.}
-{\small
 Design of our scalable metadata middleware that integrates a distributed metadata indexing
 technique with a tabular metadata-optimized on-disk layout on each server and
 layers on existing cluster file systems. 
@@ -15,7 +14,6 @@ layers on existing cluster file systems.
 %\tfs{} \cite{TableFS}) on each server. 
 %Our approach aims to layer this integrated solution on top of existing cluster file 
 %system deployments. 
-}
 }
 \vspace{10pt}
 \hrule 
@@ -48,7 +46,7 @@ metadata in structured, indexed files manages by existing cluster file system
 deployments \cite{LevelDB}. 
 
 Remainder of this section describes more details of our approach. 
-Section \ref{design.giga} presents a primer on how \giga{} distributes the
+Section \ref{design.giga} presents a primer on how \giga{} distributes 
 metadata. 
 Section \ref{design.tablefs} shows how \ldb{} stores all file system metadata
 using a single on-disk structure on each server. 
@@ -69,8 +67,8 @@ integrating \giga{} and \ldb{} to work with existing cluster file systems.
 To effectively integrate the \giga{} distribution mechanism with the
 \ldb{}-based metadata representation, we tackled several challenges. 
 
-\subsubsection*{Metadata representation.}
-
+~\\
+\textbf{Metadata representation -- }
 \ldb{} stores all metadata including \giga{} hash
 partitions for directories, entries in each hash partition, and other
 bootstrapping information such as root entry and \giga{} configuration state.
@@ -95,8 +93,8 @@ hash-values to identify hash partitions if we chose to use the same hash
 function for both \giga and \ldb keys. This optimization can eliminate the
 need for \texttt{gigaPartitionID} in the schema.} 
 
-\subsubsection*{Partition splitting.}
-
+~\\
+\textbf{Partition splitting -- }
 Each \giga{} hash partition and its directory entries are stored in sorted
 SSTable files in a local \ldb{} instance. 
 Recall that each \giga{} server process splits a hash partition $P$ on 
@@ -139,7 +137,8 @@ and unlocks the range.%\footnote{
 %left this optimization for future work. 
 %}
 
-\subsubsection*{Decoupled data and metadata path.}
+~\\
+\textbf{Decoupled data and metadata path -- }
 All metadata operations go through the \giga{} server; however, following the
 same path for data operations would incur an unnecessary performance penalty 
 of shipping data over the network on extra time. 

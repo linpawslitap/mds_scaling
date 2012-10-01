@@ -33,13 +33,11 @@ with an average speed of 2,200 operations per second respectively,
 
 \begin{figure}[t]  %%%%%%%%%%%%%%%%%%%%%%%
 \centerline{\includegraphics[scale=0.5]{./figs/ldb_insertrate_onenode}}
-\caption{
-{\small 
+\caption{\normalsize
 Single-node \ldb{}-based metadata store is 10X faster than modern Linux
 filesystems for a workload that creates 100 million zero-length files.
 X-axis only shows the time until LevelDB finished all insertions because the other 
 file systems were much slower. Y-axis has a logarithmic scale.
-}
 }
 \vspace{10pt}
 \hrule 
@@ -55,8 +53,8 @@ creating 1 million files per server, for a total of 64 million files in the
 64-server configuration.
 The main result in this figure is that as the number of servers doubles the
 throughput of the system also scales up. With 64 servers, \giga{} can achieve a
-peak throughput of about 190,000 file creates per second. The system delivers
-this peak performance after the directory workload has been spread among all
+peak throughput of about 190,000 file creates per second. The prototype delivers
+peak performance after the directory workload has been spread among all
 servers.
 Reaching steady-state, the throughput quickly grows due to the splitting
 policies adopted by \giga{}.
@@ -85,8 +83,7 @@ i.e. 64,000 operations per second in aggregate.
 
 \begin{figure}[t]  %%%%%%%%%%%%%%%%%%%%%%%
 \centerline{\includegraphics[scale=0.33]{./figs/ldb_insertrate}}
-\caption{
-{\small
+\caption{\normalsize
 Our middleware metadata service prototype shows promising scalability
 up to 64 servers. 
 %However the interaction between LevelDB's compaction policies and 
@@ -95,7 +92,6 @@ up to 64 servers.
 %increases. 
 Note that the solid lines in each configuration are Bezier
 curves to smooth the variability.
-}
 }
 \vspace{10pt}
 \hrule 

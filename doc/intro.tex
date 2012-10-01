@@ -1,12 +1,11 @@
 \section{Introduction}
 
 Lack of a highly scalable and parallel metadata service is the 
-Achilles heal for many cluster file systems deployments in both the HPC world 
-\citep{hecfsio:tr06, hpcs-io:2008}.
-and the Internet services world \citep{HDFS}.
+Achilles heal for many cluster file system deployments in both the HPC world 
+\cite{hecfsio:tr06, hpcs-io:2008} and the Internet services world \cite{HDFS}.
 This is because most cluster file systems have focused on scaling the
 data path, i.e. provide high bandwidth parallel I/O to files that are 
-at least gigabytes in size.
+gigabytes in size.
 But with proliferation of massively parallel applications that produce 
 metadata-intensive workloads, such as large number of simultaneous file creates
 \cite{PLFS} and large-scale storage management \cite{issdm}, cluster file systems 
@@ -25,14 +24,15 @@ We envision a scalable metadata service with two goals.
 The first goal -- \textit{evolution, not revolution} -- emphasizes the need for
 a solution that adds new support to existing cluster file systems that lack a 
 scalable metadata path.
-Although newer cluster file systems, including Google's Colossus 
-\citep{50mfiles-in-googlefs:fikes10}, UCSC's Ceph and Copernicus
-\citep{ceph:weil06, sfs-ucsc}, promise a distributed metadata service, it is 
+Although newer cluster file systems, including Google's Colossus file system 
+\cite{50mfiles-in-googlefs:fikes10}, UCSC's Ceph \cite{ceph:weil06} and 
+Copernicus \cite{sfs-ucsc}, promise a distributed metadata 
+service, it is 
 undesirable to replace existing cluster file systems running in large production
 environments just because their metadata path does not provide the desired
 scalability or the desired functionality.
 Several large cluster file system installations, such as Panasas PanFS running
-at LANL \cite{cielo} and PVFS running on Argonne BG/P 
+at LANL \cite{panfs:welch08} and PVFS running on Argonne BG/P 
 \cite{pvfs:www,bgp}, can 
 benefit from a solution that provides, for instance, distributed directory support 
 that does not require any modifications to the running cluster file system.
@@ -47,29 +47,29 @@ metadata.
 
  
 To realize these goals, this paper makes a case for a scalable metadata service 
-that is designed as a middleware layered on existing cluster file systems and 
-distribute file system metadata, including the namespace tree, small 
+middleware that layers on existing cluster file system deployments and 
+distributes file system metadata, including the namespace tree, small 
 directories and large directories, across many servers.
 Our key idea is to effectively synthesize a concurrent indexing 
 technique to distribute metadata with a tabular, on-disk representation of all
 file system metadata. 
 
 For distributed indexing, we re-use the concurrent, incremental, hash-based
-\giga{} indexing technique \citep{GIGA11}.
-The main shortcoming of the \giga{} prototype is that the splitting
+\giga{} indexing technique \cite{GIGA11}.
+The main shortcoming of the \giga{} prototype is that splitting
 the metadata partitions for better load-balancing involves migrating the
-directory entries and the associated file data \citep{GIGA11}.
+directory entries and the associated file data \cite{GIGA11}.
 This is inefficient for HPC systems where files can be gigabytes or more in
-size. Our \giga{} avoids this data migration by interpreting directory entries
-like symbolic links: each directory entry (the name created by the
+size. Our middleware avoids this data migration by interpreting directory 
+entries as symbolic links: each directory entry (the name created by the
 application) has a physical pathname that points to a file in the underlying
 cluster file system that stores the contents of the file.
 This representation of directory entries is enabled through the use a novel
 on-disk metadata representation based on a log-structure merge tree (LSM-tree)
-data structure \citep{ONeil1996}.
+data structure \cite{ONeil1996}.
 We use the \ldb{} key-value store to implement all file system metadata, including 
 files, directories, and their i-node attributes, in flat files sorted on a
-unique key \citep{LevelDB}.
+unique key \cite{LevelDB}.
 This organization facilitates high-speed metadata creation, lookups and scans.
 
 Effectively integrating the \ldb-based metadata store with the distributed indexing

@@ -1,6 +1,6 @@
-Inspired by a simpler structure in BigTable\citep{BigTable}, 
-LevelDB \citep{LevelDB} is an open-source key-value storage library
-that features a Log-Structured Merge (LSM) Tree \citep{ONeil1996} for on-disk storage.
+Inspired by a simpler structure in BigTable\cite{BigTable}, 
+LevelDB \cite{LevelDB} is an open-source key-value storage library
+that features a Log-Structured Merge (LSM) Tree \cite{ONeil1996} for on-disk storage.
 In a simple understanding of an LSM tree, an in-memory buffer cache delays 
 writing new and changed entries until it has a significant amount of change to record on disk.
 Using LevelDB as a local storage representation for metadata  
@@ -24,11 +24,11 @@ The detailed design of LevelDB and how to use LevelDB to store metadata is expla
 In LevelDB, by default, a set of changes are spilled to disk when the total
 size of modified entries exceeds 4 MB.  When a spill is triggered, called a
 minor compaction, the changed entries are sorted, indexed and written to disk
-in a format called an SSTable\citep{BigTable}.  These entries may then be
+in a format called an SSTable\cite{BigTable}.  These entries may then be
 discarded by the in memory buffer and can be reloaded by searching each SSTable
 on disk, possibly stopping when the first match occurs if the SSTables are
 searched most recent to oldest.  The number of SSTables that need to be
-searched can be reduced by maintaining a Bloom filter\citep{bloomfilter} on
+searched can be reduced by maintaining a Bloom filter\cite{bloomfilter} on
 each, but, with time, the cost of finding a record not in memory still increases.  Major compaction, or simply ``compaction", is the process of combining multiple SSTables into a smaller number of SSTables by merge sort. 
 
 As illustrated in Figure \ref{fig:leveldb}, LevelDB extends this simple approach to further reduce read costs by dividing SSTables into sets, or levels.
@@ -39,7 +39,7 @@ So querying for an entry in the higher levels only need read at most one SSTable
 LevelDB also sizes each of the higher levels differentially:  all SSTables have the same maximum size and the sum of the sizes of all SSTables at level $L$ will not exceed $10^L$ MB.
 This ensures that the number of level grows logarithmically with increasing numbers of entries.
 LevelDB compactions are similar to streaming B-trees used in TokuDB products
-\citep{Bender2007, tokufs}.
+\cite{Bender2007, tokufs}.
 
 \subsubsection*{Table Schema. } 
 

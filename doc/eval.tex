@@ -20,8 +20,8 @@ directory.
 %To see the scalability of \ldb-based metadata store for supporting large directories,
 %we run a test that creates 100 million zero-length files in a single directory,
 Figure \ref{graph:ldb-singlenode} compares the instantaneous throughput of \ldb-based metadata 
-store with three Linux file systems: Ext4 \citep{Ext4}, XFS \citep{XFS}, and
-BTRFS \citep{BTRFS}.
+store with three Linux file systems: Ext4 \cite{Ext4}, XFS \cite{XFS}, and
+BTRFS \cite{BTRFS}.
 %Figure \ref{graph:ldb-singlenode} shows a throughput timeline during the test. 
 All systems perform well at the beginning of the test, but the file create
 throughput drops gradually for all systems. 
@@ -102,23 +102,3 @@ curves to smooth the variability.
 \label{graph:ldb-scaling}
 \end{figure}       %%%%%%%%%%%%%%%%%%%%%%%
 
-\begin{comment}
-The first reason is periodic \textit{compactions} in LevelDB that create
-ordered files 
-by periodically sorting the in-memory log and writing them to separate files 
-on-disk. If there are pre-existing files from previous compactions, LevelDB merges 
-these old files with newly arrived in-memory logs to write out most recent sorted 
-sequential files. These compactions cause both read and write disk I/O:
-existing sorted files are read into memory and newly merged files are written
-back to disks. Figure \ref{graph:ldb-singlenode} shows the variability in insert
-throughput of a single node instance of LevelDB-based backend. This figure
-shows that periodic background compactions happen during the entire experiment
-which causes the throughput to drop steadily -- the overall throughput drop is
-more than 35\% of the peak throughput.
-In Figure \ref{graph:ldb-scaling}, the throughput drop is much higher in
-aggregate but is about the same fraction as the single-node degradation.
-This is expected because each LevelDB instance performs these compactions, and 
-because each \giga{} server handles a uniform load, all LevelDB instances are busy
-performing compactions.  
-
-\end{comment}

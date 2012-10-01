@@ -3,7 +3,7 @@
 
 \giga{} is a distributed hash-based indexing technique that incrementally
 divides each directory into multiple partitions that are spread over multiple 
-servers \citep{GIGA11}.
+servers \cite{GIGA11}.
 Each filename stored in a directory entry is hashed and mapped to a partition 
 using an index. 
 \giga{} selects a hash partition such that for any distribution of unique filenames, the hash values of 
@@ -36,120 +36,8 @@ any time, particularly for rapidly mutating directories.
 receiving mapping updates from servers. 
 More discussion on the cost-benefit of using
 inconsistent mapping state is not relevant to this work and can be found in
-prior \giga{} literature \citep{GIGA11, GIGA07}. 
+prior \giga{} literature \cite{GIGA11, GIGA07}. 
 
 %%%%%%%%%%%
 
 
-\begin{comment}
-\textbf{Tolerating inconsistent mapping at clients -- }
-%\subsection*{Tolerating inconsistent mapping at clients}
-%\label{indexing:inconsistency}
-Clients seeking a specific filename find the appropriate partition by probing 
-servers, possibly incorrectly, based on their cached index.
-To construct this index, a client must have resolved the directory's parent
-directory entry which contains a cluster-wide i-node identifying the server and
-partition for the zeroth partition $P_0$.
-Partition $P_0$ may be the appropriate partition for the sought filename, or it
-may not because of a previous partition split that the client has not yet
-learned about. 
-An ``incorrectly'' addressed server detects the addressing error by recomputing 
-the partition identifier by re-hashing the filename.
-If this hashed filename does not belong in the partition it has,
-this server sends a split history update to the client.
-The client updates its cached version of the global index and 
-retries the original request.
-
-The drawback of allowing inconsistent indices is that clients may need 
-additional probes before addressing requests to the correct server.
-The required number of incorrect probes depends on the client request 
-rate and the directory mutation rate (rate of splitting partitions).
-It is conceivable that a client with an empty index may send O$(log(N_p))$ 
-incorrect probes, where $N_p$ is the 
-number of partitions, but \giga{}'s split history updates makes this many
-incorrect probes unlikely.
-Each update sends the split histories of all partitions that reside on a
-given server, filling all gaps in the client index known to this server and
-causing client indices to catch up quickly.
-Moreover, after a directory stops splitting partitions, clients soon after will 
-no longer incur any addressing errors.
-%\giga{}'s eventual consistency for cached indices is different from LH*'s
-%eventual consistency because the latter's idea of independent splitting (called
-%pre-splitting) suffers addressing errors even when the index
-%stops mutating \citep{lh*:litwin96}. 
-
-\textbf{Key performance insights -- }
-Detailed analysis of the scalability and performance of \giga{} studies several
-tradeoffs \citep{giga}; the observations that are within the scope of this work
-include the load-balancing and incremental growth strategy.
-
-
-%%%%%%%%%%%
-\subsection*{On-line server additions}
-\label{indexing.reconfig}
-
-%This section describes how \giga{} adapts to the addition of servers in a 
-%running directory service.
-%\footnote{Server removal (i.e., decommissioned, not 
-%failed and later replaced) is not as
-%important for high performance systems so we leave it to be done by user-level
-%data copy tools.}
-
-\begin{figure}[t]
-\centerline{\includegraphics[scale=0.35]{../common/figures/giga-serveradd}}
-\vspace{-10pt}
-\caption{\small
-\textbf{\giga{} server additions.}
-By changing the partition-to-server mapping from round-robin on the original 
-server set to sequential on the newly added servers, \giga{} can minimize the amount
-of data migrated (shown by arrows indicating splits).
-}
-\label{fig:giga-adding}
-%\vspace{10pt}
-%\hrule depth 0.5pt
-\end{figure}
-
-When new servers are added to an existing configuration, the system is
-immediately no longer load balanced, and it 
-should re-balance itself by migrating a minimal number of directory entries
-from all existing servers equally. 
-Using the round-robin partition-to-server mapping, shown in Figure 
-\ref{fig:giga-indexing}, a naive server addition scheme would require 
-re-mapping almost all directory entries whenever a new server is added.
-
-\giga{} avoids re-mapping all directory entries on addition of servers by 
-differentiating
-the partition-to-server mapping for initial directory growth from the mapping
-for additional servers.
-For additional servers, \giga{} does not use the round-robin partition-to-server
-map (shown in Figure \ref{fig:giga-indexing}) and instead 
-maps all future partitions to the new servers in a ``sequential manner''.
-The benefit of round-robin mapping is faster exploitation of parallelism
-when a directory is small and growing, while a sequential mapping for the tail
-set of partitions does not disturb previously mapped partitions more than is 
-mandatory for load balancing.
-Figure \ref{fig:giga-adding} shows an example where the original configuration
-has 5 servers with 3 partitions each, and partitions $P_0$ to $P_{14}$ use a 
-round-robin rule (for $P_i$, server is $i$ \texttt{mod} $N$, where $N$ is 
-number of servers).
-After the addition of two servers, the six new partitions $P_{15}$-$P_{20}$
-will be mapped to servers using the new mapping rule: $i$ \texttt{div} $M$, 
-where $M$ is the number of partitions per server (e.g., 3 partitions/server).
-
-In \giga{} even the number of servers can be stale at servers and clients. 
-The arrival of a new server and its order in the global server list is declared
-by the cluster file system's configuration management protocol, such as
-Zookeeper for HDFS \citep{zookeeper:hunt10}, leading to each existing server
-eventually noticing the new server.
-Once it knows about new servers, an existing server can inspect its partitions
-for those that have sufficient directory entries to warrant splitting and would
-split to a newly added server.
-The normal \giga{} splitting mechanism kicks in to migrate only directory
-entries that belong on the new servers.
-The order in which an existing server inspects partitions can be entirely
-driven by client references to partitions, biasing migration in favor of active
-directories.
-Or based on an administrator control, it can also be driven by a background 
-traversal of a list of partitions whose size exceeds the splitting threshold. 
-
-\end{comment}

@@ -1,0 +1,46 @@
+\section{Future Challenges}
+\label{futurework}
+
+Before our work can be useful in real HPC deployments, we need to address
+several issues. 
+
+First, we will layer our middleware on top of a real cluster file system.
+This will allow us to inherit the data path scalability when accessing the 
+file data as well as \ldb's SSTables. We also plan to explore how
+we can effectively leverage the fault tolerance mechanisms and system
+configuration tools already present in the cluster file systems.
+
+Second, we will minimize the FUSE overheads associated with accessing files.
+Even after the application gets a symbolic link pointing to the physical
+location of the file, our current prototype will rely of FUSE and VFS to
+dereference the symbolic link. We want to avoid this FUSE
+interposition by changing the FUSE kernel module to support distributed file
+system file handles but still receive prompt notifications of attribute changes
+on file close.
+
+Third, we will explore several recently published optimizations to minimize the
+background compaction operations triggered by data stores built on the LSM
+trees and similar data-structures \cite{blsm, tokufs, Bender2007}. 
+While compactions is a necessary evil: in order to speed up future reads and
+scans, the steal resources from foreground operations that happen
+simultaneously with these background operations.
+
+\section{Summary}
+\label{summary}
+
+Modern cluster file systems provide highly scalable I/O bandwidth along the
+data path by enabling highly parallel access to file data.
+Unfortunately metadata scaling is lagging behind data scaling.
+We propose a file system design that 
+inherits the scalable data bandwidth of existing cluster file systems
+and adds support for distributed and high-performance metadata operations.
+Our key idea is to integrate a distributed indexing mechanism with general-purpose
+optimized on-disk metadata store.
+Early prototype evaluation shows that our approach outperforms popular Linux
+local file systems and scales well with large numbers of file creations. 
+
+%inherits data bandwidth and adds the metadata bandwidth scaling
+
+%split and migrate without moving the underlying objects
+
+

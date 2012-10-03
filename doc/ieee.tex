@@ -1,0 +1,49 @@
+\documentclass[10pt, conference]{IEEEtran}
+
+\usepackage{epsfig,endnotes}
+\usepackage{xspace}
+\usepackage{subfigure}
+%our commands
+%\usepackage{setspace}
+%\doublespacing
+
+\usepackage{url}
+
+\newcommand{\delete}[1]{}
+\newcommand{\tfs}{\textsc{TableFS}\xspace}
+\newcommand{\giga}{\textsc{Giga+}\xspace}
+\newcommand{\ldb}{{LevelDB}\xspace}
+
+\hyphenation{op-tical net-works semi-conduc-tor}
+
+\begin{document}
+
+%don't want date printed
+\date{}
+
+%make title bold and 14 pt font (Latex default is non-bold, 16 pt)
+\title{A case for scaling HPC metadata performance \\ through
+de-specialization}
+
+\author{
+    \normalsize {Paper \#8} \\ 
+    \normalsize {Anonymized submission to the Parallel Data Storage Workshop 2012 (with ACM SC 2012)}
+}
+%\author{\IEEEauthorblockN{Swapnil Patil, Kai Ren and Garth Gibson}
+%\IEEEauthorblockA{ Carnegie Mellon University \\
+%\{svp, kair, garth\}@cs.cmu.edu}}
+
+
+\maketitle
+%\begin{abstract}
+%\input{abstract}
+%\end{abstract}
+\input{intro}
+\input{design}
+\input{eval}
+\input{summary}
+
+\bibliographystyle{plain}
+\bibliography{reference}
+
+\end{document}

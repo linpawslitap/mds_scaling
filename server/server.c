@@ -386,7 +386,7 @@ void init_root_partition()
                 int dir_id = ROOT_DIR_ID;
                 struct giga_directory *dir = cache_lookup(&dir_id);
 
-                if (metadb_create_dir(ldb_mds, ROOT_DIR_ID, -1, NULL, 
+                if (metadb_create_dir(ldb_mds, ROOT_DIR_ID, 0, "/",
                                       &dir->mapping) < 0) {
                     LOG_ERR("mdb_create(%s): error creating root", ldb_name);
                     exit(1);
@@ -410,7 +410,7 @@ void init_root_partition()
                 int dir_id = ROOT_DIR_ID;
                 struct giga_directory *dir = cache_lookup(&dir_id);
                 
-                if (metadb_read_bitmap(ldb_mds, dir_id, -1, NULL, &dir->mapping) != 0) {
+                if (metadb_read_bitmap(ldb_mds, dir_id, 0, NULL, &dir->mapping) != 0) {
                     LOG_ERR("mdb_read(%s): error reading ROOT bitmap.", ldb_name);
                     exit(1);
                 }

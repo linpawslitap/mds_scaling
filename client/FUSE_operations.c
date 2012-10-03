@@ -776,7 +776,7 @@ int GIGAaccess(const char *path, int mask)
                 ret = errno;
             break;
         default:
-            ret = ENOTSUP;
+            ret = 0;
             break;
     }
     

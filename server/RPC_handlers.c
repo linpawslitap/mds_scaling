@@ -454,10 +454,11 @@ bool_t giga_rpc_readdir_serial_1_svc(scan_args_t args,
         const char* realpath = metadb_readdir_iter_get_realpath(iter, &len);
         
         metadb_readdir_iter_get_stat(iter, &statbuf);
-        
+
+/*        
         assert((statbuf.st_mode & S_IFDIR) > 0);
         assert(memcmp(objname, realpath, len) == 0);
-       
+*/       
         LOG_MSG("#%d: \t obj=[%s] \t sym=[%s]", entry, objname, realpath);
         (void)realpath;
 

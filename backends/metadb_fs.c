@@ -450,7 +450,7 @@ int metadb_create(struct MetaDB mdb,
 
 int metadb_create_dir(struct MetaDB mdb,
                       const metadb_inode_t dir_id, const int partition_id,
-                      //const metadb_inode_t inode_id, 
+                      //const metadb_inode_t inode_id,
                       const char *path,
                       metadb_val_dir_t* dir_mapping)
 {
@@ -459,7 +459,7 @@ int metadb_create_dir(struct MetaDB mdb,
     metadb_val_t mobj_val;
     char* err = NULL;
 
-    metadb_inode_t inode_id = dir_mapping->id; 
+    metadb_inode_t inode_id = dir_mapping->id;
     init_meta_obj_key(&mobj_key, dir_id, partition_id, path);
 
     if (path != NULL) {

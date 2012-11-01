@@ -42,7 +42,7 @@ Using \giga{} and \ldb{} enables us to tackle two key challenges: highly
 concurrent metadata distribution for ingest-intensive parallel applications
 such as checkpointing \cite{PLFS} and 
 optimized metadata representation that stores all file system
-metadata in structured, indexed files manages by existing cluster file system
+metadata in structured, indexed files managed by existing cluster file system
 deployments \cite{LevelDB}. 
 
 Remainder of this section describes more details of our approach. 
@@ -95,13 +95,13 @@ need for \texttt{gigaPartitionID} in the schema.}
 
 ~\\
 \textbf{Partition splitting -- }
-Each \giga{} hash partition and its directory entries are stored in sorted
+Each \giga{} hash partition and its directory entries are stored in 
 SSTable files in a local \ldb{} instance. 
 Recall that each \giga{} server process splits a hash partition $P$ on 
 overflow and creates another hash partition $P'$ which is managed by a 
 different server; this split involves migrating approximately half the entries 
 from old partition $P$ to the new hash partition $P'$ on another server during
-which the key range in write locked.
+which the key range in write is locked.
 We explored several ways to perform this cross-server partition split.
 
 A simple approach to splitting would be to perform a \ldb range scan on 
@@ -112,7 +112,7 @@ together and sent in an RPC message to the server that will manage partition
 $P'$.
 The recipient server inserts each key in the batch in its own \ldb{}
 instance. While the simplicity of this approach makes it attractive, we would
-like a faster technique that to reduce the time the range is write locked. 
+like a faster technique to reduce the time that the range is write locked. 
 
 The immutability of \ldb SSTables makes such a fast bulk insert possible -- an
 SSTable can be added to Level 0 without its data being pushed through the
@@ -151,7 +151,7 @@ machine.
 Figure \ref{fig:design} illustrates this data path (in BLUE color).
 Once the client completes a
 lookup on a desired file name, it gets back a symbolic link to the physical
-path in the cluster file system. All subsequent access using this symbolic
+path in the cluster file system. All subsequent accesses using this symbolic
 link force the client operating system to resolve this link into the cluster
 file system.
 While the file is open, its attributes may change relative to \ldb's per-open

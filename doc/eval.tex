@@ -85,12 +85,11 @@ i.e. 64,000 operations per second in aggregate.
 \centerline{\includegraphics[scale=0.33]{./figs/ldb_insertrate}}
 \caption{\normalsize
 Our middleware metadata service prototype shows promising scalability
-up to 64 servers. 
-%However the interaction between LevelDB's compaction policies and 
-%the Linux Ext3's implementation policies causes periodic throughput variance
-%that degrades as the the number of directory entries in each LevelDB
-%increases. 
-Note that the solid lines in each configuration are Bezier
+up to 64 servers.
+Note that at the end of the experiment, 
+the throughput drops to zero 
+because clients stop creating files as they finish 1 million files per client.
+And the solid lines in each configuration are Bezier
 curves to smooth the variability.
 }
 \vspace{10pt}

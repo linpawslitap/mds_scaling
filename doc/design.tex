@@ -80,7 +80,8 @@ The general schema used to store all file is:
 
 {parentDirID,         {attr(dirEntry),
  gigaPartitionID, -->  symlink,
- hash(dirEntry)}       gigaMetaState}
+ hash(dirEntry),       gigaMetaState}
+ dirEntry}
 \end{verbatim}
 
 The main differences from the \ldb{} schema described in Section
@@ -154,9 +155,11 @@ lookup on a desired file name, it gets back a symbolic link to the physical
 path in the cluster file system. All subsequent accesses using this symbolic
 link force the client operating system to resolve this link into the cluster
 file system.
-While the file is open, its attributes may change relative to \ldb's per-open
+While the file is open, some of its attributes (e.g., file size and last access time)
+may change relative to \ldb's per-open
 copy of the attributes. \giga will capture these changes on file close on the
-metadata path.
+metadata path. Other attribute changes relatvie to permissions can be updated on-flight
+through \giga servers. 
 
 %\subsubsection*{Other challenges.}
 

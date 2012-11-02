@@ -84,11 +84,12 @@ The general schema used to store all file is:
  dirEntry}
 \end{verbatim}
 
-The main differences from the \ldb{} schema described in Section
-\ref{design.tablefs} is the addition of \texttt{gigaPartitionID} to identify a
-\giga{} hash partition and the optional \texttt{gigaMetaState} to store the
-hash partition related mapping information. \giga{} related fields are used
-only if large directories are distributed over multiple metadata servers.\footnote{
+The main difference from the \ldb{} schema described in Section
+\ref{design.tablefs} is the addition of two \giga specific fields: 
+\texttt{gigaPartitionID} to identify a
+\giga{} hash partition and \texttt{gigaMetaState} to store the
+hash partition related mapping information. These \giga{} related fields are 
+used only if large directories are distributed over multiple metadata servers.\footnote{
 Since we already store the \texttt{hash} of the directory entry, we can use the
 hash-values to identify hash partitions if we chose to use the same hash
 function for both \giga and \ldb keys. This optimization can eliminate the

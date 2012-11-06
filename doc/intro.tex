@@ -2,7 +2,7 @@
 
 Lack of a highly scalable and parallel metadata service is the 
 Achilles heel for many cluster file system deployments in both the HPC world 
-\cite{hecfsio:tr06, hpcs-io:2008} and the Internet services world \cite{HDFS}.
+\cite{hpcs-io:2008, hecfsio:tr06} and the Internet services world \cite{HDFS}.
 This is because most cluster file systems have focused on scaling the
 data path, i.e. providing high bandwidth parallel I/O to files that are 
 gigabytes in size.
@@ -33,7 +33,7 @@ environments just because their metadata path does not provide the desired
 scalability or the desired functionality.
 Several large cluster file system installations, such as Panasas PanFS running
 at LANL \cite{panfs:welch08} and PVFS running on Argonne BG/P 
-\cite{pvfs:www,bgp}, can 
+\cite{bgp, pvfs:www}, can 
 benefit from a solution that provides, for instance, distributed directory support 
 that does not require any modifications to the running cluster file system.
 The second goal -- \textit{generality and de-specialization} -- promises a 

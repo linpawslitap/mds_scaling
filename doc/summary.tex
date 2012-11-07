@@ -20,10 +20,12 @@ on file close.
 
 Third, we will explore several recently published optimizations to minimize the
 background compaction operations triggered by data stores built on the LSM
-trees and similar data-structures \cite{Bender2007, tokufs, blsm}. 
-While compactions is a necessary evil: in order to speed up future reads and
-scans, they steal resources from foreground operations that happen
-simultaneously with these background operations.
+trees and similar data-structures \cite{blsm, tokufs, Bender2007}. 
+Compactions are a necessary evil: in order to speed up future reads and
+scans, the steal resources from foreground operations that happen
+simultaneously with these background operations. We want to explore heuristics
+that can minimize the impact of foreground operations for metadata-specific
+workloads.
 
 \section{Summary}
 \label{summary}

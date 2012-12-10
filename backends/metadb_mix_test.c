@@ -12,7 +12,7 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#define DEFAULT_MEASURE_INTERVAL 30
+#define DEFAULT_MEASURE_INTERVAL 1
 #define MAX_FILENAME_LEN 1024
 #define NUM_BIG_ENTRIES 1000000
 #define FILE_FORMAT "fd%d"
@@ -23,6 +23,7 @@
 
 int num_small_entries;
 int num_test;
+int* remap;
 
 static
 void myreaddir(struct MetaDB mdb,
@@ -154,6 +155,7 @@ typedef struct {
   int num_done;
   int nscan;
   int ndir;
+  int nbig;
   int start;
   int finish;
 } shared_state_t;
@@ -171,6 +173,14 @@ typedef struct {
   thread_state_t* thread;
   shared_state_t* shared;
 } thread_arg_t;
+
+int get_real_di(int di, int num_big) {
+  if (di < num_big) {
+    return di;
+  } else {
+    return num_big + remap[di - num_big];
+  }
+}
 
 void* thread_body(void * v) {
   thread_arg_t* arg = (thread_arg_t *) v;
@@ -196,7 +206,7 @@ void* thread_body(void * v) {
     int i;
     for (i = 0; i < 100; ++i) {
       uint32_t pi = randpick(&randseed);
-      uint32_t di = randpick(&randseed) % thread->range;
+      int di = get_real_di(randpick(&randseed) % thread->range, shared->nbig);
       uint32_t fid = randpick(&randseed) % base;
       if (pi < thread->readratio) {
         snprintf(filename, MAX_FILENAME_LEN, FILE_FORMAT, thread->tid * base + fid);
@@ -240,13 +250,15 @@ void* scan_body(void* v) {
   }
 
   struct timespec start, end;
-  uint32_t randseed = shared->start_threshold;
   int i;
   for (i = 0; i < shared->nscan; ++i) {
     clock_gettime(CLOCK_MONOTONIC, &start);
     get_metric();
-    uint32_t ri = randpick(&randseed) % shared->nscan;
-    myreaddir(shared->mdb, ri + shared->ndir - shared->nscan);
+    int ri = i;
+    myreaddir(shared->mdb,
+              get_real_di(ri + shared->ndir - shared->nscan, shared->nbig));
+    printf("%d\n", shared->nbig);
+    printf("%d\n", get_real_di(ri + shared->ndir - shared->nscan, shared->nbig));
     clock_gettime(CLOCK_MONOTONIC, &end);
     get_metric();
     uint64_t timeElapsed = timespecDiff(&end, &start);
@@ -299,13 +311,14 @@ void create_entries(char* dbname, int num_small, int num_big, int small_size)
     drop_buffer_cache();
 }
 
-void run_mix(struct MetaDB mdb, int num_big, int num_small, int n, int nscan) {
+void run_mix(struct MetaDB mdb, int num_small, int num_big, int n, int nscan) {
   shared_state_t shared;
   shared.start_threshold = n + 1;
   shared.num_initialized = 0;
   shared.num_done = 0;
   shared.nscan = nscan;
   shared.ndir = num_big + num_small;
+  shared.nbig = num_big;
   shared.start = 0;
   shared.finish = 0;
   shared.mdb = mdb;
@@ -351,6 +364,16 @@ void run_mix(struct MetaDB mdb, int num_big, int num_small, int n, int nscan) {
   pthread_cond_destroy(&(shared.cv));
 }
 
+void generate_permutation(int rmap[], int num_small) {
+  int i;
+  uint32_t randseed = 100;
+  for (i = 0; i < num_small; ++i) {
+    int j = randpick(&randseed) % (i + 1);
+    rmap[i] = rmap[j];
+    rmap[j] = i;
+  }
+}
+
 void run_test_mix(int nargs, char* args[], int num_small, int num_big, int small_size) {
     if (nargs < 2) {
         return;
@@ -362,12 +385,13 @@ void run_test_mix(int nargs, char* args[], int num_small, int num_big, int small
     char* dbname = args[1];
 
     create_entries(dbname, num_small, num_big, small_size);
-
+    remap = (int *) malloc(sizeof(int) * num_small);
+    generate_permutation(remap, num_small);
     struct MetaDB mdb;
     metadb_init(&mdb, dbname);
     run_mix(mdb, num_small, num_big, 4, 10);
     metadb_close(mdb);
-
+    free(remap);
     drop_buffer_cache();
     printf("Test %d %d End: %ld\n", num_small, num_big, time(NULL));
 }

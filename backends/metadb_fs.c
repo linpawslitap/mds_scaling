@@ -349,9 +349,10 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name)
     leveldb_options_set_block_size(mdb->options, 4096);
     leveldb_options_set_compression(mdb->options, leveldb_no_compression);
 
+    /*
     leveldb_options_set_filter_policy(mdb->options,
                         leveldb_filterpolicy_create_bloom(12));
-
+    */
 
     mdb->lookup_options = leveldb_readoptions_create();
     leveldb_readoptions_set_fill_cache(mdb->lookup_options, 1);
@@ -450,7 +451,7 @@ int metadb_create(struct MetaDB mdb,
 
 int metadb_create_dir(struct MetaDB mdb,
                       const metadb_inode_t dir_id, const int partition_id,
-                      //const metadb_inode_t inode_id, 
+                      //const metadb_inode_t inode_id,
                       const char *path,
                       metadb_val_dir_t* dir_mapping)
 {
@@ -459,7 +460,7 @@ int metadb_create_dir(struct MetaDB mdb,
     metadb_val_t mobj_val;
     char* err = NULL;
 
-    metadb_inode_t inode_id = dir_mapping->id; 
+    metadb_inode_t inode_id = dir_mapping->id;
     init_meta_obj_key(&mobj_key, dir_id, partition_id, path);
 
     if (path != NULL) {

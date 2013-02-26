@@ -35,7 +35,7 @@ files=$(( $1/$(( $apps*$cli)) ))
 #if [ $cli -gt 1 ]
 #then
 echo "creating $apps benchmarks on $cli FUSE instances"
-for (( i=1; i<=$cli; i++)) 
+for (( i=1; i<=$cli; i++))
 do
     for ((j=1; j<=$apps; j++))
     do

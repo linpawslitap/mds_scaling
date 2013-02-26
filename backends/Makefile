@@ -39,6 +39,9 @@ metadb_insert_test : metadb_insert_test.o metadb_fs.o
 metadb_stress_test.o : metadb_stress_test.c operations.h
 	$(CC) $(CFLAGS) -c metadb_stress_test.c
 
+metadb_fs_check.o : metadb_fs_check.c operations.h
+	$(CC) $(CFLAGS) -c metadb_fs_check.c
+
 metadb_stress_test : metadb_stress_test.o metadb_fs.o
 	$(CC) -o $@ $^ ../common.a $(LDFLAGS)
 
@@ -52,6 +55,9 @@ metadb_mix_test.o : metadb_mix_test.c operations.h
 	$(CC) $(CFLAGS) -c metadb_mix_test.c
 
 metadb_mix_test : metadb_mix_test.o metadb_fs.o
+	$(CC) -o $@ $^ ../common.a $(LDFLAGS)
+
+metadb_fs_check : metadb_fs_check.o metadb_fs.o 
 	$(CC) -o $@ $^ ../common.a $(LDFLAGS)
 
 clean :

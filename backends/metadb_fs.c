@@ -349,9 +349,10 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name)
     leveldb_options_set_block_size(mdb->options, 4096);
     leveldb_options_set_compression(mdb->options, leveldb_no_compression);
 
+    /*
     leveldb_options_set_filter_policy(mdb->options,
                         leveldb_filterpolicy_create_bloom(12));
-
+    */
 
     mdb->lookup_options = leveldb_readoptions_create();
     leveldb_readoptions_set_fill_cache(mdb->lookup_options, 1);

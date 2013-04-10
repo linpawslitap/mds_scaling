@@ -26,15 +26,15 @@ CLIENT *getConnection(int srv_id)
 
     if (rpc_clnts[srv_id] == NULL) {
         LOG_ERR("Trying connection for server[%d] ...", srv_id);
-        if (rpc_host_connect(&rpc_clnts[srv_id], 
+        if (rpc_host_connect(&rpc_clnts[srv_id],
                              giga_options_t.serverlist[srv_id]) < 0) {
             LOG_ERR("ERROR connecting to server [%d]", srv_id);
             return NULL;
         }
-	    struct timeval to;
+        struct timeval to;
         to.tv_sec = 60;
         to.tv_usec = 0;
-	    clnt_control(rpc_clnts[srv_id], CLSET_TIMEOUT, (char*)&to);
+        clnt_control(rpc_clnts[srv_id], CLSET_TIMEOUT, (char*)&to);
     }
 
     return rpc_clnts[srv_id];
@@ -50,7 +50,7 @@ void rpcInit()
         exit(1);
     }
 
-    for (i = 0; i < giga_options_t.num_servers; i++)  
+    for (i = 0; i < giga_options_t.num_servers; i++)
         rpc_clnts[i] = NULL;
 }
 
@@ -58,8 +58,8 @@ void rpcConnect(void)
 {
     int i;
 
-    for (i = 0; i < giga_options_t.num_servers; i++) { 
-        if (rpc_host_connect(&rpc_clnts[i], giga_options_t.serverlist[i]) < 0) 
+    for (i = 0; i < giga_options_t.num_servers; i++) {
+        if (rpc_host_connect(&rpc_clnts[i], giga_options_t.serverlist[i]) < 0)
             LOG_ERR("CONN_ERROR: -> s[%d]", i);
         else {
             struct timeval to;
@@ -69,7 +69,6 @@ void rpcConnect(void)
             LOG_ERR("CONN_SETUP: -> s[%d]", i);
         }
     }
-    
 }
 
 void rpcDisconnect(void)
@@ -79,7 +78,7 @@ void rpcDisconnect(void)
         clnt_destroy (rpc_clnts[i]);
 }
 
-static 
+static
 int rpc_host_connect(CLIENT **rpc_client, const char *host)
 {
     int sock = RPC_ANYSOCK;
@@ -96,8 +95,8 @@ int rpc_host_connect(CLIENT **rpc_client, const char *host)
 
     memcpy(&addr.sin_addr, he->h_addr_list[0], he->h_length);
 
-    *rpc_client = clnttcp_create(&addr, 
-                                 GIGA_RPC_PROG, GIGA_RPC_VERSION, 
+    *rpc_client = clnttcp_create(&addr,
+                                 GIGA_RPC_PROG, GIGA_RPC_VERSION,
                                  &sock, 0, 0);
     if (*rpc_client == NULL) {
         LOG_ERR("ERR_rpc_conn: %s", clnt_spcreateerror((char*)host));
@@ -126,15 +125,15 @@ void getHostIPAddress(char *ip_addr, int ip_addr_len)
 
     int gai_result;
     struct addrinfo hints, *info;
-    
+
     memset(&hints, 0, sizeof(struct addrinfo));
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_CANONNAME;
     hints.ai_protocol = 0;
-    
+
     if ((gai_result = getaddrinfo(hostname, NULL, &hints, &info)) != 0) {
-        fprintf(stdout, "[%s] getaddrinfo(%s) failed. [%s]\n", 
+        fprintf(stdout, "[%s] getaddrinfo(%s) failed. [%s]\n",
                 __func__, hostname, gai_strerror(gai_result));
         exit(1);
     }
@@ -153,9 +152,9 @@ void getHostIPAddress(char *ip_addr, int ip_addr_len)
                 ptr = &((struct sockaddr_in6 *) p->ai_addr)->sin6_addr;
                 break;
         }
-        
+
         inet_ntop (p->ai_family, ptr, ip_addr, ip_addr_len);
-        //fprintf(stdout, "\t IPv%d address: %s (%s)\n", 
+        //fprintf(stdout, "\t IPv%d address: %s (%s)\n",
         //        p->ai_family == PF_INET6 ? 6 : 4, ip_addr, p->ai_canonname);
     }
 

@@ -18,7 +18,7 @@ case $1 in
 
 c) # cleanup and exit
    #
-rm -rf $GIGA 
+rm -rf $GIGA
 rm -rf $LDB
 mkdir $GIGA
 mkdir $LDB
@@ -37,7 +37,7 @@ gdb --args ../giga_server
 
 f) # foreground server execution
    #
-../giga_server 
+../giga_server
 ;;
 
 n) # normal server execution

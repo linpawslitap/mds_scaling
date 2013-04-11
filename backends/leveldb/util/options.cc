@@ -22,10 +22,7 @@ Options::Options()
       block_size(4096),
       block_restart_interval(16),
       compression(kSnappyCompression),
-      filter_policy(NULL),
-      limit_sst_file_size(2<<20),
-      limit_level_zero(10),
-      factor_level_files(10) {
+      filter_policy(NULL) {
 }
 
 

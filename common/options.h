@@ -13,7 +13,7 @@ typedef enum backends {
     BACKEND_RPC_LEVELDB         // LevelDB mounted on networked config
 } backend_t;
 
-#define NFS 
+#define PANFS
 
 #ifdef  LOCAL_FS    /* LocalFS */
 #define DEFAULT_BACKEND_TYPE    BACKEND_LOCAL_FS
@@ -43,6 +43,16 @@ typedef enum backends {
 #define DEFAULT_SPLIT_DIR       "/users/svp/_splits/"
 #endif
 
+#ifdef  PANFS         /* LevelDB splits through NFS, everything else is local */
+#define DEFAULT_BACKEND_TYPE    BACKEND_RPC_LEVELDB
+#define DEFAULT_SPLIT_DIR       "/panfs/pana.pdl.cmu.local/vol-1-01/_splits/"
+#define DEFAULT_SRV_BACKEND     "/l0/giga_srv/"
+#define DEFAULT_LEVELDB_DIR     "/l0/giga_ldb/"
+
+#define DEFAULT_PARALLEL_DIR       "/panfs/pana.pdl.cmu.local/vol-1-01/"
+#define PARALLEL_VOL_LIST_FILE       "/root/gigaVols"
+#endif
+
 // client-side and server side defaults
 //
 
@@ -61,32 +71,48 @@ typedef enum backends {
 
 #define ROOT_DIR_ID     0
 
-#define PARENT_OF_ROOT      0   
+#define PARENT_OF_ROOT      0
 #define PARTITION_OF_ROOT   0
 
 #define DEFAULT_DIR_CACHE_SIZE  4096
+
+#define MAX_PARALLEL_VOLS 500
+#define MAX_PARALLEL_VOL_NAME 256
+
+#define PATH1 1
+#define PATH2 2
+#define PATH3 3
+#define DATA_MODE 3
+
+#define LAZY_CREATE_ON 1
+#define LAZY_CREATE_OFF 0
+#define LAZY_CREATE 0
 
 // Configuration options used by GIGA+ client and server.
 //
 struct giga_options {
 
-    //Common for both clients and servers 
+    //Common for both clients and servers
     //
     char *hostname;             // SELF hostname
     char *ip_addr;              // SELF server ip address
     int port_num;               // SELF server port num
-   
+
     int num_servers;            // num of servers in the server list 
     const char **serverlist;    // server list GIGA+ nodes
-    
+
     char *mountpoint;           // client's mountpoint and server's backend
+    char *pfspoint;             // mountpoint of the parallel file system
+    int num_pfs_volumes;        // num of parallel FS's volume
+    char **pfs_volumes;         // list of the mount points
+
     backend_t backend_type;     // string to specify type of backend
-   
+
     // Server specific parameters.
     //
     int serverID;               // ID of the current server
     int split_threshold;        // default split threshold 
-    
+
     // Client-specific parameters.
     //
 

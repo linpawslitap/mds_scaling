@@ -18,8 +18,9 @@
 
 typedef int giga_dir_id;
 typedef string giga_pathname<PATH_MAX>;
-typedef opaque giga_file_data<4096>;
+typedef string giga_file_data<4096>;
 typedef struct giga_mapping_t giga_bitmap;
+typedef int giga_write_feedback;
 
 typedef struct scan_entry_t* scan_list_t;
 
@@ -40,7 +41,7 @@ struct scan_result_t {
     scan_list_t list;
     int         num_entries;
     int         more_entries_flag;
-	giga_bitmap bitmap;
+    giga_bitmap bitmap;
 };
 
 struct scan_args_t {
@@ -50,21 +51,21 @@ struct scan_args_t {
 };
 
 union readdir_return_t switch (int errnum) {
-	case 0:
+    case 0:
         struct scan_result_t result;
-	case -EAGAIN:
-		giga_bitmap bitmap;
-	default:
-		void;
+    case -EAGAIN:
+        giga_bitmap bitmap;
+    default:
+      void;
 };
 
 union readdir_result_t switch (int errnum) {
-	case 0:
+    case 0:
         scan_list_t list;
-	case -EAGAIN:
-		giga_bitmap bitmap;
-	default:
-		void;
+    case -EAGAIN:
+        giga_bitmap bitmap;
+    default:
+        void;
 };
 
 struct giga_timestamp_t {
@@ -73,57 +74,100 @@ struct giga_timestamp_t {
 };
 
 union giga_result_t switch (int errnum) {
-	case -EAGAIN:
-		giga_bitmap bitmap;
-	default:
-		void;
+    case -EAGAIN:
+        giga_bitmap bitmap;
+    default:
+        void;
 };
 
 union giga_lookup_t switch (int errnum) {
-	case 0:
-		giga_dir_id dir_id;
-	case -EAGAIN:
-		giga_bitmap bitmap;
-	default:
-		void;
+    case 0:
+        giga_dir_id dir_id;
+    case -EAGAIN:
+        giga_bitmap bitmap;
+    default:
+        void;
 };
 
 struct giga_getattr_reply_t {
     struct stat statbuf;
     giga_result_t result;
     /**int fn_retval;*/
+
+    int giga_entry_type;
+    int file_location;
+    giga_pathname link;
 };
 
+struct giga_readlink_reply_t {
+    giga_pathname link;
+    giga_result_t result;
+    /**int fn_retval;*/
+};
+
+
+struct giga_open_reply_t {
+    giga_result_t result;
+    /**int fn_retval;*/
+};
+
+
+struct giga_close_reply_t {
+    giga_result_t result;
+    /**int fn_retval;*/
+};
+
+
+struct giga_write_reply_t {
+    giga_result_t result;
+    giga_write_feedback custom_error;
+    giga_pathname link;
+    /**int fn_retval;*/
+};
 
 /* RPC definitions */
 
 program GIGA_RPC_PROG {                 /* program number */
-	version GIGA_RPC_VERSION {          /* version number */
-		/* Initial RPC.
+version GIGA_RPC_VERSION {          /* version number */
+      /* Initial RPC.
            - REQUEST: client sends "number of servers".
            - REPLY: servers check, respond with its know "number of servers".
         */
-		/*int GIGA_RPC_INIT(int) = 1;*/
+      /*int GIGA_RPC_INIT(int) = 1;*/
         giga_result_t GIGA_RPC_INIT(int) = 1;
-        
+
         giga_getattr_reply_t GIGA_RPC_GETATTR(giga_dir_id, giga_pathname) = 101;
 
         giga_result_t GIGA_RPC_MKDIR(giga_dir_id, giga_pathname, mode_t) = 201;
 
-        giga_result_t GIGA_RPC_MKNOD(giga_dir_id, giga_pathname, mode_t, short) = 301;
-       
+        giga_result_t GIGA_RPC_MKNOD(giga_dir_id, giga_pathname,
+                                     mode_t, short) = 301;
+
         /*
         readdir_result_t GIGA_RPC_READDIR(giga_dir_id, int) = 501;
         readdir_return_t GIGA_RPC_READDIR_REQ(giga_dir_id, int, scan_key) = 502;
         */
         readdir_return_t GIGA_RPC_READDIR_SERIAL(scan_args_t) = 502;
-        
-        /* {dir_to_split, parent_index, child_index, path_leveldb_files} */
-        giga_result_t GIGA_RPC_SPLIT(giga_dir_id, int, int, giga_pathname, 
-                                     uint64_t, uint64_t, int) = 401;
-		
-        /* CLIENT API */
-		/*giga_lookup_t RPC_CREATE(giga_dir_id, giga_pathname, mode_t) = 101;*/
 
-	} = 1;
+        /* {dir_to_split, parent_index, child_index, path_leveldb_files} */
+        giga_result_t GIGA_RPC_SPLIT(giga_dir_id, int, int, giga_pathname,
+                                     uint64_t, uint64_t, int) = 401;
+
+        giga_result_t GIGA_RPC_CREAT(giga_dir_id, giga_pathname, mode_t) = 501;
+
+        giga_readlink_reply_t GIGA_RPC_READLINK(giga_dir_id, giga_pathname) = 601;
+
+        giga_write_reply_t GIGA_RPC_WRITE(giga_dir_id, giga_pathname,
+                                          giga_file_data data, int size,
+                                          int offset) = 701;
+
+        giga_open_reply_t GIGA_RPC_OPEN(giga_dir_id, giga_pathname, int mode ) = 801;
+
+        giga_close_reply_t GIGA_RPC_CLOSE(giga_dir_id, giga_pathname) = 901;
+
+
+        /* CLIENT API */
+        /*giga_lookup_t RPC_CREATE(giga_dir_id, giga_pathname, mode_t) = 101;*/
+
+  } = 1;
 } = 522222; /* FIXME: Is this a okay value for program number? */

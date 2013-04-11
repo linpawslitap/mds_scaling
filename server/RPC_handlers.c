@@ -722,11 +722,80 @@ exit_func:
 
     release_dir_mapping(dir);
 
-    LOG_MSG("<<< RPC_mkdir(d=%d,p=%d): status=[%d]", 
+    LOG_MSG("<<< RPC_mkdir(d=%d,p=%d): status=[%d]",
             dir_id, path, rpc_reply->errnum);
 
     return true;
 }
+
+bool_t giga_rpc_write_1_svc(giga_dir_id dir_id, giga_pathname path,
+                            giga_file_data data, int size, int offset,
+                            giga_write_reply_t *rpc_reply,
+                            struct svc_req *rqstp)
+{
+    (void)(dir_id);
+    (void)(path);
+    (void)(data);
+    (void)(size);
+    (void)(offset);
+    (void)(rpc_reply);
+    (void)(rqstp);
+    return true;
+}
+
+bool_t giga_rpc_close_1_svc(giga_dir_id dir_id, giga_pathname path,
+                            giga_close_reply_t *rpc_reply,
+                            struct svc_req *rqstp)
+{
+    (void)(dir_id);
+    (void)(path);
+    (void)(rpc_reply);
+    (void)(rqstp);
+    return true;
+}
+
+
+
+bool_t giga_rpc_open_1_svc(giga_dir_id dir_id, giga_pathname path, int mode,
+                           giga_open_reply_t *rpc_reply,
+                           struct svc_req *rqstp)
+{
+    (void)(dir_id);
+    (void)(path);
+    (void)(mode);
+    (void)(rpc_reply);
+    (void)(rqstp);
+
+    return true;
+}
+
+bool_t giga_rpc_readlink_1_svc(giga_dir_id dir_id, giga_pathname path,
+                               giga_readlink_reply_t *rpc_reply,
+                               struct svc_req *rqstp)
+{
+    (void)(dir_id);
+    (void)(path);
+    (void)(rpc_reply);
+    (void)(rqstp);
+
+    return true;
+}
+
+
+bool_t giga_rpc_creat_1_svc(giga_dir_id dir_id, giga_pathname path, mode_t mode,
+                            giga_result_t *rpc_reply,
+                            struct svc_req *rqstp)
+{
+    (void)(dir_id);
+    (void)(path);
+    (void)(mode);
+    (void)(rpc_reply);
+    (void)(rqstp);
+
+    return true;
+}
+
+
 
 
 // =============================================================================

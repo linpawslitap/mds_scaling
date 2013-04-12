@@ -24,6 +24,8 @@
 #define CREATE_FLAGS    (O_CREAT | O_APPEND)
 #define CREATE_RDEV     0
 
+#define RPC_FILE_MIGRATED_PANFS 35
+
 /*
  * Operations for local file system as the backend.
  */
@@ -45,6 +47,9 @@ int rpc_create(int dir_id, const char *path, mode_t mode);
 scan_list_t rpc_readdir(int dir_id, const char *path);
 int rpc_opendir(int dir_id, const char *path);
 int rpc_releasedir(int dir_id, const char *path);
+int rpc_creat(int dir_id, const char *path, mode_t mode);
+int rpc_open(int dir_id, const char *path,int mode);
+int rpc_readlink(int dir_id, const char *path, char *link);
 
 /*
  * Operations for MDB

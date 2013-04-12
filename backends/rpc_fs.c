@@ -19,19 +19,19 @@
 #define RPCFS_LOG   LOG_DEBUG
 
 #define LOG_MSG(format, ...) \
-    logMessage(RPCFS_LOG, __func__, format, __VA_ARGS__); 
+    logMessage(RPCFS_LOG, __func__, format, __VA_ARGS__);
 
-static 
+static
 void update_client_mapping(struct giga_directory *dir, struct giga_mapping_t *map)
 {
     giga_update_cache(&dir->mapping, map);
 }
 
-static 
+static
 int get_server_for_file(struct giga_directory *dir, const char *name)
 {
     index_t index = giga_get_index_for_file(&(dir->mapping), name);
-    //int server_id = (index + (&(dir->mapping))->zeroth_server) % 
+    //int server_id = (index + (&(dir->mapping))->zeroth_server) %
     //                ((&(dir->mapping))->server_count);
     int server_id = giga_get_server_for_index(&dir->mapping, index);
 
@@ -48,7 +48,7 @@ void init_cache()
 {
     int dir_id = ROOT_DIR_ID; //FIXME: dir_id for "root"
     int srv_id = 0;
-    
+
     cache_init();
     struct giga_directory *dir = new_cache_entry(&dir_id, srv_id);
     cache_insert(&dir_id, dir);
@@ -61,15 +61,15 @@ void init_cache()
 int rpc_init()
 {
     int ret = 0;
-    
+
     int dir_id = ROOT_DIR_ID; // update root server's bitmap
     int server_id = 0;
-    
+
     init_cache();
-    
+
     CLIENT *rpc_clnt = getConnection(server_id);
     giga_result_t rpc_reply;
-    
+
     LOG_MSG(">>> RPC_init: s[%d]", server_id);
 
     if ((giga_rpc_init_1(giga_options_t.num_servers, &rpc_reply, rpc_clnt)) 
@@ -95,7 +95,7 @@ int rpc_init()
         ret = errnum;
     }
 
-    
+
     LOG_MSG("<<< RPC_init: s[%d]", server_id);
 
     return ret;
@@ -104,13 +104,13 @@ int rpc_init()
 int rpc_getattr(int dir_id, const char *path, struct stat *stbuf)
 {
     int ret = 0;
-    
+
     struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
         LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
         ret = -EIO;
     }
-    
+
     int server_id = 0;
     giga_getattr_reply_t rpc_reply;
 
@@ -125,7 +125,7 @@ retry:
         LOG_ERR("ERR_rpc_getattr(%s)", clnt_spcreateerror(path));
         exit(1);//TODO: retry again?
     }
-    
+
     // check return condition 
     //
     ret = rpc_reply.result.errnum;
@@ -133,7 +133,7 @@ retry:
         //TODO: check for IS_DIR flag in statbuf
         if (S_ISDIR(rpc_reply.statbuf.st_mode)) {
             *stbuf = rpc_reply.statbuf;
-            
+
             LOG_MSG("GETATTR(%s) returns a directory for d%d", path, stbuf->st_ino);
             giga_print_mapping(&rpc_reply.result.giga_result_t_u.bitmap); 
             struct giga_directory *new = new_cache_entry((DIR_handle_t*)&stbuf->st_ino, rpc_reply.result.giga_result_t_u.bitmap.zeroth_server); 
@@ -170,20 +170,20 @@ retry:
     cache_release(dir);
 
     LOG_MSG("<<< RPC_getattr(%s): status=[%d]%s", path, ret, strerror(ret));
-    
+
     return ret;
 }
 
 int rpc_mkdir(int dir_id, const char *path, mode_t mode)
 {
     int ret = 0;
-    
+
     struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
         LOG_MSG("ERROR_cache: dir(%d) missing!", dir_id);
         ret = -EIO;
     }
-    
+
     int server_id = 0;      //TODO: randomize zeroth server
     giga_result_t rpc_reply;
 
@@ -211,24 +211,24 @@ retry:
     } else {
         ret = 0;
     }
-    
+
     cache_release(dir);
 
     LOG_MSG("<<< RPC_mkdir(%s): status=[%d]%s", path, ret, strerror(ret));
-    
+
     return ret;
 }
 
 int rpc_mknod(int dir_id, const char *path, mode_t mode, dev_t dev)
 {
     int ret = 0;
-    
+
     struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
         LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
         ret = -EIO;
     }
-    
+
     int server_id = 0;
     giga_result_t rpc_reply;
 
@@ -260,7 +260,7 @@ retry:
     cache_release(dir);
 
     LOG_MSG("<<< RPC_mknod(%s): status=[%d]%s", path, ret, strerror(ret));
-    
+
     return ret;
 }
 
@@ -276,7 +276,7 @@ static scan_list_t final_ls_end;
 
 void *readdir_thread(void *params)
 {
-    int ret; 
+    int ret;
     struct readdir_args *a = (struct readdir_args*) params;
 
     struct giga_directory dir = (struct giga_directory)a->dir_t;
@@ -291,7 +291,7 @@ void *readdir_thread(void *params)
         pthread_exit(NULL);
     }
     */
-    
+
     readdir_return_t rpc_reply;
     memset(&rpc_reply, 0, sizeof(rpc_reply));
     scan_list_t ls;
@@ -336,7 +336,7 @@ retry:
         } else if (ret < 0) {
             ;
         } else {
-            
+
             //if (rpc_reply.readdir_return_t_u.result.num_entries == 0) {
             //    LOG_MSG("ERR_rpc_readdir(dirid=%d,s=%d) is absent", dir_id, server_id);
             //    break;
@@ -356,7 +356,7 @@ retry:
                 }
             }
             RELEASE_MUTEX(&final_ls_mtx, "readdir_result_mtx(%d)", server_id);
-            
+
             more_ents_flag = rpc_reply.readdir_return_t_u.result.more_entries_flag;
 
             if (more_ents_flag) {
@@ -369,16 +369,16 @@ retry:
                 args.start_key.scan_key_len = rpc_reply.readdir_return_t_u.result.end_key.scan_key_len;
                 args.start_key.scan_key_val = strdup(rpc_reply.readdir_return_t_u.result.end_key.scan_key_val);
                 args.start_key.scan_key_val[args.start_key.scan_key_len] = '\0';
-               
+
             } else {
                 update_client_mapping(&dir, &rpc_reply.readdir_return_t_u.result.bitmap);
             }
-            
+
         }
 
         ents += rpc_reply.readdir_return_t_u.result.num_entries;
     } while(more_ents_flag != 0);
-   
+
     LOG_MSG("readdir[s%d]=%d", server_id, ents);
 
     //pthread_exit((void*)ret);
@@ -389,7 +389,7 @@ scan_list_t rpc_readdir(int dir_id, const char *path)
 {
     //scan_list_t final_ls_start = NULL;
     //scan_list_t final_ls_end = NULL;
-    
+
     pthread_mutex_init(&final_ls_mtx, NULL);
     ACQUIRE_MUTEX(&final_ls_mtx, "readdir_result_mtx([%d][%s])", dir_id, path);
     final_ls_start = NULL;
@@ -401,16 +401,16 @@ scan_list_t rpc_readdir(int dir_id, const char *path)
         LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
         exit(1);
     }
-    
+
     //FIXME: only for the servers that hold the partitions.
     int max_servers = giga_options_t.num_servers;
-    //int max_servers = 2; 
+    //int max_servers = 2;
     pthread_t tid[max_servers];
-   
+
     pthread_attr_t attr;
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-    
+
     struct readdir_args args[max_servers];
 
     void *status;
@@ -425,7 +425,7 @@ scan_list_t rpc_readdir(int dir_id, const char *path)
             exit(1);
         }
     }
-    
+
     pthread_attr_destroy(&attr);
     for (i=0; i<max_servers; i++) { //#### start_for_loop for all partitions
 
@@ -438,28 +438,28 @@ scan_list_t rpc_readdir(int dir_id, const char *path)
 
 
     }
-    
+
     cache_release(dir);
 
     LOG_MSG("<<< RPC_readdir(%s): return", path);
-   
-    return final_ls_start; 
+
+    return final_ls_start;
 }
 
 #if 0
 scan_list_t rpc_readdir(int dir_id, const char *path)
 {
     int ret = 0;
-    
+
     struct giga_directory *dir = cache_fetch(&dir_id);
     if (dir == NULL) {
         LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
         ret = -EIO;
     }
-    
+
     scan_list_t final_ls_start = NULL;
     scan_list_t final_ls_end = NULL;
-    
+
     int server_id = 0;
 
     giga_print_mapping(&dir->mapping);
@@ -492,7 +492,7 @@ retry:
     args.partition_id = p_id;
     args.start_key.scan_key_val = NULL;
     args.start_key.scan_key_len = 0;
-    
+
     do {
         memset(&rpc_reply, 0, sizeof(rpc_reply));
 
@@ -526,7 +526,7 @@ retry:
                 if (ls->next == NULL) 
                         final_ls_end = ls;
             }
-            
+
             more_ents_flag = rpc_reply.readdir_return_t_u.result.more_entries_flag;
 
             if (more_ents_flag) {
@@ -537,22 +537,22 @@ retry:
                 update_client_mapping(dir, &rpc_reply.readdir_return_t_u.result.bitmap);
                 giga_get_all_partitions(&dir->mapping, partitions);
             }
-            
+
         }
     } while(more_ents_flag != 0);
 
     } //### end_for_loop for all partitions
 
     LOG_MSG("<<< RPC_readdir(%s): status=[%d]%s", path, ret, strerror(ret));
-   
-    return final_ls_start; 
+
+    return final_ls_start;
 }
 #endif
 
 int rpc_releasedir(int dir_id, const char *path)
 {
     int ret = 0;
-    
+
     LOG_MSG(">>> RPC_releasedir(%s, d%d)", path, dir_id);
     LOG_MSG("<<< RPC_releasedir(%s): status=[%d]%s", path, ret, strerror(ret));
 
@@ -562,97 +562,227 @@ int rpc_releasedir(int dir_id, const char *path)
 int rpc_opendir(int dir_id, const char *path)
 {
     int ret = 0;
-    
+
     LOG_MSG(">>> RPC_opendir(%s, d%d)", path, dir_id);
     LOG_MSG("<<< RPC_opendir(%s): status=[%d]%s", path, ret, strerror(ret));
 
     return ret;
 }
 
-
-/*
-int local_symlink(const char *path, const char *link)
+int rpc_write(int dir_id, const char* path, char* buf, size_t size,
+              off_t offset, char* symLink)
 {
     int ret = 0;
-
-    if ((ret = symlink(path, link)) < 0) {
-        logMessage(LOG_FATAL, __func__,
-                   "symlink(%s,%s) failed: %s", path, link, strerror(errno));
-        ret = errno;
+    struct giga_directory *dir = cache_lookup(&dir_id);
+    if (dir == NULL) {
+        LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
+        ret = -EIO;
     }
-    
+    int server_id = 0;
+
+    //Reply parameter pre processing
+    giga_write_reply_t rpc_reply;
+    rpc_reply.link = (char *)malloc (PATH_MAX*sizeof(char));
+    rpc_reply.link[0] = '\n';
+
+    //Data copy, can we avoid this
+    giga_file_data data_buf = buf;
+
+    //Find the right server
+retry:
+    server_id = get_server_for_file(dir, path);
+    CLIENT *rpc_clnt = getConnection(server_id);
+
+    LOG_MSG(">>> RPC_write(%s): to s[%d]", path, server_id);
+
+    if (giga_rpc_write_1(dir_id, (char*)path, data_buf, size, offset,
+                         &rpc_reply, rpc_clnt)
+        != RPC_SUCCESS) {
+        LOG_ERR("ERR_rpc_write(%s)", clnt_spcreateerror(path));
+        exit(1);//TODO: retry again?
+    }
+
+    // check return condition
+    ret = rpc_reply.result.errnum;
+    if (ret == -EAGAIN) {
+        update_client_mapping(dir, &rpc_reply.result.giga_result_t_u.bitmap);
+        LOG_MSG("bitmap update from s%d -- RETRY ...", server_id);
+        goto retry;
+    } else if (ret == 0) {
+      if (rpc_reply.custom_error == RPC_FILE_MIGRATED_PANFS) {
+          strncpy(symLink,rpc_reply.link,PATH_MAX );
+          symLink[PATH_MAX -1] = '\0';
+          ret = RPC_FILE_MIGRATED_PANFS;
+      }
+    }
+    cache_release(dir);
+
+    LOG_MSG("<<< RPC_write(%s): status=[%d]%s", path, ret, strerror(ret));
+    free (rpc_reply.link);
     return ret;
 }
 
-int local_readlink(const char *path, char *link, size_t size)
+int rpc_readlink(int dir_id, const char *path, char *link)
 {
     int ret = 0;
 
-    if ((ret = readlink(path, link, size-1)) < 0) {
-        logMessage(LOG_FATAL, __func__,
-                   "readlink(%s,%s) failed: %s", path, link, strerror(errno));
-        ret = errno;
+    struct giga_directory *dir = cache_lookup(&dir_id);
+    if (dir == NULL) {
+        LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
+        ret = -EIO;
     }
-    else  {
-	    link[ret] = '\0';
-        ret = 0;
+
+    int server_id = 0;
+    giga_readlink_reply_t rpc_reply;
+    rpc_reply.link = (char *)malloc (PATH_MAX*sizeof(char));
+
+retry:
+    server_id = get_server_for_file(dir, path);
+    CLIENT *rpc_clnt = getConnection(server_id);
+
+    LOG_MSG(">>> RPC_readlink(%s): to s[%d]", path, server_id);
+    if (giga_rpc_readlink_1(dir_id, (char*)path, &rpc_reply, rpc_clnt)
+        != RPC_SUCCESS) {
+        LOG_ERR("ERR_rpc_readlink(%s)", clnt_spcreateerror(path));
+        exit(1);
     }
-    
+
+    // check return condition
+    //
+    ret = rpc_reply.result.errnum;
+    if (ret == -EAGAIN) {
+        update_client_mapping(dir, &rpc_reply.result.giga_result_t_u.bitmap);
+        LOG_MSG("rpc_readlink: bitmap update from s%d -- RETRY ...", server_id);
+        goto retry;
+    }
+    else if (ret == 0){
+        memcpy (link,rpc_reply.link,PATH_MAX);
+    }
+
+    cache_release(dir);
+    free ( rpc_reply.link);
+    LOG_MSG("<<< RPC_readlink(%s): status=[%d]%s, link read = %s",
+            path, ret, strerror(ret) , link);
     return ret;
 }
 
-// NOTE: ret_fd is to return the fd from the open call (needed for fi->fh)
-int local_open(const char *path, int flags, int *ret_fd)
+int rpc_creat(int dir_id, const char *path, mode_t mode)
 {
     int ret = 0;
-    int fd;
-    
-    if ((fd = open(path, flags)) < 0) {
-        logMessage(LOG_FATAL, __func__,
-                   "open(%s) failed: %s", path, strerror(errno));
-        ret = errno;
+
+    struct giga_directory *dir = cache_lookup(&dir_id);
+    if (dir == NULL) {
+        LOG_MSG("Kartik: rpc_creat: ERR_cache: dir(%d) missing!", dir_id);
+        ret = -EIO;
     }
 
-    *ret_fd = fd;
+    int server_id = 0;
+    giga_result_t rpc_reply;
 
+retry:
+    server_id = get_server_for_file(dir, path);
+    CLIENT *rpc_clnt = getConnection(server_id);
+
+    LOG_MSG(">>> RPC_creat(%s): to s[%d]", path, server_id);
+
+    if (giga_rpc_creat_1(dir_id, (char*)path, mode, &rpc_reply, rpc_clnt)
+        != RPC_SUCCESS) {
+        LOG_ERR("rpc_creat: ERR_rpc_creat(%s)", clnt_spcreateerror(path));
+        exit(1);
+    }
+
+    // check return condition
+    //
+    ret = rpc_reply.errnum;
+    if (ret == -EAGAIN) {
+        update_client_mapping(dir, &rpc_reply.giga_result_t_u.bitmap);
+        LOG_MSG("rpc_creat: bitmap update from s%d -- RETRY ...", server_id);
+        goto retry;
+    }
+    cache_release(dir);
+
+    LOG_MSG("<<< rpc_creat: RPC_creat(%s): status=[%d]%s", path, ret, strerror(ret));
     return ret;
 }
 
-int local_mknod(const char *path, mode_t mode, dev_t dev)
+int rpc_close(int dir_id, const char *path)
 {
     int ret = 0;
 
-    // On Linux this could just be 'mknod(path, mode, rdev)' but this
-    //  is more portable
-    if (S_ISREG(mode)) {
-        if ((ret = open(path, O_CREAT | O_EXCL | O_WRONLY, mode) < 0)) {
-            logMessage(LOG_FATAL, __func__,
-                       "open(%s, CRT|EXCL|WR) failed: %s", path, strerror(errno));
-            ret = (errno);
-        }
-        else {
-            // close the opened file.
-            if ((ret = close(ret)) < 0) {
-                logMessage(LOG_FATAL, __func__,
-                           "close(%d) failed: %s", ret, strerror(errno));
-                ret = (errno);
-            }
-	    }
-    } 
-    else if (S_ISFIFO(mode)) {
-	    if ((ret = mkfifo(path, mode)) < 0) {
-            logMessage(LOG_FATAL, __func__,
-                       "mkfifo(%s) failed: %s", path, strerror(errno));
-            ret = (errno);
-        }
-	} else {
-	    if ((ret = mknod(path, mode, dev)) < 0) {
-            logMessage(LOG_FATAL, __func__,
-                       "mknod(%s) failed: %s", path, strerror(errno));
-            ret = (errno);
-        }
-	}
+    struct giga_directory *dir = cache_lookup(&dir_id);
+    if (dir == NULL) {
+        LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
+        ret = -EIO;
+    }
 
+    int server_id = 0;
+    giga_close_reply_t rpc_reply;
+
+retry:
+    server_id = get_server_for_file(dir, path);
+    CLIENT *rpc_clnt = getConnection(server_id);
+
+    LOG_MSG(">>> RPC_close%s): to s[%d]", path, server_id);
+
+    if (giga_rpc_close_1(dir_id, (char*)path, &rpc_reply, rpc_clnt)
+        != RPC_SUCCESS) {
+        LOG_ERR("ERR_rpc_close(%s)", clnt_spcreateerror(path));
+        exit(1);
+    }
+
+    // check return condition
+    //
+    ret = rpc_reply.result.errnum;
+    if (ret == -EAGAIN) {
+        update_client_mapping(dir, &rpc_reply.result.giga_result_t_u.bitmap);
+        LOG_MSG("rpc_close: bitmap update from s%d -- RETRY ...", server_id);
+        goto retry;
+    } else if (ret == 0){
+
+    }
+
+    cache_release(dir);
+    LOG_MSG("<<< RPC_close(%s): status=[%d]%s", path, ret, strerror(ret) );
     return ret;
 }
-*/
+
+int rpc_open(int dir_id, const char *path, int mode)
+{
+    int ret = 0;
+
+    LOG_MSG(">>> RPC_open(%s, d%d)", path, dir_id);
+
+    struct giga_directory *dir = cache_lookup(&dir_id);
+    if (dir == NULL) {
+        LOG_MSG("rpc_open: ERR_cache: dir(%d) missing!", dir_id);
+        exit(1);
+    }
+
+    int server_id = 0;
+    giga_open_reply_t  rpc_reply;
+
+retry:
+    server_id = get_server_for_file(dir, path);
+    CLIENT *rpc_clnt = getConnection(server_id);
+
+    LOG_MSG(">>> RPC_open(%s): to s%d]", path, server_id);
+
+    if (giga_rpc_open_1(dir_id, (char*)path, mode, &rpc_reply, rpc_clnt)
+        != RPC_SUCCESS) {
+        LOG_ERR("ERR_rpc_open(%s)", clnt_spcreateerror(path));
+        exit(1);//TODO: retry again?
+    }
+
+    // check return condition
+    //
+    ret = rpc_reply.result.errnum;
+    if (ret == -EAGAIN) {
+        update_client_mapping(dir, &rpc_reply.result.giga_result_t_u.bitmap);
+        LOG_MSG("rpc_open: Kartik: bitmap update from s%d -- RETRY ...", server_id);
+        goto retry;
+    }
+    cache_release(dir);
+
+    LOG_MSG("<<<Kartik: RPC_open(%s): status=[%d]%s", path, ret, strerror(ret));
+    return ret;
+}

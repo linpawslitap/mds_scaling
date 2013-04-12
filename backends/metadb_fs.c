@@ -91,11 +91,13 @@ metadb_val_t init_meta_val(const metadb_inode_t inode_id,
                            const size_t objname_len,
                            const char* objname,
                            const size_t realpath_len,
-                           const char* realpath)
+                           const char* realpath,
+                           const size_t data_len,
+                           const char* data)
 {
     metadb_val_t mobj_val;
     mobj_val.size = sizeof(metadb_val_header_t)
-                       + realpath_len +objname_len + 2;
+                       + realpath_len + objname_len + data_len + 3;
     mobj_val.value = (char*) malloc(mobj_val.size);
 
     metadb_val_header_t* mobj = (metadb_val_header_t *) mobj_val.value;
@@ -106,14 +108,22 @@ metadb_val_t init_meta_val(const metadb_inode_t inode_id,
     mobj->objname[objname_len] = '\0';
 
     mobj->realpath_len = realpath_len;
-    mobj->realpath = (char*) mobj + sizeof(metadb_val_header_t) + objname_len+1;
+    mobj->realpath = (char*) mobj + sizeof(metadb_val_header_t) + objname_len + 1;
     strncpy(mobj->realpath, realpath, realpath_len);
     mobj->realpath[realpath_len] = '\0';
+
+    if (data_len > 0) {
+      char* mobj_data = (char*) mobj + sizeof(metadb_val_header_t)
+                  + objname_len + realpath_len + 2;
+      strncpy(mobj_data, data, data_len);
+      mobj_data[data_len] = '\0';
+    }
 
     mobj->statbuf = INIT_STATBUF;
     mobj->statbuf.st_ino = inode_id;
     mobj->statbuf.st_mode = (mobj->statbuf.st_mode & ~S_IFMT) | S_IFREG;
     mobj->statbuf.st_nlink = 1;
+    mobj->statbuf.st_size = data_len;
 
     time_t now = time(NULL);
     mobj->statbuf.st_atime = now;
@@ -159,6 +169,19 @@ metadb_val_t init_dir_val(const metadb_inode_t inode_id,
     mobj->statbuf.st_ctime = now;
 
     return mobj_val;
+}
+
+static
+void reconstruct_mobj_value(metadb_val_t* mobj_val)
+{
+    //Finaly, reconstruct the realpath and objname addresses
+    metadb_val_header_t* mobj = (metadb_val_header_t*) mobj_val->value;
+    char* objname = (char*) mobj + sizeof(metadb_val_header_t);
+    mobj->objname = objname;
+
+    char* realpath = (char*) mobj+ sizeof(metadb_val_header_t)
+                    + mobj->objname_len+1;
+    mobj->realpath = realpath;
 }
 
 static
@@ -422,7 +445,8 @@ int metadb_create(struct MetaDB mdb,
 
     mobj_val = init_meta_val(0,
                              strlen(path), path,
-                             strlen(realpath), realpath);
+                             strlen(realpath), realpath,
+                             0, NULL);
 
     logMessage(METADB_LOG, __func__, "create(%s) in (partition=%d,dirid=%d): (%d, %08x)",
                path, partition_id, dir_id, mobj_val.size, mobj_val.value);
@@ -507,20 +531,22 @@ metadb_val_t metadb_lookup_internal(struct MetaDB mdb,
     ACQUIRE_MUTEX(&(mdb.mtx_leveldb), "metadb_lookup_internal(%s)", path);
 
     mobj_val.value = leveldb_get(mdb.db, mdb.lookup_options,
-                             (const char*) &mobj_key, METADB_KEY_LEN, &mobj_val.size, &err);
+                                 (const char*) &mobj_key, METADB_KEY_LEN,
+                                 &mobj_val.size, &err);
 
     RELEASE_MUTEX(&(mdb.mtx_leveldb), "metadb_lookup_internal(%s)", path);
 
-    if (err != NULL) {
+    if (err != NULL || mobj_val.value == NULL) {
         logMessage(METADB_LOG, __func__,
                "lookup_internal(%s) in (partition=%d,dirid=%ld) failed: (%s)",
                path, partition_id, dir_id, err);
         mobj_val.value = NULL;
         mobj_val.size = 0;
     } else {
+        reconstruct_mobj_value(&mobj_val);
         logMessage(METADB_LOG, __func__,
-               "lookup_internal(%s) in (partition=%d,dirid=%ld) found entry: (%d, %08x)",
-               path, partition_id, dir_id, mobj_val.size, mobj_val.value);
+          "lookup_internal(%s) in (partition=%d,dirid=%ld) found entry: (%d, %08x)",
+          path, partition_id, dir_id, mobj_val.size, mobj_val.value);
     }
 
     return mobj_val;
@@ -552,6 +578,7 @@ int metadb_update_internal(struct MetaDB mdb,
                                 &mobj_val.size, &err);
 
     if ((err == NULL) & (mobj_val.size != 0)) {
+        reconstruct_mobj_value(&mobj_val);
         ret = update_func(&mobj_val, arg1);
         if (ret >= 0) {
             leveldb_put(mdb.db, mdb.insert_options,
@@ -591,6 +618,39 @@ int metadb_lookup(struct MetaDB mdb,
     } else {
         logMessage(METADB_LOG, __func__, "entry(%s) not found.", path);
         ret = ENOENT;
+    }
+
+    free_metadb_val(&mobj_val);
+    return ret;
+}
+
+int metadb_readpath(struct MetaDB mdb,
+                    const metadb_inode_t dir_id, const int partition_id,
+                    const char *path, char* link, size_t *link_len)
+{
+    int ret = 0;
+    metadb_val_t mobj_val;
+    mobj_val = metadb_lookup_internal(mdb, dir_id, partition_id, path);
+
+    if (mobj_val.size != 0) {
+        logMessage(METADB_LOG, __func__, "lookup found entry(%s).", path);
+
+        //Check if this thingy is a symlink or not
+        metadb_val_header_t* mobj = (metadb_val_header_t *) mobj_val.value;
+        if (!S_ISDIR(mobj->statbuf.st_mode)) {
+            *link_len = mobj->realpath_len;
+            memcpy(link,  mobj->realpath, *link_len);
+            link[mobj->realpath_len] = '\0';
+        } else {
+            logMessage(METADB_LOG, __func__,
+                       "readpath: entry(%s) is dir", path);
+            ret = ENOENT;
+            link[0] = '\0';
+        }
+    } else {
+        logMessage(METADB_LOG, __func__, "readpath: entry(%s) not found.", path);
+        ret = ENOENT;
+        link[0] = '\0';
     }
 
     free_metadb_val(&mobj_val);

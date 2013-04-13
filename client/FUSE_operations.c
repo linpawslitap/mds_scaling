@@ -20,7 +20,7 @@
 #define _LEVEL_     LOG_DEBUG
 
 #define LOG_MSG(format, ...) \
-    logMessage(_LEVEL_, __func__, format, __VA_ARGS__); 
+    logMessage(_LEVEL_, __func__, format, __VA_ARGS__);
 
 static struct MetaDB ldb_mds;
 //static uint64_t object_id = 0;
@@ -38,44 +38,43 @@ static void get_full_path(char fpath[], const char *path);
  */
 static int parse_path_components(const char *path, char *file, char *dir)
 {
-	const char *p = path;
-	if (!p || !file)
-		return -1;
+    const char *p = path;
+    if (!p || !file)
+    return -1;
 
-	if (strcmp(path, "/") == 0) {
-		strcpy(file, "/");
-		if (dir)
-			strcpy(dir, "/");
-
-		return 0;
-	}
+    if (strcmp(path, "/") == 0) {
+        strcpy(file, "/");
+        if (dir)
+            strcpy(dir, "/");
+        return 0;
+    }
 
     int pathlen = strlen(path);
 
     if (pathlen > PATH_MAX)
         return -ENAMETOOLONG;
-    
+
     p += pathlen;
-	while ( (*p) != '/' && p != path)
-		p--; // Come back till '/'
+    while ( (*p) != '/' && p != path)
+        p--; // Come back till '/'
 
     if (pathlen - (int)(p - path) > PATH_MAX)
         return -ENAMETOOLONG;
 
     // Copy after slash till end into filename
-	strncpy(file, p+1, PATH_MAX); 
-	if (dir) {
-		if (path == p)
-			strncpy(dir, "/", 2);
-		else {
-            // Copy rest into dirpath 
-			strncpy(dir, path, (int)(p - path )); 
-			dir[(int)(p - path)] = '\0';
-		}
-	}
+    strncpy(file, p+1, PATH_MAX);
+    if (dir) {
+        if (path == p)
+            strncpy(dir, "/", 2);
+        else {
+            // Copy rest into dirpath
+            strncpy(dir, path, (int)(p - path ));
+            dir[(int)(p - path)] = '\0';
+        }
+    }
 
     LOG_MSG("parsed [%s] to {file=[%s],dir=[%s]}", path, file, dir);
-	return 0;
+    return 0;
 }
 
 /*
@@ -84,8 +83,8 @@ static int parse_path_components(const char *path, char *file, char *dir)
  */
 static void get_full_path(char fpath[PATH_MAX], const char *path)
 {
-    strncpy(fpath, DEFAULT_SRV_BACKEND, strlen(DEFAULT_SRV_BACKEND)+1); 
-            //giga_options_t.mountpoint, strlen(giga_options_t.mountpoint)+1);  
+    strncpy(fpath, DEFAULT_SRV_BACKEND, strlen(DEFAULT_SRV_BACKEND)+1);
+            //giga_options_t.mountpoint, strlen(giga_options_t.mountpoint)+1);
     strncat(fpath, path, PATH_MAX);          //XXX: long path names with break!
 
     LOG_MSG("converted [%s] to [%s]", path, fpath);
@@ -98,7 +97,7 @@ void* GIGAinit(struct fuse_conn_info *conn)
     LOG_MSG(">>> FUSE_init(%d)", ROOT_DIR_ID);
 
     (void)conn;
-    
+
     switch (giga_options_t.backend_type) {
         /*
         case BACKEND_LOCAL_LEVELDB:
@@ -117,16 +116,16 @@ void* GIGAinit(struct fuse_conn_info *conn)
             break;
         case BACKEND_RPC_LEVELDB:
             rpcInit();
-            //rpcConnect();     //FIXME: I don't need this 
+            //rpcConnect();     //FIXME: I don't need this
             if (rpc_init() < 0) {
                 LOG_ERR("RPC_init_err(%s)", ROOT_DIR_ID);
                 exit(1);
-            }  
+            }
             break;
         default:
             break;
     }
-    
+
     LOG_MSG("<<< FUSE_init(%d)", ROOT_DIR_ID);
     return NULL;
 }
@@ -136,7 +135,7 @@ void GIGAdestroy(void * unused)
     (void)unused;
 
     logClose();
-    
+
     LOG_MSG(">>> FUSE_destroy(%d) <<<", ROOT_DIR_ID);
 
     // FIXME: check cleanup code.
@@ -153,7 +152,7 @@ int GIGAgetattr(const char *path, struct stat *statbuf)
     char dir[PATH_MAX] = {0};
     char file[PATH_MAX] = {0};
     int dir_id = 0;
-   
+
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
             get_full_path(fpath, path);
@@ -187,7 +186,7 @@ int GIGAgetattr(const char *path, struct stat *statbuf)
     }
 
     LOG_MSG("<<< FUSE_getattr(%s): ret=[%d]", path, ret);
-    
+
     return ret;
 }
 
@@ -200,7 +199,7 @@ int GIGAmkdir(const char *path, mode_t mode)
     char dir[PATH_MAX] = {0};
     char file[PATH_MAX] = {0};
     int dir_id = 0;
-    
+
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
             get_full_path(fpath, path);
@@ -229,13 +228,13 @@ int GIGAmkdir(const char *path, mode_t mode)
         default:
             break;
     }
-    
+
     LOG_MSG("<<< FUSE_mkdir(%s): status=[%d] ", path, ret);
-    
+
     return ret;
 }
 
-    
+
 int GIGAmknod(const char *path, mode_t mode, dev_t dev)
 {
     LOG_MSG(">>> FUSE_mknod(%s): mode=[0%3o],dev=[%lld]", path, mode, dev);
@@ -245,7 +244,7 @@ int GIGAmknod(const char *path, mode_t mode, dev_t dev)
     char dir[PATH_MAX] = {0};
     char file[PATH_MAX] = {0};
     int dir_id = 0;
-    
+
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
             get_full_path(fpath, path);
@@ -271,7 +270,7 @@ int GIGAmknod(const char *path, mode_t mode, dev_t dev)
         default:
             break;
     }
-    
+
     LOG_MSG("<<< FUSE_mknod(%s): status=[%d] ", path, ret);
     return ret;
 }
@@ -279,7 +278,7 @@ int GIGAmknod(const char *path, mode_t mode, dev_t dev)
 int GIGAopendir(const char *path, struct fuse_file_info *fi)
 {
     LOG_MSG(">>> FUSE_opendir(%s): fi=[0x%08x])", path, fi);
-    
+
     int ret = 0;
     char fpath[PATH_MAX] = {0};
     char dir[PATH_MAX] = {0};
@@ -303,9 +302,9 @@ int GIGAopendir(const char *path, struct fuse_file_info *fi)
             ret = ENOTSUP;
             break;
     }
-    
+
     LOG_MSG("<<< FUSE_opendir(%s): ret=[%d:%s]", path, ret, strerror(ret));
-        
+
     return FUSE_ERROR(ret);
 }
 
@@ -313,7 +312,7 @@ int GIGAreaddir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offse
                 struct fuse_file_info *fi)
 {
     LOG_MSG(">>> FUSE_readdir(%s): offset=%lld", path, offset);
-    
+
     int ret = 0;
     char dir[PATH_MAX] = {0};
     char file[PATH_MAX] = {0};
@@ -322,7 +321,7 @@ int GIGAreaddir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offse
     DIR *dp = (DIR*) (uintptr_t) fi->fh;
 
     scan_list_t ls;
-    scan_list_t ret_ls; 
+    scan_list_t ret_ls;
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
             if ((de = readdir(dp)) == 0) {
@@ -330,7 +329,7 @@ int GIGAreaddir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offse
                 break;
             }
             do {
-                if (filler(buf, de->d_name, NULL, 0) != 0) 
+                if (filler(buf, de->d_name, NULL, 0) != 0)
                     ret = ENOMEM;
             } while ((de = readdir(dp)) != NULL);
             break;
@@ -350,21 +349,21 @@ int GIGAreaddir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offse
             ret = ENOTSUP;
             break;
     }
-    
+
     LOG_MSG("<<< FUSE_readdir(%s): ret=[%d:%s]", path, ret, strerror(ret));
-        
+
     return FUSE_ERROR(ret);
 }
 
 int GIGAreleasedir(const char *path, struct fuse_file_info *fi)
 {
     LOG_MSG(">>> FUSE_releasedir(%s): fi=[0x%08x])", path, fi);
-    
+
     int ret = 0;
     char dir[PATH_MAX] = {0};
     char file[PATH_MAX] = {0};
     int dir_id = 0;
-    
+
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
             closedir((DIR*)(uintptr_t)fi->fh);
@@ -378,10 +377,10 @@ int GIGAreleasedir(const char *path, struct fuse_file_info *fi)
             ret = ENOTSUP;
             break;
     }
-    
-    
+
+
     LOG_MSG("<<< FUSE_releasedir(%s): ret=[%d:%s]", path, ret, strerror(ret));
-        
+
     return FUSE_ERROR(ret);
 }
 
@@ -390,7 +389,7 @@ int GIGAreleasedir(const char *path, struct fuse_file_info *fi)
 int GIGAunlink(const char *path)
 {
     LOG_MSG(">>> FUSE_unlink(%s): ", path);
-    
+
     int ret = 0;
     char fpath[PATH_MAX] = {0};
 
@@ -404,16 +403,16 @@ int GIGAunlink(const char *path)
             ret = ENOTSUP;
             break;
     }
-    
+
     LOG_MSG("<<< FUSE_unlink(%s): ret=[%d:%s]", path, ret, strerror(ret));
-    
+
     return FUSE_ERROR(ret);
 }
 
 int GIGArmdir(const char *path)
 {
     LOG_MSG(">>> FUSE_rmdir(%s): ", path);
-    
+
     int ret = 0;
     char fpath[PATH_MAX] = {0};
 
@@ -427,9 +426,9 @@ int GIGArmdir(const char *path)
             ret = ENOTSUP;
             break;
     }
-    
+
     LOG_MSG("<<< FUSE_rmdir(%s): ret=[%d:%s]", path, ret, strerror(ret));
-    
+
     return FUSE_ERROR(ret);
 }
 
@@ -450,16 +449,16 @@ int GIGAsymlink(const char *path, const char *link)
             ret = ENOTSUP;
             break;
     }
-    
+
     LOG_MSG("<<< FUSE_symlink(%s): ret=[%d:%s]", path, ret, strerror(ret));
-    
+
     return FUSE_ERROR(ret);
 }
 
 int GIGArename(const char *path, const char *newpath)
 {
     LOG_MSG(">>> FUSE_rename(%s): to [%s]", path, newpath);
-    
+
     int ret = 0;
     char fpath[PATH_MAX] = {0};
     char fnewpath[PATH_MAX] = {0};
@@ -475,16 +474,16 @@ int GIGArename(const char *path, const char *newpath)
             ret = ENOTSUP;
             break;
     }
-    
+
     LOG_MSG("<<< FUSE_rename(%s): ret=[%d:%s]", path, ret, strerror(ret));
-        
+
     return FUSE_ERROR(ret);
 }
 
 int GIGAlink(const char *path, const char *newpath)
 {
     LOG_MSG(">>> FUSE_link(%s): to [%s]", path, newpath);
-    
+
     int ret = 0;
     char fpath[PATH_MAX] = {0};
     char fnewpath[PATH_MAX] = {0};
@@ -500,16 +499,16 @@ int GIGAlink(const char *path, const char *newpath)
             ret = ENOTSUP;
             break;
     }
-    
+
     LOG_MSG("<<< FUSE_link(%s): ret=[%d:%s]", path, ret, strerror(ret));
-        
+
     return FUSE_ERROR(ret);
 }
 
 int GIGAchmod(const char *path, mode_t mode)
 {
     LOG_MSG(">>> FUSE_chmod(%s): mode=%3o ", path, mode);
-    
+
     int ret = 0;
     char fpath[PATH_MAX] = {0};
 
@@ -523,16 +522,16 @@ int GIGAchmod(const char *path, mode_t mode)
             ret = ENOTSUP;
             break;
     }
-    
+
     LOG_MSG("<<< FUSE_chmod(%s): ret=[%d:%s]", path, ret, strerror(ret));
-        
+
     return FUSE_ERROR(ret);
 }
 
 int GIGAchown(const char *path, uid_t uid, gid_t gid)
 {
     LOG_MSG(">>> FUSE_chown(%s): uid=%d, gid=%d ", path, uid, gid);
-    
+
     int ret = 0;
     char fpath[PATH_MAX] = {0};
 
@@ -546,16 +545,16 @@ int GIGAchown(const char *path, uid_t uid, gid_t gid)
             ret = ENOTSUP;
             break;
     }
-    
+
     LOG_MSG("<<< FUSE_chown(%s): ret=[%d:%s]", path, ret, strerror(ret));
-        
+
     return FUSE_ERROR(ret);
 }
 
 int GIGAtruncate(const char *path, off_t newsize)
 {
     LOG_MSG(">>> FUSE_truncate(%s): ", path);
-    
+
     int ret = 0;
     char fpath[PATH_MAX] = {0};
 
@@ -569,16 +568,16 @@ int GIGAtruncate(const char *path, off_t newsize)
             ret = ENOTSUP;
             break;
     }
-    
+
     LOG_MSG("<<< FUSE_truncate(%s): ret=[%d:%s]", path, ret, strerror(ret));
-        
+
     return FUSE_ERROR(ret);
 }
 
 int GIGAutime(const char *path, struct utimbuf *ubuf)
 {
     LOG_MSG(">>> FUSE_utime(%s): ", path);
-    
+
     int ret = 0;
     char fpath[PATH_MAX] = {0};
 
@@ -592,16 +591,16 @@ int GIGAutime(const char *path, struct utimbuf *ubuf)
             ret = ENOTSUP;
             break;
     }
-    
+
     LOG_MSG("<<< FUSE_utime(%s): ret=[%d:%s]", path, ret, strerror(ret));
-        
+
     return FUSE_ERROR(ret);
 }
 
 int GIGAopen(const char *path, struct fuse_file_info *fi)
 {
     LOG_MSG(">>> FUSE_open(%s): fi=[0x%08x])", path, fi);
-    
+
     int ret = 0;
     char fpath[PATH_MAX] = {0};
     int fd;
@@ -609,7 +608,7 @@ int GIGAopen(const char *path, struct fuse_file_info *fi)
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
             get_full_path(fpath, path);
-            if ((fd = open(fpath, fi->flags)) < 0) 
+            if ((fd = open(fpath, fi->flags)) < 0)
                 ret = errno;
             fi->fh = fd;
             break;
@@ -618,18 +617,18 @@ int GIGAopen(const char *path, struct fuse_file_info *fi)
             break;
     }
 
-    LOG_MSG("<<< FUSE_open(%s): ret=[%d:%s] and fi=[0x%08x])", 
+    LOG_MSG("<<< FUSE_open(%s): ret=[%d:%s] and fi=[0x%08x])",
             path, ret, strerror(ret), fi->fh);
-    
+
     return FUSE_ERROR(ret);
 }
 
-int GIGAread(const char *path, char *buf, size_t size, off_t offset, 
+int GIGAread(const char *path, char *buf, size_t size, off_t offset,
              struct fuse_file_info *fi)
 {
-    LOG_MSG(">>> FUSE_read(%s): size=%d,offset=%d,buf=[0x%08x] and fi=[0x%08x] ", 
-	        path, buf, size, offset, fi);
-    
+    LOG_MSG(">>> FUSE_read(%s): size=%d,offset=%d,buf=[0x%08x] and fi=[0x%08x] ",
+            path, buf, size, offset, fi);
+
     int ret = 0;
 
     switch (giga_options_t.backend_type) {
@@ -641,18 +640,18 @@ int GIGAread(const char *path, char *buf, size_t size, off_t offset,
             ret = FUSE_ERROR(ENOTSUP);
             break;
     }
-    
+
     LOG_MSG("<<< FUSE_read(%s): ret=[%d:%s]", path, ret, strerror(ret));
-        
+
     return ret;
 }
 
-int GIGAwrite(const char *path, const char *buf, size_t size, off_t offset, 
+int GIGAwrite(const char *path, const char *buf, size_t size, off_t offset,
               struct fuse_file_info *fi)
 {
-    LOG_MSG(">>> FUSE_write(%s): size=%d,offset=%d,buf=[0x%08x] and fi=[0x%08x] ", 
-	        path, buf, size, offset, fi);
-    
+    LOG_MSG(">>> FUSE_write(%s): size=%d,offset=%d,buf=[0x%08x] and fi=[0x%08x] ",
+            path, buf, size, offset, fi);
+
     int ret = 0;
 
     switch (giga_options_t.backend_type) {
@@ -664,9 +663,9 @@ int GIGAwrite(const char *path, const char *buf, size_t size, off_t offset,
             ret = FUSE_ERROR(ENOTSUP);
             break;
     }
-    
+
     LOG_MSG("<<< FUSE_write(%s): ret=[%d:%s]", path, ret, strerror(ret));
-        
+
     return ret;
 }
 
@@ -674,7 +673,7 @@ int GIGAwrite(const char *path, const char *buf, size_t size, off_t offset,
 int GIGAstatfs(const char *path, struct statvfs *statv)
 {
     LOG_MSG(">>> FUSE_statfs(%s): ", path);
-    
+
     int ret = 0;
     char fpath[PATH_MAX] = {0};
 
@@ -688,38 +687,38 @@ int GIGAstatfs(const char *path, struct statvfs *statv)
             ret = ENOTSUP;
             break;
     }
-    
+
     LOG_MSG("<<< FUSE_statfs(%s): ret=[%d:%s]", path, ret, strerror(ret));
-        
+
     return FUSE_ERROR(ret);
 }
 
 int GIGAflush(const char *path, struct fuse_file_info *fi)
 {
     int ret = 0;
-    
+
     LOG_MSG(">>> FUSE_flush(%s): fi=[0x%08x])", path, fi);
     // no need to get fpath on this one, since I work from fi->fh not the path
 
     return ret;
 }
-	
+
 int GIGArelease(const char *path, struct fuse_file_info *fi)
 {
     LOG_MSG(">>> FUSE_release(%s): fi=[0x%08x])", path, fi);
-    
+
     int ret = 0;
     ret = close(fi->fh);
-    
+
     LOG_MSG("<<< FUSE_release(%s): ret=[%d:%s]", path, ret, strerror(ret));
-        
+
     return FUSE_ERROR(ret);
 }
 
 int GIGAfsync(const char *path, int datasync, struct fuse_file_info *fi)
 {
     LOG_MSG(">>> FUSE_fsync(%s): datasync=%d and fi=[0x%08x]", path, datasync, fi);
-    
+
     int ret = 0;
 
     switch (giga_options_t.backend_type) {
@@ -736,9 +735,9 @@ int GIGAfsync(const char *path, int datasync, struct fuse_file_info *fi)
             ret = ENOTSUP;
             break;
     }
-    
+
     LOG_MSG("<<< FUSE_fsync(%s): ret=[%d:%s]", path, ret, strerror(ret));
-        
+
     return FUSE_ERROR(ret);
 }
 
@@ -746,7 +745,7 @@ int GIGAfsync(const char *path, int datasync, struct fuse_file_info *fi)
 int GIGAfsyncdir(const char *path, int datasync, struct fuse_file_info *fi)
 {
     LOG_MSG(">>> FUSE_fsyncdir(%s): dsync=%d and fi=[0x%08x]", path, datasync, fi);
-    
+
     int ret = 0;
 
     switch (giga_options_t.backend_type) {
@@ -756,16 +755,16 @@ int GIGAfsyncdir(const char *path, int datasync, struct fuse_file_info *fi)
             ret = ENOTSUP;
             break;
     }
-    
+
     LOG_MSG("<<< FUSE_fsync(%s): ret=[%d:%s]", path, ret, strerror(ret));
-        
+
     return FUSE_ERROR(ret);
 }
 
 int GIGAaccess(const char *path, int mask)
 {
     LOG_MSG(">>> FUSE_access(%s): mask=[0%o]", path, mask);
-    
+
     int ret = 0;
     char fpath[PATH_MAX] = {0};
 
@@ -779,16 +778,16 @@ int GIGAaccess(const char *path, int mask)
             ret = 0;
             break;
     }
-    
+
     LOG_MSG("<<< FUSE_access(%s): ret=[%d:%s]", path, ret, strerror(ret));
-        
+
     return FUSE_ERROR(ret);
 }
 
 int GIGAcreate(const char *path, mode_t mode, struct fuse_file_info *fi)
 {
     LOG_MSG(">>> FUSE_create(%s): mode=[0%03o]", path, mode);
-    
+
     int ret = 0;
     char fpath[PATH_MAX] = {0};
     /*
@@ -818,16 +817,16 @@ int GIGAcreate(const char *path, mode_t mode, struct fuse_file_info *fi)
             ret = FUSE_ERROR(ret);
             break;
     }
-    
+
     LOG_MSG("<<< FUSE_create(%s): ret=[%d:%s]", path, ret, strerror(ret));
-        
+
     return ret;
 }
 
 int GIGAftruncate(const char *path, off_t offset, struct fuse_file_info *fi)
 {
     LOG_MSG(">>> FUSE_ftruncate(%s): offset=%lld", path, offset);
-    
+
     int ret = 0;
 
     switch (giga_options_t.backend_type) {
@@ -839,17 +838,17 @@ int GIGAftruncate(const char *path, off_t offset, struct fuse_file_info *fi)
             ret = ENOTSUP;
             break;
     }
-    
+
     LOG_MSG("<<< FUSE_truncate(%s): ret=[%d:%s]", path, ret, strerror(ret));
-        
+
     return FUSE_ERROR(ret);
 }
 
 int GIGAfgetattr(const char *path, struct stat *statbuf, struct fuse_file_info *fi)
 {
-    LOG_MSG(">>> FUSE_fgetattr(%s): statbuf=[0x%08x] fi=[0x%08x]", 
+    LOG_MSG(">>> FUSE_fgetattr(%s): statbuf=[0x%08x] fi=[0x%08x]",
             path, statbuf, fi);
-    
+
     int ret = 0;
 
     switch (giga_options_t.backend_type) {
@@ -861,9 +860,9 @@ int GIGAfgetattr(const char *path, struct stat *statbuf, struct fuse_file_info *
             ret = ENOTSUP;
             break;
     }
-    
+
     LOG_MSG("<<< FUSE_fgetattr(%s): ret=[%d:%s]", path, ret, strerror(ret));
-        
+
     return FUSE_ERROR(ret);
 }
 
@@ -872,7 +871,7 @@ int GIGAfgetattr(const char *path, struct stat *statbuf, struct fuse_file_info *
 int GIGAreadlink(const char *path, char *link, size_t size)
 {
     LOG_MSG(">>> FUSE_readlink(%s): link=[%s],size[%d])", path, link, size);
-    
+
     int ret = 0;
     char fpath[PATH_MAX] = {0};
 
@@ -890,16 +889,16 @@ int GIGAreadlink(const char *path, char *link, size_t size)
             ret = ENOTSUP;
             break;
     }
-    
+
     LOG_MSG("<<< FUSE_readlink(%s): ret=[%d:%s]", path, ret, strerror(ret));
-    
+
     return FUSE_ERROR(ret);
 }
 
 /*
 {
     LOG_MSG(">>> FUSE_XXX(%s): ", path);
-    
+
     int ret = 0;
     char fpath[PATH_MAX] = {0};
 
@@ -912,9 +911,9 @@ int GIGAreadlink(const char *path, char *link, size_t size)
             ret = ENOTSUP;
             break;
     }
-    
+
     LOG_MSG("<<< FUSE_XXX(%s): ret=[%d:%s]", path, ret, strerror(ret));
-        
+
     return FUSE_ERROR(ret);
 }
 */

@@ -32,8 +32,8 @@ static struct fuse_opt giga_opts[] = {
 
 /** This tells FUSE how to do every operation */
 static struct fuse_operations giga_oper = {
-    .init       = GIGAinit,             
-    .destroy    = GIGAdestroy,          
+    .init       = GIGAinit,
+    .destroy    = GIGAdestroy,
     .getattr    = GIGAgetattr,
     .mkdir      = GIGAmkdir,
     .mknod      = GIGAmknod,
@@ -41,7 +41,7 @@ static struct fuse_operations giga_oper = {
     .readlink   = GIGAreadlink,
     .symlink    = GIGAsymlink,
     .rename     = GIGArename,
-    .rmdir      = GIGArmdir, 
+    .rmdir      = GIGArmdir,
     .unlink     = GIGAunlink,
     .link       = GIGAlink,
     .chmod      = GIGAchmod,
@@ -83,17 +83,13 @@ int main(int argc, char *argv[])
 
     // initialize logging
     char log_file[PATH_MAX] = {0};
-    snprintf(log_file, sizeof(log_file), 
+    snprintf(log_file, sizeof(log_file),
              "%s.c.%d", DEFAULT_LOG_FILE_PATH, (int)getpid());
     if ((ret = logOpen(log_file, DEFAULT_LOG_LEVEL)) < 0) {
         fprintf(stdout, "***ERROR*** during opening log(%s) : [%s]\n",
                 log_file, strerror(ret));
         return ret;
     }
-    //char log_fd[MAX_LEN] = {0};
-    //snprintf(log_fd, sizeof(log_fd), "%s.c.%d", 
-    //         DEFAULT_LOG_FILE_PATH, (int)getpid());
-    //logOpen(log_fd, DEFAULT_LOG_LEVEL);
 
     memset(&giga_options_t, 0, sizeof(struct giga_options));
     //initGIGAsetting(GIGA_CLIENT, argv[1], CONFIG_FILE);
@@ -113,5 +109,5 @@ int main(int argc, char *argv[])
 
     fuse_opt_free_args(&args);
 
-	return ret;
+    return ret;
 }

@@ -130,18 +130,18 @@ void sig_handler(const int sig)
     exit(1);
 }
 
-static 
+static
 void * handler_thread(void *arg)
 {
     int fd = (int) (long) arg;
     SVCXPRT *svc = svcfd_create(fd, 0, 0);
-    
+
     if(!svc_register(svc, GIGA_RPC_PROG, GIGA_RPC_VERSION, giga_rpc_prog_1, 0)) {
         fprintf(stdout, "ERROR: svc_register() error.\n");
         svc_destroy(svc);
         goto leave;
     }
-    
+
     while (1) {
         fd_set readfds, exceptfds;
         FD_ZERO(&readfds);
@@ -151,13 +151,13 @@ void * handler_thread(void *arg)
         FD_SET(fd, &exceptfds);
 
         if (select(fd + 1, &readfds, NULL, &exceptfds, NULL) < 0) {
-            logMessage(LOG_DEBUG, __func__, 
+            logMessage(LOG_DEBUG, __func__,
                       "select()ing error on a socket. %s", strerror(errno));
             break;
         }
 
         if (FD_ISSET(fd, &exceptfds)) {
-            logMessage(LOG_DEBUG, __func__, 
+            logMessage(LOG_DEBUG, __func__,
                        "Leave RPC select(), descripter registered an exception.\n");
             break;
         }
@@ -175,12 +175,12 @@ leave:
     return 0;
 }
 
-static void* 
+static void*
 main_select_loop(void * listen_fd_arg)
 {
     int conn_fd;
     long listen_fd = (long) listen_fd_arg;
-    
+
     while (1) {
         fd_set fds;
         FD_ZERO(&fds);
@@ -199,16 +199,16 @@ main_select_loop(void * listen_fd_arg)
             logMessage(LOG_DEBUG, __func__, "err_accept()ing: %s", strerror(errno));
             continue;
         }
-        logMessage(LOG_DEBUG, __func__, "connection accept()ed from {%s:%d}.", 
+        logMessage(LOG_DEBUG, __func__, "connection accept()ed from {%s:%d}.",
                    inet_ntoa(remote_addr.sin_addr),ntohs(remote_addr.sin_port));
-        
+
         pthread_t tid;
-        if (pthread_create(&tid, NULL, 
+        if (pthread_create(&tid, NULL,
                            handler_thread, (void *)(unsigned long)conn_fd) < 0) {
             logMessage(LOG_DEBUG, __func__, "ERROR: during pthread_create().");
             close(conn_fd);
             continue;
-        } 
+        }
 
         if (pthread_detach(tid) < 0){
             logMessage(LOG_DEBUG, __func__, "ERROR: unable to detach thread().");
@@ -440,7 +440,7 @@ void init_giga_mapping()
 
     int dir_id = ROOT_DIR_ID; //FIXME: dir_id for "root"
     int srv_id = 0;
-    
+
     cache_init();
     struct giga_directory *dir = new_cache_entry(&dir_id, srv_id);
     cache_insert(&dir_id, dir);

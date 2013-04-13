@@ -241,17 +241,17 @@ struct giga_directory* new_cache_entry(DIR_handle_t *handle, int srv_id)
 
     d->handle = *handle;
     giga_init_mapping(&d->mapping, -1, d->handle, srv_id, giga_options_t.num_servers);
-    
+
     //d->refcount = 1;
     d->split_flag = 0;
     pthread_mutex_init(&d->split_mtx, NULL);
-    
+
     logMessage(CACHE_LOG, __func__, "init %d  partitions ...", MAX_NUM);
     for (i=0; i < MAX_NUM; i++) {
         d->partition_size[i] = 0;
         pthread_mutex_init(&d->partition_mtx[i], NULL);
     }
-    
+
     logMessage(CACHE_LOG, __func__, "Cache_CREATE: dir(%d)", d->handle);
 
     return d;
@@ -282,7 +282,7 @@ int cache_init()
         pthread_mutex_init(&dircache->partition_mtx[i], NULL);
     }
     logMessage(LOG_TRACE, __func__, "Cache_CREATE: dir(%d)", dircache->handle);
-#endif 
+#endif
 
     shard_cache_init(&my_dircache, DEFAULT_DIR_CACHE_SIZE);
 
@@ -312,7 +312,7 @@ int cache_update(DIR_handle_t *handle, struct giga_mapping_t *mapping)
     return 1;
 }
 
-void fuse_cache_insert(char* path, DIR_handle_t dir_id) 
+void fuse_cache_insert(char* path, DIR_handle_t dir_id)
 {
     struct fuse_cache_entry* entry
         = (struct fuse_cache_entry*) malloc(sizeof(struct fuse_cache_entry));
@@ -325,7 +325,7 @@ void fuse_cache_insert(char* path, DIR_handle_t dir_id)
     logMessage(LOG_WARN, __func__, "insert::[%s]-->[%d]", path, (int)dir_id);
 }
 
-DIR_handle_t fuse_cache_lookup(char* path) 
+DIR_handle_t fuse_cache_lookup(char* path)
 {
     struct fuse_cache_entry* ret;
     HASH_FIND_STR(fuse_cache, path, ret);

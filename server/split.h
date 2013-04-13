@@ -1,5 +1,5 @@
 #ifndef SPLIT_H
-#define SPLIT_H   
+#define SPLIT_H
 
 //#include "common/cache.h"
 

@@ -6,7 +6,8 @@ $(shell ./build_detect_platform build_config.mk)
 include build_config.mk
 
 CFLAGS += -iquote ..
-LDFLAGS += `pkg-config fuse --libs` $(LEVELDBLIBRARY)
+LIBS = ../common.a $(LEVELDBLIBRARY)
+LDFLAGS += `pkg-config fuse --libs`
 
 metadb_fs.o : metadb_fs.c operations.h
 	$(CC) $(CFLAGS) -c metadb_fs.c
@@ -19,22 +20,22 @@ local_fs.o : local_fs.c operations.h
 						
 
 metadb_fs_test.o : metadb_fs_test.c operations.h
-	$(CC) $(CFLAGS) -c metadb_fs_test.c ../common.a
+	$(CC) $(CFLAGS) -c metadb_fs_test.c
 
 metadb_fs_test : metadb_fs_test.o metadb_fs.o
-	$(CC) -o $@ $^ ../common.a $(LDFLAGS)
+	$(CC) -o $@ $^ $(LIBS) $(LDFLAGS)
 
 metadb_fs_readdir_test.o : metadb_fs_readdir_test.c operations.h
 	$(CC) $(CFLAGS) -c metadb_fs_readdir_test.c
 
 metadb_fs_readdir_test : metadb_fs_readdir_test.o metadb_fs.o
-	$(CC) -o $@ $^ ../common.a $(LDFLAGS)
+	$(CC) -o $@ $^ $(LIBS) $(LDFLAGS)
 
 metadb_insert_test.o : metadb_insert_test.c operations.h
 	$(CC) $(CFLAGS) -c metadb_insert_test.c
 
 metadb_insert_test : metadb_insert_test.o metadb_fs.o
-	$(CC) -o $@ $^ ../common.a $(LDFLAGS)
+	$(CC) -o $@ $^ $(LIBS) $(LDFLAGS)
 
 metadb_stress_test.o : metadb_stress_test.c operations.h
 	$(CC) $(CFLAGS) -c metadb_stress_test.c
@@ -43,22 +44,22 @@ metadb_fs_check.o : metadb_fs_check.c operations.h
 	$(CC) $(CFLAGS) -c metadb_fs_check.c
 
 metadb_stress_test : metadb_stress_test.o metadb_fs.o
-	$(CC) -o $@ $^ ../common.a $(LDFLAGS)
+	$(CC) -o $@ $^ $(LIBS) $(LDFLAGS)
 
 metadb_stress_test_padding.o : metadb_stress_test_padding.c operations.h
 	$(CC) $(CFLAGS) -c metadb_stress_test_padding.c
 
 metadb_stress_test_padding: metadb_stress_test_padding.o metadb_fs.o
-	$(CC) -o $@ $^ ../common.a $(LDFLAGS)
+	$(CC) -o $@ $^ $(LIBS) $(LDFLAGS)
 
 metadb_mix_test.o : metadb_mix_test.c operations.h
 	$(CC) $(CFLAGS) -c metadb_mix_test.c
 
 metadb_mix_test : metadb_mix_test.o metadb_fs.o
-	$(CC) -o $@ $^ ../common.a $(LDFLAGS)
+	$(CC) -o $@ $^ $(LIBS) $(LDFLAGS)
 
-metadb_fs_check : metadb_fs_check.o metadb_fs.o 
-	$(CC) -o $@ $^ ../common.a $(LDFLAGS)
+metadb_fs_check : metadb_fs_check.o metadb_fs.o
+	$(CC) -o $@ $^ $(LIBS) $(LDFLAGS)
 
 clean :
 	rm -f *.o metadb_fs_test metadb_insert_test metadb_fs_readdir_test

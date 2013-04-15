@@ -119,6 +119,7 @@ metadb_val_t init_meta_val(const metadb_inode_t inode_id,
       mobj_data[data_len] = '\0';
     }
 
+    mobj->state = RPC_LEVELDB_FILE_IN_DB;
     mobj->statbuf = INIT_STATBUF;
     mobj->statbuf.st_ino = inode_id;
     mobj->statbuf.st_mode = (mobj->statbuf.st_mode & ~S_IFMT) | S_IFREG;
@@ -425,9 +426,32 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name)
     }
 
 //    metadb_log_init(mdb);
-    metadb_sync_init(mdb);
+//    metadb_sync_init(mdb);
 
     return ret;
+}
+
+int metadb_close(struct MetaDB mdb) {
+//    metadb_log_destroy();
+//    metadb_sync_destroy();
+
+    leveldb_close(mdb.db);
+    mdb.db = NULL;
+    leveldb_options_destroy(mdb.options);
+    leveldb_cache_destroy(mdb.cache);
+    leveldb_env_destroy(mdb.env);
+    leveldb_readoptions_destroy(mdb.lookup_options);
+    leveldb_readoptions_destroy(mdb.scan_options);
+    leveldb_writeoptions_destroy(mdb.insert_options);
+    leveldb_writeoptions_destroy(mdb.ext_insert_options);
+    free(mdb.extraction);
+
+    pthread_rwlock_destroy(&(mdb.rwlock_extract));
+    pthread_mutex_destroy(&(mdb.mtx_bulkload));
+    pthread_mutex_destroy(&(mdb.mtx_leveldb));
+    pthread_mutex_destroy(&(mdb.mtx_extload));
+
+    return 0;
 }
 
 int metadb_create(struct MetaDB mdb,
@@ -578,7 +602,7 @@ int metadb_update_internal(struct MetaDB mdb,
                                 &mobj_val.size, &err);
 
     if ((err == NULL) & (mobj_val.size != 0)) {
-        reconstruct_mobj_value(&mobj_val); //TODO: is this necessary?
+        reconstruct_mobj_value(&mobj_val);
         ret = update_func(&mobj_val, arg1);
         if (ret >= 0) {
             leveldb_put(mdb.db, mdb.insert_options,
@@ -638,10 +662,10 @@ int metadb_get_file(struct MetaDB mdb,
 
         //Check if this thingy is a symlink or not
         metadb_val_header_t* mobj = (metadb_val_header_t *) mobj_val.value;
-        if (mobj->statbuf.st_size >= FILE_THRESHOLD) {
+        if (mobj->state == RPC_LEVELDB_FILE_IN_FS) {
             *state = RPC_LEVELDB_FILE_IN_FS;
             *buf_len = mobj->realpath_len;
-            memcpy(buf,  mobj->realpath, *buf_len);
+            memcpy(buf, mobj->realpath, *buf_len);
             buf[mobj->realpath_len] = '\0';
         } else {
             *state = RPC_LEVELDB_FILE_IN_DB;
@@ -710,6 +734,7 @@ int metadb_write_link_handler(metadb_val_t* mobj_val, void* arg1) {
     size_t new_size = sizeof(metadb_val_header_t)
                     + mobj->objname_len + mobj->realpath_len + 2;
     char* new_value = (char *) malloc(new_size);
+    mobj->state = RPC_LEVELDB_FILE_IN_FS;
     memcpy(new_value, mobj_val->value, new_size - mobj->realpath_len);
     char* new_realpath = (char*) new_value + sizeof(metadb_val_header_t)
                        + mobj->objname_len + 1;
@@ -803,29 +828,6 @@ int metadb_valid(struct MetaDB mdb) {
   } else {
     return 0;
   }
-}
-
-int metadb_close(struct MetaDB mdb) {
-//    metadb_log_destroy();
-    metadb_sync_destroy();
-
-    leveldb_close(mdb.db);
-    mdb.db = NULL;
-    leveldb_options_destroy(mdb.options);
-    leveldb_cache_destroy(mdb.cache);
-    leveldb_env_destroy(mdb.env);
-    leveldb_readoptions_destroy(mdb.lookup_options);
-    leveldb_readoptions_destroy(mdb.scan_options);
-    leveldb_writeoptions_destroy(mdb.insert_options);
-    leveldb_writeoptions_destroy(mdb.ext_insert_options);
-    free(mdb.extraction);
-
-    pthread_rwlock_destroy(&(mdb.rwlock_extract));
-    pthread_mutex_destroy(&(mdb.mtx_bulkload));
-    pthread_mutex_destroy(&(mdb.mtx_leveldb));
-    pthread_mutex_destroy(&(mdb.mtx_extload));
-
-    return 0;
 }
 
 int metadb_remove(struct MetaDB mdb,

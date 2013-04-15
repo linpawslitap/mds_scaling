@@ -80,6 +80,7 @@ typedef struct MetaDB_key {
 
 typedef struct {
     struct stat statbuf;
+    int state;
     size_t objname_len;
     char* objname;
     size_t realpath_len;

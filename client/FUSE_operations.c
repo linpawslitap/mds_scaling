@@ -30,6 +30,14 @@ static void get_full_path(char fpath[], const char *path);
 
 #define FUSE_ERROR(x)   -(x)
 
+typedef struct {
+    int fd;
+    int flags;
+    int state;
+    int dir_id;
+    char file[PATH_MAX];
+} rpc_leveldb_fh_t;
+
 /*
  * Parse the full path name of the file to give the name of the file and the
  * name of the file's parent directory.
@@ -568,7 +576,6 @@ int GIGAtruncate(const char *path, off_t newsize)
             ret = ENOTSUP;
             break;
     }
-
     LOG_MSG("<<< FUSE_truncate(%s): ret=[%d:%s]", path, ret, strerror(ret));
 
     return FUSE_ERROR(ret);
@@ -603,6 +610,8 @@ int GIGAopen(const char *path, struct fuse_file_info *fi)
 
     int ret = 0;
     char fpath[PATH_MAX] = {0};
+    char dir[PATH_MAX] = {0};
+    rpc_leveldb_fh_t *fh = NULL;
     int fd;
 
     switch (giga_options_t.backend_type) {
@@ -611,6 +620,26 @@ int GIGAopen(const char *path, struct fuse_file_info *fi)
             if ((fd = open(fpath, fi->flags)) < 0)
                 ret = errno;
             fi->fh = fd;
+            break;
+
+        case BACKEND_RPC_LEVELDB:
+            fh = (rpc_leveldb_fh_t *) malloc(sizeof(rpc_leveldb_fh_t));
+            parse_path_components(path, fh->file, dir);
+            fh->dir_id = fuse_cache_lookup(dir);
+            fh->flags = fi->flags;
+            ret = rpc_open(fh->dir_id, fh->file, fi->flags,
+                           &fh->state, fpath);
+            if (ret >= 0) {
+                if (fh->state == RPC_LEVELDB_FILE_IN_FS) {
+                  if ((fh->fd = open(fpath, fi->flags)) < 0)
+                      ret = errno;
+                }
+                fi->fh = (uint64_t) fh;
+            } else {
+                LOG_MSG(" FUSE_open(%s): link cannot be read from server:"
+                        "ret=[%d:%s] and fi=[0x%08x])",
+                        path, ret, strerror(ret), fi->fh);
+            }
             break;
         default:
             ret = FUSE_ERROR(ENOTSUP);
@@ -630,11 +659,30 @@ int GIGAread(const char *path, char *buf, size_t size, off_t offset,
             path, buf, size, offset, fi);
 
     int ret = 0;
+    char fpath[PATH_MAX] = {0};
+    rpc_leveldb_fh_t* fh = NULL;
 
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
             if ((ret = pread(fi->fh, buf, size, offset)) < 0)
                 ret = FUSE_ERROR(ret);
+            break;
+        case BACKEND_RPC_LEVELDB:
+            fh = (rpc_leveldb_fh_t*) fi->fh;
+            if (fh->state == RPC_LEVELDB_FILE_IN_FS) {
+                if ((ret = pread(fh->fd, buf, size, offset)) < 0)
+                    ret = FUSE_ERROR(ret);
+            } else {
+                ret = rpc_read(fh->dir_id, fh->file, buf, size, offset,
+                               &fh->state, fpath);
+                if (fh->state == RPC_LEVELDB_FILE_IN_FS) {
+                    if ((fh->fd = open(fpath, fi->flags)) < 0) {
+                        ret = errno;
+                    }
+                    if ((ret = pread(fh->fd, buf, size, offset)) < 0)
+                        ret = FUSE_ERROR(ret);
+                }
+            }
             break;
         default:
             ret = FUSE_ERROR(ENOTSUP);
@@ -653,11 +701,30 @@ int GIGAwrite(const char *path, const char *buf, size_t size, off_t offset,
             path, buf, size, offset, fi);
 
     int ret = 0;
+    char fpath[PATH_MAX] = {0};
+    rpc_leveldb_fh_t* fh = NULL;
 
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
             if ((ret = pwrite(fi->fh, buf, size, offset)) < 0)
                 ret = FUSE_ERROR(ret);
+            break;
+        case BACKEND_RPC_LEVELDB:
+            fh = (rpc_leveldb_fh_t*) fi->fh;
+            if (fh->state == RPC_LEVELDB_FILE_IN_FS) {
+                if ((ret = pwrite(fh->fd, buf, size, offset)) < 0)
+                    ret = FUSE_ERROR(ret);
+            } else {
+                ret = rpc_write(fh->dir_id, fh->file, buf, size, offset,
+                                &fh->state, fpath);
+                if (fh->state == RPC_LEVELDB_FILE_IN_FS) {
+                    if ((fh->fd = open(fpath, fi->flags)) < 0) {
+                        ret = errno;
+                    }
+                    if ((ret = pwrite(fh->fd, buf, size, offset)) < 0)
+                        ret = FUSE_ERROR(ret);
+                }
+            }
             break;
         default:
             ret = FUSE_ERROR(ENOTSUP);
@@ -708,8 +775,27 @@ int GIGArelease(const char *path, struct fuse_file_info *fi)
     LOG_MSG(">>> FUSE_release(%s): fi=[0x%08x])", path, fi);
 
     int ret = 0;
-    ret = close(fi->fh);
+    int ret_remote = 0;
+    rpc_leveldb_fh_t* fh = NULL;
 
+    switch (giga_options_t.backend_type) {
+        case BACKEND_LOCAL_FS:
+            ret = close(fi->fh);
+            break;
+        case BACKEND_RPC_LEVELDB:
+            fh = (rpc_leveldb_fh_t*) fi->fh;
+            if (fh->state == RPC_LEVELDB_FILE_IN_DB) {
+                ret = close(fi->fh);
+            }
+            ret_remote = rpc_close(fh->dir_id, fh->file);
+            if (ret_remote < ret) {
+              ret = ret_remote;
+            }
+            free(fh);
+            break;
+        default:
+            break;
+    }
     LOG_MSG("<<< FUSE_release(%s): ret=[%d:%s]", path, ret, strerror(ret));
 
     return FUSE_ERROR(ret);
@@ -727,7 +813,6 @@ int GIGAfsync(const char *path, int datasync, struct fuse_file_info *fi)
                 ret = fdatasync(fi->fh);
             else
                 ret = fsync(fi->fh);
-
             if (ret < 0)
                 ret = errno;
             break;

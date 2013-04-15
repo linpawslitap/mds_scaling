@@ -69,13 +69,13 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-    
-    setbuf(stderr, NULL);           // set STDERR non-buffering 
-    log_fp = stderr;        
+
+    setbuf(stderr, NULL);           // set STDERR non-buffering
+    log_fp = stderr;
 
     signal(SIGINT, sig_handler);    // handling SIGINT
     signal(SIGTERM, sig_handler);    // handling SIGINT
-   
+
     // initialize logging
     char log_file[PATH_MAX] = {0};
     snprintf(log_file, sizeof(log_file), "%s.s", DEFAULT_LOG_FILE_PATH);
@@ -87,14 +87,14 @@ int main(int argc, char **argv)
 
     // init GIGA+ options.
     memset(&giga_options_t, 0, sizeof(struct giga_options));
-    initGIGAsetting(GIGA_SERVER, NULL, CONFIG_FILE);    
+    initGIGAsetting(GIGA_SERVER, NULL, CONFIG_FILE);
 
     init_giga_mapping();    // init GIGA+ mapping structure.
     init_root_partition();  // init root partition on each server.
 
-    server_socket();        // start server socket(s). 
+    server_socket();        // start server socket(s).
 
-    if (pthread_create(&split_tid, 0, split_thread, NULL) < 0) 
+    if (pthread_create(&split_tid, 0, split_thread, NULL) < 0)
         LOG_ERR("ERR_pthread_create(): split_thread(%d)", split_tid);
 
     if (pthread_detach(split_tid) < 0)
@@ -121,7 +121,7 @@ int main(int argc, char **argv)
  *  STATIC functions in use.  *
  ******************************/
 
-static 
+static
 void sig_handler(const int sig)
 {
     (void)sig;
@@ -214,13 +214,13 @@ main_select_loop(void * listen_fd_arg)
             logMessage(LOG_DEBUG, __func__, "ERROR: unable to detach thread().");
         }
     }
-    
+
     logMessage(LOG_DEBUG, __func__,  "WARNING: Exiting select(). WHY??? HOW???");
 
     return NULL;
 }
 
-static 
+static
 void setup_listener(int listen_fd)
 {
     struct sockaddr_in serv_addr;
@@ -230,14 +230,14 @@ void setup_listener(int listen_fd)
     serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     //FIXME for local testing
     //serv_addr.sin_addr.s_addr = inet_addr("128.2.209.15");
-   
+
     // bind() the socket to the appropriate ip:port combination
     if (bind(listen_fd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
         close(listen_fd);
         logMessage(LOG_FATAL, __func__, "ERROR: bind() failed.");
         exit(1);
     }
-   
+
     // listen() for incoming connections
     if (listen(listen_fd, NUM_BACKLOG_CONN) < 0) {
         close(listen_fd);
@@ -246,7 +246,7 @@ void setup_listener(int listen_fd)
     }
 
     pthread_create(&listen_tid, NULL, main_select_loop, (void*)(long)listen_fd);
-    
+
     logMessage(LOG_DEBUG, __func__, "Listener setup (port %d of %s). Success.",
                ntohs(serv_addr.sin_port), inet_ntoa(serv_addr.sin_addr));
 
@@ -257,17 +257,17 @@ void setup_listener(int listen_fd)
  *
  * FIXME: Document these options
  */
-static 
+static
 void set_sockopt_server(int sock_fd)
 {
     int flags;
-   
+
     if ((flags = fcntl(sock_fd, F_GETFL, 0)) < 0) {
         close(sock_fd);
         logMessage(LOG_FATAL, __func__, "ERROR: fcntl(F_GETFL) failed.");
         exit(1);
     }
-    
+
     if (fcntl(sock_fd, F_SETFL, flags | O_NONBLOCK) < 0) {
         close(sock_fd);
         logMessage(LOG_FATAL, __func__, "ERROR: fcntl(F_SETFL) failed.");
@@ -275,23 +275,23 @@ void set_sockopt_server(int sock_fd)
     }
 
     flags = 1;
-    if (setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, 
+    if (setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR,
                    (void *)&flags, sizeof(flags)) < 0) {
         logMessage(LOG_DEBUG, __func__, "ERROR: setsockopt(SO_REUSEADDR).");
     }
-    
-    if (setsockopt(sock_fd, SOL_SOCKET, SO_KEEPALIVE, 
+
+    if (setsockopt(sock_fd, SOL_SOCKET, SO_KEEPALIVE,
                    (void *)&flags, sizeof(flags)) < 0) {
         logMessage(LOG_DEBUG, __func__, "ERROR: setsockopt(SO_KEEPALIVE).");
     }
     /* FIXME
-    if (setsockopt(sock_fd, SOL_SOCKET, SO_LINGER, 
+    if (setsockopt(sock_fd, SOL_SOCKET, SO_LINGER,
                    (void *)&flags, sizeof(flags)) < 0) {
         err_ret("ERROR: setsockopt(SO_LINGER).");
     }
     */
-    
-    if (setsockopt(sock_fd, IPPROTO_TCP, TCP_NODELAY, 
+
+    if (setsockopt(sock_fd, IPPROTO_TCP, TCP_NODELAY,
                    (void *)&flags, sizeof(flags)) < 0) {
         logMessage(LOG_DEBUG, __func__, "ERROR: setsockopt(TCP_NODELAY).");
     }

@@ -73,20 +73,12 @@ typedef enum backends {
 
 #define PARENT_OF_ROOT      0
 #define PARTITION_OF_ROOT   0
-
 #define DEFAULT_DIR_CACHE_SIZE  4096
 
+#define FILE_THRESHOLD 16384
 #define MAX_PARALLEL_VOLS 500
 #define MAX_PARALLEL_VOL_NAME 256
 
-#define PATH1 1
-#define PATH2 2
-#define PATH3 3
-#define DATA_MODE 3
-
-#define LAZY_CREATE_ON 1
-#define LAZY_CREATE_OFF 0
-#define LAZY_CREATE 0
 
 // Configuration options used by GIGA+ client and server.
 //
@@ -98,7 +90,7 @@ struct giga_options {
     char *ip_addr;              // SELF server ip address
     int port_num;               // SELF server port num
 
-    int num_servers;            // num of servers in the server list 
+    int num_servers;            // num of servers in the server list
     const char **serverlist;    // server list GIGA+ nodes
 
     char *mountpoint;           // client's mountpoint and server's backend
@@ -111,7 +103,7 @@ struct giga_options {
     // Server specific parameters.
     //
     int serverID;               // ID of the current server
-    int split_threshold;        // default split threshold 
+    int split_threshold;        // default split threshold
 
     // Client-specific parameters.
     //

@@ -24,8 +24,6 @@
 #define CREATE_FLAGS    (O_CREAT | O_APPEND)
 #define CREATE_RDEV     0
 
-#define RPC_FILE_MIGRATED_PANFS 35
-
 /*
  * Operations for local file system as the backend.
  */
@@ -47,9 +45,16 @@ int rpc_create(int dir_id, const char *path, mode_t mode);
 scan_list_t rpc_readdir(int dir_id, const char *path);
 int rpc_opendir(int dir_id, const char *path);
 int rpc_releasedir(int dir_id, const char *path);
-int rpc_creat(int dir_id, const char *path, mode_t mode);
-int rpc_open(int dir_id, const char *path,int mode);
-int rpc_readlink(int dir_id, const char *path, char *link);
+int rpc_open(int dir_id, const char *path, int mode,
+             int* state, char* link);
+int rpc_close(int dir_id, const char *path);
+int rpc_read(int dir_id, const char *path,
+             char* buf, size_t size, off_t offset,
+             int* state, char* link);
+int rpc_write(int dir_id, const char *path,
+              const char* buf, size_t size, off_t offset,
+              int* state, char* link);
+int rpc_readlink(int dir_id, const char *path, char* link);
 
 /*
  * Operations for MDB
@@ -191,6 +196,14 @@ int metadb_lookup(struct MetaDB mdb,
                   const char *objname,
                   struct stat *stbuf);
 
+// Returns "0" if MDB get the file stat successfully,
+// otherwise "-ENOENT" when no file is found.
+int metadb_openfile(struct MetaDB mdb,
+                    const metadb_inode_t dir_id,
+                    const int partition_id,
+                    const char *objname,
+                    char *link);
+
 // Returns "0" if MDB get directory entries successfully,
 // otherwise "-ENOENT" when no file is found.
 int metadb_readdir(struct MetaDB mdb,
@@ -234,6 +247,25 @@ int metadb_write_bitmap(struct MetaDB mdb,
                         const int partition_id,
                         const char* objname,
                         struct giga_mapping_t* map_val);
+
+
+int metadb_get_file(struct MetaDB mdb,
+                    const metadb_inode_t dir_id,
+                    const int partition_id,
+                    const char* objname,
+                    int* state, char* buf, int* buf_len);
+
+int metadb_write_file(struct MetaDB mdb,
+                      const metadb_inode_t dir_id,
+                      const int partition_id,
+                      const char* objname,
+                      const char* buf, int buf_len, int offset);
+
+int metadb_write_link(struct MetaDB mdb,
+                      const metadb_inode_t dir_id,
+                      const int partition_id,
+                      const char* objname,
+                      const char* pathname);
 
 int metadb_chmod(struct MetaDB mdb,
                  const metadb_inode_t dir_id,

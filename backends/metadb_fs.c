@@ -1,7 +1,7 @@
 
 #include "common/connection.h"
 #include "common/debugging.h"
-
+#include "common/options.h"
 #include "operations.h"
 
 #include <time.h>
@@ -578,7 +578,7 @@ int metadb_update_internal(struct MetaDB mdb,
                                 &mobj_val.size, &err);
 
     if ((err == NULL) & (mobj_val.size != 0)) {
-        reconstruct_mobj_value(&mobj_val);
+        reconstruct_mobj_value(&mobj_val); //TODO: is this necessary?
         ret = update_func(&mobj_val, arg1);
         if (ret >= 0) {
             leveldb_put(mdb.db, mdb.insert_options,
@@ -590,6 +590,7 @@ int metadb_update_internal(struct MetaDB mdb,
                 printf("Update error:%s %s\n", err, path);
                 ret = -1;
             }
+            free_metadb_val(&mobj_val);
         }
     } else {
         mobj_val.value = NULL;
@@ -624,9 +625,9 @@ int metadb_lookup(struct MetaDB mdb,
     return ret;
 }
 
-int metadb_readpath(struct MetaDB mdb,
+int metadb_get_file(struct MetaDB mdb,
                     const metadb_inode_t dir_id, const int partition_id,
-                    const char *path, char* link, size_t *link_len)
+                    const char *path, int *state, char* buf, int *buf_len)
 {
     int ret = 0;
     metadb_val_t mobj_val;
@@ -637,25 +638,98 @@ int metadb_readpath(struct MetaDB mdb,
 
         //Check if this thingy is a symlink or not
         metadb_val_header_t* mobj = (metadb_val_header_t *) mobj_val.value;
-        if (!S_ISDIR(mobj->statbuf.st_mode)) {
-            *link_len = mobj->realpath_len;
-            memcpy(link,  mobj->realpath, *link_len);
-            link[mobj->realpath_len] = '\0';
+        if (mobj->statbuf.st_size >= FILE_THRESHOLD) {
+            *state = RPC_LEVELDB_FILE_IN_FS;
+            *buf_len = mobj->realpath_len;
+            memcpy(buf,  mobj->realpath, *buf_len);
+            buf[mobj->realpath_len] = '\0';
         } else {
-            logMessage(METADB_LOG, __func__,
-                       "readpath: entry(%s) is dir", path);
-            ret = ENOENT;
-            link[0] = '\0';
+            *state = RPC_LEVELDB_FILE_IN_DB;
+            *buf_len = mobj->statbuf.st_size;
+            char* mobj_data = (char*) mobj + sizeof(metadb_val_header_t)
+                            + mobj->objname_len + mobj->realpath_len + 2;
+            memcpy(buf, mobj_data, *buf_len);
         }
     } else {
         logMessage(METADB_LOG, __func__, "readpath: entry(%s) not found.", path);
         ret = ENOENT;
-        link[0] = '\0';
     }
 
     free_metadb_val(&mobj_val);
     return ret;
 }
+
+typedef struct {
+    const char* buf;
+    int buf_len;
+    int offset;
+} metadb_write_data_t;
+
+int metadb_write_file_handler(metadb_val_t* mobj_val, void* arg1) {
+    metadb_write_data_t* data = (metadb_write_data_t *) arg1;
+    metadb_val_header_t* mobj = (metadb_val_header_t *) mobj_val->value;
+    if (data->offset + data->buf_len <= mobj->statbuf.st_size) {
+          char* mobj_data = (char*) mobj + sizeof(metadb_val_header_t)
+                          + mobj->objname_len + mobj->realpath_len + 2;
+          memcpy(mobj_data + data->offset, data->buf, data->buf_len);
+    } else {
+          size_t new_file_size = data->offset + data->buf_len;
+          size_t new_size = mobj_val->size
+                          + new_file_size - mobj->statbuf.st_size;
+          char* new_value = (char *) malloc(new_size);
+          mobj->statbuf.st_size = new_file_size;
+          memcpy(new_value, mobj_val->value, mobj_val->size);
+          char* mobj_data = new_value + sizeof(metadb_val_header_t)
+                          + mobj->objname_len + mobj->realpath_len + 2;
+          memcpy(mobj_data + data->offset, data->buf, data->buf_len);
+          free_metadb_val(mobj_val);
+          mobj_val->value = new_value;
+          mobj_val->size = new_size;
+    }
+    return 0;
+}
+
+int metadb_write_file(struct MetaDB mdb,
+                      const metadb_inode_t dir_id,
+                      const int partition_id,
+                      const char* objname,
+                      const char* buf, int buf_len, int offset) {
+    metadb_write_data_t data;
+    data.buf = buf;
+    data.buf_len = buf_len;
+    data.offset = offset;
+    return metadb_update_internal(mdb, dir_id, partition_id, objname,
+                                  metadb_write_file_handler,
+                                  (void *) &data);
+}
+
+int metadb_write_link_handler(metadb_val_t* mobj_val, void* arg1) {
+    char* path = (char *) arg1;
+    metadb_val_header_t* mobj = (metadb_val_header_t *) mobj_val->value;
+    mobj->realpath_len = strlen(path);
+    size_t new_size = sizeof(metadb_val_header_t)
+                    + mobj->objname_len + mobj->realpath_len + 2;
+    char* new_value = (char *) malloc(new_size);
+    memcpy(new_value, mobj_val->value, new_size - mobj->realpath_len);
+    char* new_realpath = (char*) new_value + sizeof(metadb_val_header_t)
+                       + mobj->objname_len + 1;
+    strncpy(new_realpath, path, mobj->realpath_len);
+    free_metadb_val(mobj_val);
+    mobj_val->value = new_value;
+    mobj_val->size = new_size;
+    return 0;
+}
+
+int metadb_write_link(struct MetaDB mdb,
+                      const metadb_inode_t dir_id,
+                      const int partition_id,
+                      const char* objname,
+                      const char* pathname) {
+    return metadb_update_internal(mdb, dir_id, partition_id, objname,
+                                  metadb_write_link_handler,
+                                  (void *) pathname);
+}
+
 
 int metadb_read_bitmap(struct MetaDB mdb,
                        const metadb_inode_t dir_id,

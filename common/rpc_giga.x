@@ -89,6 +89,15 @@ union giga_lookup_t switch (int errnum) {
         void;
 };
 
+union giga_read_t switch (int state) {
+    case RPC_LEVELDB_FILE_IN_DB:
+        giga_file_data buf;
+    case RPC_LEVELDB_FILE_IN_FS:
+        giga_pathname link;
+    default:
+        void;
+};
+
 struct giga_getattr_reply_t {
     struct stat statbuf;
     giga_result_t result;
@@ -105,23 +114,28 @@ struct giga_readlink_reply_t {
     /**int fn_retval;*/
 };
 
-
 struct giga_open_reply_t {
+    int state;
+    giga_pathname link;
     giga_result_t result;
     /**int fn_retval;*/
 };
-
 
 struct giga_close_reply_t {
     giga_result_t result;
     /**int fn_retval;*/
 };
 
-
 struct giga_write_reply_t {
     giga_result_t result;
-    giga_write_feedback custom_error;
+    int state;
     giga_pathname link;
+    /**int fn_retval;*/
+};
+
+struct giga_read_reply_t {
+    giga_result_t result;
+    giga_read_t data;
     /**int fn_retval;*/
 };
 
@@ -153,13 +167,14 @@ version GIGA_RPC_VERSION {          /* version number */
         giga_result_t GIGA_RPC_SPLIT(giga_dir_id, int, int, giga_pathname,
                                      uint64_t, uint64_t, int) = 401;
 
-        giga_result_t GIGA_RPC_CREAT(giga_dir_id, giga_pathname, mode_t) = 501;
-
-        giga_readlink_reply_t GIGA_RPC_READLINK(giga_dir_id, giga_pathname) = 601;
+        giga_readlink_reply_t GIGA_RPC_READLINK(giga_dir_id, giga_pathname) = 501;
 
         giga_write_reply_t GIGA_RPC_WRITE(giga_dir_id, giga_pathname,
                                           giga_file_data data, int size,
-                                          int offset) = 701;
+                                          int offset) = 601;
+
+        giga_read_reply_t GIGA_RPC_READ(giga_dir_id, giga_pathname,
+                                        int size, int offset) = 701;
 
         giga_open_reply_t GIGA_RPC_OPEN(giga_dir_id, giga_pathname, int mode ) = 801;
 

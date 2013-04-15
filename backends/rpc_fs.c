@@ -126,7 +126,7 @@ retry:
         exit(1);//TODO: retry again?
     }
 
-    // check return condition 
+    // check return condition
     //
     ret = rpc_reply.result.errnum;
     if (ret == -EAGAIN) {
@@ -135,10 +135,10 @@ retry:
             *stbuf = rpc_reply.statbuf;
 
             LOG_MSG("GETATTR(%s) returns a directory for d%d", path, stbuf->st_ino);
-            giga_print_mapping(&rpc_reply.result.giga_result_t_u.bitmap); 
-            struct giga_directory *new = new_cache_entry((DIR_handle_t*)&stbuf->st_ino, rpc_reply.result.giga_result_t_u.bitmap.zeroth_server); 
+            giga_print_mapping(&rpc_reply.result.giga_result_t_u.bitmap);
+            struct giga_directory *new = new_cache_entry((DIR_handle_t*)&stbuf->st_ino, rpc_reply.result.giga_result_t_u.bitmap.zeroth_server);
             cache_insert((DIR_handle_t*)&stbuf->st_ino, new);
-            update_client_mapping(new, &rpc_reply.result.giga_result_t_u.bitmap); 
+            update_client_mapping(new, &rpc_reply.result.giga_result_t_u.bitmap);
             cache_release(new);
 
             ret = 0;
@@ -162,7 +162,7 @@ retry:
             giga_print_mapping(&rpc_reply.result.giga_result_t_u.bitmap); 
             struct giga_directory *new = new_cache_entry((DIR_handle_t*)&stbuf->st_ino, rpc_reply.result.giga_result_t_u.bitmap.zeroth_server); 
             cache_insert((DIR_handle_t*)&stbuf->st_ino, new);
-            update_client_mapping(new, &rpc_reply.result.giga_result_t_u.bitmap); 
+            update_client_mapping(new, &rpc_reply.result.giga_result_t_u.bitmap);
             cache_release(new);
         }
     }
@@ -199,7 +199,7 @@ retry:
         exit(1);//TODO: retry again?
     }
 
-    // check return condition 
+    // check return condition
     //
     ret = rpc_reply.errnum;
     if (ret == -EAGAIN) {
@@ -243,7 +243,7 @@ retry:
         LOG_ERR("ERR_rpc_mknod(%s)", clnt_spcreateerror(path));
         exit(1);//TODO: retry again?
     }
-    
+
     // check return condition 
     //
     ret = rpc_reply.errnum;
@@ -569,8 +569,8 @@ int rpc_opendir(int dir_id, const char *path)
     return ret;
 }
 
-int rpc_write(int dir_id, const char* path, char* buf, size_t size,
-              off_t offset, char* symLink)
+int rpc_write(int dir_id, const char* path, const char* buf, size_t size,
+              off_t offset, int* state, char* symlink)
 {
     int ret = 0;
     struct giga_directory *dir = cache_lookup(&dir_id);
@@ -580,13 +580,7 @@ int rpc_write(int dir_id, const char* path, char* buf, size_t size,
     }
     int server_id = 0;
 
-    //Reply parameter pre processing
     giga_write_reply_t rpc_reply;
-    rpc_reply.link = (char *)malloc (PATH_MAX*sizeof(char));
-    rpc_reply.link[0] = '\n';
-
-    //Data copy, can we avoid this
-    giga_file_data data_buf = buf;
 
     //Find the right server
 retry:
@@ -595,7 +589,7 @@ retry:
 
     LOG_MSG(">>> RPC_write(%s): to s[%d]", path, server_id);
 
-    if (giga_rpc_write_1(dir_id, (char*)path, data_buf, size, offset,
+    if (giga_rpc_write_1(dir_id, (char*) path, (char*) buf, size, offset,
                          &rpc_reply, rpc_clnt)
         != RPC_SUCCESS) {
         LOG_ERR("ERR_rpc_write(%s)", clnt_spcreateerror(path));
@@ -609,18 +603,66 @@ retry:
         LOG_MSG("bitmap update from s%d -- RETRY ...", server_id);
         goto retry;
     } else if (ret == 0) {
-      if (rpc_reply.custom_error == RPC_FILE_MIGRATED_PANFS) {
-          strncpy(symLink,rpc_reply.link,PATH_MAX );
-          symLink[PATH_MAX -1] = '\0';
-          ret = RPC_FILE_MIGRATED_PANFS;
-      }
+        *state = rpc_reply.state;
+        if (rpc_reply.state == RPC_LEVELDB_FILE_IN_FS) {
+          strncpy(symlink, rpc_reply.link, PATH_MAX);
+          symlink[PATH_MAX -1] = '\0';
+        }
     }
     cache_release(dir);
 
     LOG_MSG("<<< RPC_write(%s): status=[%d]%s", path, ret, strerror(ret));
-    free (rpc_reply.link);
     return ret;
 }
+
+int rpc_read(int dir_id, const char* path, char* buf, size_t size,
+              off_t offset, int* state, char* symlink)
+{
+    int ret = 0;
+    struct giga_directory *dir = cache_lookup(&dir_id);
+    if (dir == NULL) {
+        LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
+        ret = -EIO;
+    }
+    int server_id = 0;
+
+    giga_read_reply_t rpc_reply;
+
+    //Find the right server
+retry:
+    server_id = get_server_for_file(dir, path);
+    CLIENT *rpc_clnt = getConnection(server_id);
+
+    LOG_MSG(">>> RPC_write(%s): to s[%d]", path, server_id);
+
+    if (giga_rpc_read_1(dir_id, (char*)path, size, offset,
+                         &rpc_reply, rpc_clnt)
+        != RPC_SUCCESS) {
+        LOG_ERR("ERR_rpc_write(%s)", clnt_spcreateerror(path));
+        exit(1);//TODO: retry again?
+    }
+
+    // check return condition
+    ret = rpc_reply.result.errnum;
+    if (ret == -EAGAIN) {
+        update_client_mapping(dir, &rpc_reply.result.giga_result_t_u.bitmap);
+        LOG_MSG("bitmap update from s%d -- RETRY ...", server_id);
+        goto retry;
+    } else if (ret == 0) {
+        *state = rpc_reply.data.state;
+        if (rpc_reply.data.state == RPC_LEVELDB_FILE_IN_FS) {
+          strncpy(symlink, rpc_reply.data.giga_read_t_u.link, PATH_MAX);
+          symlink[PATH_MAX -1] = '\0';
+        } else {
+          memcpy(buf, rpc_reply.data.giga_read_t_u.buf, size);
+        }
+    }
+    cache_release(dir);
+
+    LOG_MSG("<<< RPC_write(%s): status=[%d]%s", path, ret, strerror(ret));
+    return ret;
+}
+
 
 int rpc_readlink(int dir_id, const char *path, char *link)
 {
@@ -666,42 +708,50 @@ retry:
     return ret;
 }
 
-int rpc_creat(int dir_id, const char *path, mode_t mode)
+int rpc_open(int dir_id, const char *path, int mode,
+             int* state, char *link)
 {
     int ret = 0;
 
+    LOG_MSG(">>> RPC_open(%s, d%d)", path, dir_id);
+
     struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
-        LOG_MSG("Kartik: rpc_creat: ERR_cache: dir(%d) missing!", dir_id);
-        ret = -EIO;
+        LOG_MSG("rpc_open: ERR_cache: dir(%d) missing!", dir_id);
+        exit(1);
     }
 
     int server_id = 0;
-    giga_result_t rpc_reply;
+    giga_open_reply_t  rpc_reply;
 
 retry:
     server_id = get_server_for_file(dir, path);
     CLIENT *rpc_clnt = getConnection(server_id);
 
-    LOG_MSG(">>> RPC_creat(%s): to s[%d]", path, server_id);
+    LOG_MSG(">>> RPC_open(%s): to s%d]", path, server_id);
 
-    if (giga_rpc_creat_1(dir_id, (char*)path, mode, &rpc_reply, rpc_clnt)
+    if (giga_rpc_open_1(dir_id, (char*)path, mode, &rpc_reply, rpc_clnt)
         != RPC_SUCCESS) {
-        LOG_ERR("rpc_creat: ERR_rpc_creat(%s)", clnt_spcreateerror(path));
-        exit(1);
+        LOG_ERR("ERR_rpc_open(%s)", clnt_spcreateerror(path));
+        exit(1);//TODO: retry again?
     }
 
     // check return condition
     //
-    ret = rpc_reply.errnum;
+    ret = rpc_reply.result.errnum;
     if (ret == -EAGAIN) {
-        update_client_mapping(dir, &rpc_reply.giga_result_t_u.bitmap);
-        LOG_MSG("rpc_creat: bitmap update from s%d -- RETRY ...", server_id);
+        update_client_mapping(dir, &rpc_reply.result.giga_result_t_u.bitmap);
+        LOG_MSG("rpc_open: Kartik: bitmap update from s%d -- RETRY ...", server_id);
         goto retry;
+    } else if (ret == 0){
+        *state = rpc_reply.state;
+        if (rpc_reply.state == RPC_LEVELDB_FILE_IN_FS) {
+           memcpy(link, rpc_reply.link, PATH_MAX);
+        }
     }
     cache_release(dir);
 
-    LOG_MSG("<<< rpc_creat: RPC_creat(%s): status=[%d]%s", path, ret, strerror(ret));
+    LOG_MSG("RPC_open(%s): status=[%d]%s", path, ret, strerror(ret));
     return ret;
 }
 
@@ -743,46 +793,5 @@ retry:
 
     cache_release(dir);
     LOG_MSG("<<< RPC_close(%s): status=[%d]%s", path, ret, strerror(ret) );
-    return ret;
-}
-
-int rpc_open(int dir_id, const char *path, int mode)
-{
-    int ret = 0;
-
-    LOG_MSG(">>> RPC_open(%s, d%d)", path, dir_id);
-
-    struct giga_directory *dir = cache_lookup(&dir_id);
-    if (dir == NULL) {
-        LOG_MSG("rpc_open: ERR_cache: dir(%d) missing!", dir_id);
-        exit(1);
-    }
-
-    int server_id = 0;
-    giga_open_reply_t  rpc_reply;
-
-retry:
-    server_id = get_server_for_file(dir, path);
-    CLIENT *rpc_clnt = getConnection(server_id);
-
-    LOG_MSG(">>> RPC_open(%s): to s%d]", path, server_id);
-
-    if (giga_rpc_open_1(dir_id, (char*)path, mode, &rpc_reply, rpc_clnt)
-        != RPC_SUCCESS) {
-        LOG_ERR("ERR_rpc_open(%s)", clnt_spcreateerror(path));
-        exit(1);//TODO: retry again?
-    }
-
-    // check return condition
-    //
-    ret = rpc_reply.result.errnum;
-    if (ret == -EAGAIN) {
-        update_client_mapping(dir, &rpc_reply.result.giga_result_t_u.bitmap);
-        LOG_MSG("rpc_open: Kartik: bitmap update from s%d -- RETRY ...", server_id);
-        goto retry;
-    }
-    cache_release(dir);
-
-    LOG_MSG("<<<Kartik: RPC_open(%s): status=[%d]%s", path, ret, strerror(ret));
     return ret;
 }

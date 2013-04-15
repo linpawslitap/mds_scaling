@@ -2,7 +2,7 @@
 #define FHLIST_H
 
 #include "common/rpc_giga.h"
-#include "uthash.h"
+#include "common/uthash.h"
 
 // initialize the file handle list
 int fhlist_init();

@@ -1,7 +1,6 @@
 
 #include "fhlist.h"
-#include "debugging.h"
-#include "options.h"
+#include "common/options.h"
 
 #include <assert.h>
 #include <errno.h>
@@ -33,7 +32,7 @@ int fhlist_init()
 {
     fhlist = NULL;
     if (pthread_rwlock_init(&fhlist_lock, NULL) != 0) {
-      LOG_ERR("ERR_init_fhlist_rwlock");
+      //LOG_ERR("ERR_init_fhlist_rwlock",);
       exit(1);
     }
     return 0;
@@ -66,8 +65,8 @@ fhlist_entry_t* fhlist_get(giga_dir_id dir_id, giga_pathname path)
     memset(lookup_key, 0, sizeof(fhlist_lookup_key_t) + path_len);
     lookup_key->dir_id = dir_id;
     memcpy(lookup_key->path, path, path_len);
-    unsigned keylen = offsetof(lookup_key_t, path) + path_len
-                     - offsetof(lookup_key_t, dir_id);
+    unsigned keylen = offsetof(fhlist_lookup_key_t, path) + path_len
+                     - offsetof(fhlist_lookup_key_t, dir_id);
     HASH_FIND(hh, fhlist, &lookup_key->dir_id, keylen, entry);
     free(lookup_key);
     return entry;
@@ -75,7 +74,7 @@ fhlist_entry_t* fhlist_get(giga_dir_id dir_id, giga_pathname path)
 
 void fhlist_open(giga_dir_id dir_id, giga_pathname path) {
     if (pthread_rwlock_wrlock(&fhlist_lock) != 0) {
-        LOG_ERR("ERR_get_fhlist_wrlock: fhlist_open");
+        //LOG_ERR("ERR_get_fhlist_wrlock: fhlist_open");
         return;
     }
     fhlist_entry_t* entry = fhlist_get(dir_id, path);
@@ -89,7 +88,7 @@ void fhlist_open(giga_dir_id dir_id, giga_pathname path) {
 
 void fhlist_close(giga_dir_id dir_id, giga_pathname path) {
     if (pthread_rwlock_wrlock(&fhlist_lock) != 0) {
-        LOG_ERR("ERR_get_fhlist_wrlock: fhlist_close");
+        //LOG_ERR("ERR_get_fhlist_wrlock: fhlist_close");
         return;
     }
     fhlist_entry_t* entry = fhlist_get(dir_id, path);
@@ -105,12 +104,12 @@ void fhlist_close(giga_dir_id dir_id, giga_pathname path) {
 
 int fhlist_get_count(giga_dir_id dir_id, giga_pathname path) {
     if (pthread_rwlock_rdlock(&fhlist_lock) != 0) {
-        LOG_ERR("ERR_get_fhlist_rdlock: fhlist_get_count");
-        return;
+        //LOG_ERR("ERR_get_fhlist_rdlock: fhlist_get_count");
+        return 0;
     }
     fhlist_entry_t* entry = fhlist_get(dir_id, path);
     if (entry != NULL) {
-      return etnry->open_count;
+      return entry->open_count;
     } else {
       return 0;
     }

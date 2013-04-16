@@ -97,7 +97,7 @@ metadb_val_t init_meta_val(const metadb_inode_t inode_id,
 {
     metadb_val_t mobj_val;
     mobj_val.size = sizeof(metadb_val_header_t)
-                       + realpath_len + objname_len + data_len + 3;
+                       + realpath_len + objname_len + data_len + 2;
     mobj_val.value = (char*) malloc(mobj_val.size);
 
     metadb_val_header_t* mobj = (metadb_val_header_t *) mobj_val.value;
@@ -116,7 +116,6 @@ metadb_val_t init_meta_val(const metadb_inode_t inode_id,
       char* mobj_data = (char*) mobj + sizeof(metadb_val_header_t)
                   + objname_len + realpath_len + 2;
       strncpy(mobj_data, data, data_len);
-      mobj_data[data_len] = '\0';
     }
 
     mobj->state = RPC_LEVELDB_FILE_IN_DB;
@@ -159,6 +158,7 @@ metadb_val_t init_dir_val(const metadb_inode_t inode_id,
     mobj->statbuf = INIT_STATBUF;
     mobj->statbuf.st_ino = inode_id;
     mobj->statbuf.st_mode = (mobj->statbuf.st_mode & ~S_IFMT) | S_IFDIR;
+    mobj->statbuf.st_size = 4096;
     metadb_val_dir_t* mdir =
           (metadb_val_dir_t*) (mobj_val.value + header_size);
     memcpy(mdir, dir_val, sizeof(metadb_val_dir_t));
@@ -426,14 +426,14 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name)
     }
 
 //    metadb_log_init(mdb);
-//    metadb_sync_init(mdb);
+    metadb_sync_init(mdb);
 
     return ret;
 }
 
 int metadb_close(struct MetaDB mdb) {
 //    metadb_log_destroy();
-//    metadb_sync_destroy();
+    metadb_sync_destroy();
 
     leveldb_close(mdb.db);
     mdb.db = NULL;
@@ -710,7 +710,7 @@ int metadb_write_file_handler(metadb_val_t* mobj_val, void* arg1) {
           mobj_val->value = new_value;
           mobj_val->size = new_size;
     }
-    return 0;
+    return data->buf_len;
 }
 
 int metadb_write_file(struct MetaDB mdb,

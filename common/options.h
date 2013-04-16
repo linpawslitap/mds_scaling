@@ -45,12 +45,10 @@ typedef enum backends {
 
 #ifdef  PANFS         /* LevelDB splits through NFS, everything else is local */
 #define DEFAULT_BACKEND_TYPE    BACKEND_RPC_LEVELDB
-#define DEFAULT_SPLIT_DIR       "/panfs/pana.pdl.cmu.local/vol-1-01/_splits/"
-#define DEFAULT_SRV_BACKEND     "/l0/giga_srv/"
-#define DEFAULT_LEVELDB_DIR     "/l0/giga_ldb/"
-
-#define DEFAULT_PARALLEL_DIR       "/panfs/pana.pdl.cmu.local/vol-1-01/"
-#define PARALLEL_VOL_LIST_FILE       "/root/gigaVols"
+#define DEFAULT_SPLIT_DIR       "/tmp/_splits/"
+#define DEFAULT_SRV_BACKEND     "/tmp/giga_srv/"
+#define DEFAULT_LEVELDB_DIR     "/tmp/giga_ldb/"
+#define PARALLEL_VOL_LIST_FILE  "/tmp/giga_vols"
 #endif
 
 // client-side and server side defaults
@@ -94,7 +92,6 @@ struct giga_options {
     const char **serverlist;    // server list GIGA+ nodes
 
     char *mountpoint;           // client's mountpoint and server's backend
-    char *pfspoint;             // mountpoint of the parallel file system
     int num_pfs_volumes;        // num of parallel FS's volume
     char **pfs_volumes;         // list of the mount points
 

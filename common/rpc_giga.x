@@ -100,16 +100,7 @@ union giga_read_t switch (int state) {
 
 struct giga_getattr_reply_t {
     struct stat statbuf;
-    giga_result_t result;
-    /**int fn_retval;*/
-
-    int giga_entry_type;
-    int file_location;
-    giga_pathname link;
-};
-
-struct giga_readlink_reply_t {
-    giga_pathname link;
+    int file_size;
     giga_result_t result;
     /**int fn_retval;*/
 };
@@ -166,8 +157,6 @@ version GIGA_RPC_VERSION {          /* version number */
         /* {dir_to_split, parent_index, child_index, path_leveldb_files} */
         giga_result_t GIGA_RPC_SPLIT(giga_dir_id, int, int, giga_pathname,
                                      uint64_t, uint64_t, int) = 401;
-
-        giga_readlink_reply_t GIGA_RPC_READLINK(giga_dir_id, giga_pathname) = 501;
 
         giga_write_reply_t GIGA_RPC_WRITE(giga_dir_id, giga_pathname,
                                           giga_file_data data, int size,

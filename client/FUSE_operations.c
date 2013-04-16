@@ -193,7 +193,8 @@ int GIGAgetattr(const char *path, struct stat *statbuf)
             break;
     }
 
-    LOG_MSG("<<< FUSE_getattr(%s): ret=[%d]", path, ret);
+    LOG_MSG("<<< FUSE_getattr(%s): size=[%ld] ret=[%d]",
+            path, statbuf->st_size, ret);
 
     return ret;
 }
@@ -621,7 +622,6 @@ int GIGAopen(const char *path, struct fuse_file_info *fi)
                 ret = errno;
             fi->fh = fd;
             break;
-
         case BACKEND_RPC_LEVELDB:
             fh = (rpc_leveldb_fh_t *) malloc(sizeof(rpc_leveldb_fh_t));
             parse_path_components(path, fh->file, dir);
@@ -655,8 +655,8 @@ int GIGAopen(const char *path, struct fuse_file_info *fi)
 int GIGAread(const char *path, char *buf, size_t size, off_t offset,
              struct fuse_file_info *fi)
 {
-    LOG_MSG(">>> FUSE_read(%s): size=%d,offset=%d,buf=[0x%08x] and fi=[0x%08x] ",
-            path, buf, size, offset, fi);
+    LOG_MSG(">>> FUSE_read(%s): size=%ld,offset=%ld,and fi=[0x%08x] ",
+            path, size, offset, fi);
 
     int ret = 0;
     char fpath[PATH_MAX] = {0};
@@ -689,7 +689,7 @@ int GIGAread(const char *path, char *buf, size_t size, off_t offset,
             break;
     }
 
-    LOG_MSG("<<< FUSE_read(%s): ret=[%d:%s]", path, ret, strerror(ret));
+    LOG_MSG("<<< FUSE_read(%s): ret=[%d]", path, ret);
 
     return ret;
 }
@@ -697,8 +697,8 @@ int GIGAread(const char *path, char *buf, size_t size, off_t offset,
 int GIGAwrite(const char *path, const char *buf, size_t size, off_t offset,
               struct fuse_file_info *fi)
 {
-    LOG_MSG(">>> FUSE_write(%s): size=%d,offset=%d,buf=[0x%08x] and fi=[0x%08x] ",
-            path, buf, size, offset, fi);
+    LOG_MSG(">>> FUSE_write(%s): size=%ld, offset=%ld and fi=[0x%08x]",
+            path, size, offset, fi);
 
     int ret = 0;
     char fpath[PATH_MAX] = {0};
@@ -731,7 +731,7 @@ int GIGAwrite(const char *path, const char *buf, size_t size, off_t offset,
             break;
     }
 
-    LOG_MSG("<<< FUSE_write(%s): ret=[%d:%s]", path, ret, strerror(ret));
+    LOG_MSG("<<< FUSE_write(%s): ret=[%d]", path, ret);
 
     return ret;
 }

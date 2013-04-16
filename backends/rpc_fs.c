@@ -154,6 +154,7 @@ retry:
     }
     else {
         *stbuf = rpc_reply.statbuf;
+        stbuf->st_size = rpc_reply.file_size;
         if (stbuf == NULL)
             LOG_MSG("ERR_getattr(%s): statbuf is NULL!", path);
         //TODO: check for IS_DIR flag in statbuf
@@ -602,7 +603,7 @@ retry:
         update_client_mapping(dir, &rpc_reply.result.giga_result_t_u.bitmap);
         LOG_MSG("bitmap update from s%d -- RETRY ...", server_id);
         goto retry;
-    } else if (ret == 0) {
+    } else if (ret >= 0) {
         *state = rpc_reply.state;
         if (rpc_reply.state == RPC_LEVELDB_FILE_IN_FS) {
           strncpy(symlink, rpc_reply.link, PATH_MAX);
@@ -611,7 +612,7 @@ retry:
     }
     cache_release(dir);
 
-    LOG_MSG("<<< RPC_write(%s): status=[%d]%s", path, ret, strerror(ret));
+    LOG_MSG("<<< RPC_write(%s): status=[%d]", path, ret);
     return ret;
 }
 
@@ -633,12 +634,12 @@ retry:
     server_id = get_server_for_file(dir, path);
     CLIENT *rpc_clnt = getConnection(server_id);
 
-    LOG_MSG(">>> RPC_write(%s): to s[%d]", path, server_id);
+    LOG_MSG(">>> RPC_read(%s): to s[%d]", path, server_id);
 
     if (giga_rpc_read_1(dir_id, (char*)path, size, offset,
                          &rpc_reply, rpc_clnt)
         != RPC_SUCCESS) {
-        LOG_ERR("ERR_rpc_write(%s)", clnt_spcreateerror(path));
+        LOG_ERR("ERR_rpc_read(%s)", clnt_spcreateerror(path));
         exit(1);//TODO: retry again?
     }
 
@@ -648,63 +649,18 @@ retry:
         update_client_mapping(dir, &rpc_reply.result.giga_result_t_u.bitmap);
         LOG_MSG("bitmap update from s%d -- RETRY ...", server_id);
         goto retry;
-    } else if (ret == 0) {
+    } else if (ret >= 0) {
         *state = rpc_reply.data.state;
         if (rpc_reply.data.state == RPC_LEVELDB_FILE_IN_FS) {
           strncpy(symlink, rpc_reply.data.giga_read_t_u.link, PATH_MAX);
           symlink[PATH_MAX -1] = '\0';
         } else {
-          memcpy(buf, rpc_reply.data.giga_read_t_u.buf, size);
+          memcpy(buf, rpc_reply.data.giga_read_t_u.buf, ret);
         }
     }
     cache_release(dir);
 
-    LOG_MSG("<<< RPC_write(%s): status=[%d]%s", path, ret, strerror(ret));
-    return ret;
-}
-
-
-int rpc_readlink(int dir_id, const char *path, char *link)
-{
-    int ret = 0;
-
-    struct giga_directory *dir = cache_lookup(&dir_id);
-    if (dir == NULL) {
-        LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
-        ret = -EIO;
-    }
-
-    int server_id = 0;
-    giga_readlink_reply_t rpc_reply;
-    rpc_reply.link = (char *)malloc (PATH_MAX*sizeof(char));
-
-retry:
-    server_id = get_server_for_file(dir, path);
-    CLIENT *rpc_clnt = getConnection(server_id);
-
-    LOG_MSG(">>> RPC_readlink(%s): to s[%d]", path, server_id);
-    if (giga_rpc_readlink_1(dir_id, (char*)path, &rpc_reply, rpc_clnt)
-        != RPC_SUCCESS) {
-        LOG_ERR("ERR_rpc_readlink(%s)", clnt_spcreateerror(path));
-        exit(1);
-    }
-
-    // check return condition
-    //
-    ret = rpc_reply.result.errnum;
-    if (ret == -EAGAIN) {
-        update_client_mapping(dir, &rpc_reply.result.giga_result_t_u.bitmap);
-        LOG_MSG("rpc_readlink: bitmap update from s%d -- RETRY ...", server_id);
-        goto retry;
-    }
-    else if (ret == 0){
-        memcpy (link,rpc_reply.link,PATH_MAX);
-    }
-
-    cache_release(dir);
-    free ( rpc_reply.link);
-    LOG_MSG("<<< RPC_readlink(%s): status=[%d]%s, link read = %s",
-            path, ret, strerror(ret) , link);
+    LOG_MSG("<<< RPC_read(%s): status=[%d]", path, ret);
     return ret;
 }
 
@@ -723,6 +679,7 @@ int rpc_open(int dir_id, const char *path, int mode,
 
     int server_id = 0;
     giga_open_reply_t  rpc_reply;
+    memset(&rpc_reply, 0, sizeof(rpc_reply));
 
 retry:
     server_id = get_server_for_file(dir, path);

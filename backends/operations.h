@@ -54,7 +54,6 @@ int rpc_read(int dir_id, const char *path,
 int rpc_write(int dir_id, const char *path,
               const char* buf, size_t size, off_t offset,
               int* state, char* link);
-int rpc_readlink(int dir_id, const char *path, char* link);
 
 /*
  * Operations for MDB
@@ -196,14 +195,6 @@ int metadb_lookup(struct MetaDB mdb,
                   const int partition_id,
                   const char *objname,
                   struct stat *stbuf);
-
-// Returns "0" if MDB get the file stat successfully,
-// otherwise "-ENOENT" when no file is found.
-int metadb_openfile(struct MetaDB mdb,
-                    const metadb_inode_t dir_id,
-                    const int partition_id,
-                    const char *objname,
-                    char *link);
 
 // Returns "0" if MDB get directory entries successfully,
 // otherwise "-ENOENT" when no file is found.

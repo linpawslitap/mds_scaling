@@ -41,7 +41,6 @@ void initGIGAsetting(int cli_or_srv, char *cli_mnt, const char *srv_list_file)
     parse_serverlist_file(srv_list_file);
     init_default_backends((const char*)cli_mnt);
     init_parallel_fs_mnt();
-
     print_settings();
 }
 
@@ -156,15 +155,6 @@ void parse_serverlist_file(const char *serverlist_file)
 static
 void init_parallel_fs_mnt()
 {
-
-    giga_options_t.pfspoint = (char*)malloc(sizeof(char) * PATH_MAX);
-    if (giga_options_t.pfspoint == NULL) {
-        LOG_MSG("Kartik: ERR_malloc: %s", strerror(errno));
-        exit(1);
-    }
-
-    snprintf(giga_options_t.pfspoint, PATH_MAX, "%s/",
-             DEFAULT_PARALLEL_DIR);
 
     //Read from the Parallel Vols file and populate the vols list
     FILE *gigaVolsFile = NULL;

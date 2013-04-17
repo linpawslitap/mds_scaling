@@ -47,7 +47,7 @@ typedef enum backends {
 #define DEFAULT_BACKEND_TYPE    BACKEND_RPC_LEVELDB
 #define DEFAULT_SPLIT_DIR       "/tmp/_splits/"
 #define DEFAULT_SRV_BACKEND     "/tmp/giga_srv/"
-#define DEFAULT_LEVELDB_DIR     "/tmp/giga_ldb/"
+#define DEFAULT_LEVELDB_DIR     "giga_ldb"
 #define PARALLEL_VOL_LIST_FILE  "/tmp/giga_vols"
 #endif
 
@@ -92,6 +92,7 @@ struct giga_options {
     const char **serverlist;    // server list GIGA+ nodes
 
     char *mountpoint;           // client's mountpoint and server's backend
+    char *leveldb_dir;          // directory of leveldb for server's backend
     int num_pfs_volumes;        // num of parallel FS's volume
     char **pfs_volumes;         // list of the mount points
 

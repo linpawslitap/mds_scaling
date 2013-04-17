@@ -133,7 +133,8 @@ retry:
         //TODO: check for IS_DIR flag in statbuf
         if (S_ISDIR(rpc_reply.statbuf.st_mode)) {
             *stbuf = rpc_reply.statbuf;
-
+            stbuf->st_size = rpc_reply.file_size;
+            stbuf->st_blocks = stbuf->st_size / 4096;
             LOG_MSG("GETATTR(%s) returns a directory for d%d", path, stbuf->st_ino);
             giga_print_mapping(&rpc_reply.result.giga_result_t_u.bitmap);
             struct giga_directory *new = new_cache_entry((DIR_handle_t*)&stbuf->st_ino, rpc_reply.result.giga_result_t_u.bitmap.zeroth_server);
@@ -148,13 +149,10 @@ retry:
             LOG_MSG("bitmap update from s%d -- RETRY ...", server_id); 
             goto retry;
         }
-    }
-    else if (ret < 0) {
-        ;
-    }
-    else {
+    } else if (ret >= 0) {
         *stbuf = rpc_reply.statbuf;
         stbuf->st_size = rpc_reply.file_size;
+        stbuf->st_blocks = stbuf->st_size / 4096;
         if (stbuf == NULL)
             LOG_MSG("ERR_getattr(%s): statbuf is NULL!", path);
         //TODO: check for IS_DIR flag in statbuf
@@ -582,6 +580,7 @@ int rpc_write(int dir_id, const char* path, const char* buf, size_t size,
     int server_id = 0;
 
     giga_write_reply_t rpc_reply;
+    memset(&rpc_reply, 0, sizeof(rpc_reply));
 
     //Find the right server
 retry:
@@ -590,7 +589,10 @@ retry:
 
     LOG_MSG(">>> RPC_write(%s): to s[%d]", path, server_id);
 
-    if (giga_rpc_write_1(dir_id, (char*) path, (char*) buf, size, offset,
+    giga_file_data write_data;
+    write_data.giga_file_data_val = (char *) buf;
+    write_data.giga_file_data_len = size;
+    if (giga_rpc_write_1(dir_id, (char*) path, write_data, offset,
                          &rpc_reply, rpc_clnt)
         != RPC_SUCCESS) {
         LOG_ERR("ERR_rpc_write(%s)", clnt_spcreateerror(path));
@@ -628,6 +630,7 @@ int rpc_read(int dir_id, const char* path, char* buf, size_t size,
     int server_id = 0;
 
     giga_read_reply_t rpc_reply;
+    memset(&rpc_reply, 0, sizeof(rpc_reply));
 
     //Find the right server
 retry:
@@ -655,7 +658,8 @@ retry:
           strncpy(symlink, rpc_reply.data.giga_read_t_u.link, PATH_MAX);
           symlink[PATH_MAX -1] = '\0';
         } else {
-          memcpy(buf, rpc_reply.data.giga_read_t_u.buf, ret);
+          memcpy(buf, rpc_reply.data.giga_read_t_u.buf.giga_file_data_val,
+                      rpc_reply.data.giga_read_t_u.buf.giga_file_data_len);
         }
     }
     cache_release(dir);
@@ -678,7 +682,7 @@ int rpc_open(int dir_id, const char *path, int mode,
     }
 
     int server_id = 0;
-    giga_open_reply_t  rpc_reply;
+    static giga_open_reply_t rpc_reply;
     memset(&rpc_reply, 0, sizeof(rpc_reply));
 
 retry:
@@ -703,7 +707,7 @@ retry:
     } else if (ret == 0){
         *state = rpc_reply.state;
         if (rpc_reply.state == RPC_LEVELDB_FILE_IN_FS) {
-           memcpy(link, rpc_reply.link, PATH_MAX);
+           strncpy(link, rpc_reply.link, PATH_MAX);
         }
     }
     cache_release(dir);
@@ -724,6 +728,7 @@ int rpc_close(int dir_id, const char *path)
 
     int server_id = 0;
     giga_close_reply_t rpc_reply;
+    memset(&rpc_reply, 0, sizeof(rpc_reply));
 
 retry:
     server_id = get_server_for_file(dir, path);

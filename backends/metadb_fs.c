@@ -611,7 +611,6 @@ int metadb_update_internal(struct MetaDB mdb,
             if (err != NULL) {
                 logMessage(METADB_LOG, __func__,
                            "update_internal (%s) failed (%s).", path, err);
-                printf("Update error:%s %s\n", err, path);
                 ret = -1;
             }
             free_metadb_val(&mobj_val);
@@ -620,10 +619,11 @@ int metadb_update_internal(struct MetaDB mdb,
         mobj_val.value = NULL;
         mobj_val.size = 0;
         ret = ENOENT;
-        printf("Update error: no entry %s\n", path);
     }
 
     RELEASE_MUTEX(&(mdb.mtx_leveldb), "metadb_update_internal(%s)", path);
+    logMessage(METADB_LOG, __func__,
+               "update_internal (%s) ret (%d).", path, ret);
 
     return ret;
 }
@@ -683,6 +683,34 @@ int metadb_get_file(struct MetaDB mdb,
     return ret;
 }
 
+int metadb_get_state(struct MetaDB mdb,
+                     const metadb_inode_t dir_id, const int partition_id,
+                     const char *path, int *state, char* link, int *link_len)
+{
+    int ret = 0;
+    metadb_val_t mobj_val;
+    mobj_val = metadb_lookup_internal(mdb, dir_id, partition_id, path);
+
+    if (mobj_val.size != 0) {
+        logMessage(METADB_LOG, __func__, "lookup found entry(%s).", path);
+
+        //Check if this thingy is a symlink or not
+        metadb_val_header_t* mobj = (metadb_val_header_t *) mobj_val.value;
+        *state = mobj->state;
+        if ((*state) == RPC_LEVELDB_FILE_IN_FS) {
+            *link_len = mobj->realpath_len;
+            memcpy(link, mobj->realpath, *link_len);
+            link[mobj->realpath_len] = '\0';
+        }
+    } else {
+        logMessage(METADB_LOG, __func__, "readpath: entry(%s) not found.", path);
+        ret = ENOENT;
+    }
+
+    free_metadb_val(&mobj_val);
+    return ret;
+}
+
 typedef struct {
     const char* buf;
     int buf_len;
@@ -710,6 +738,7 @@ int metadb_write_file_handler(metadb_val_t* mobj_val, void* arg1) {
           mobj_val->value = new_value;
           mobj_val->size = new_size;
     }
+    logMessage(METADB_LOG, __func__, "update_size:%d", data->buf_len);
     return data->buf_len;
 }
 
@@ -753,6 +782,22 @@ int metadb_write_link(struct MetaDB mdb,
     return metadb_update_internal(mdb, dir_id, partition_id, objname,
                                   metadb_write_link_handler,
                                   (void *) pathname);
+}
+
+int metadb_setattr_handler(metadb_val_t* mobj_val, void* arg1) {
+    metadb_val_header_t* mobj = (metadb_val_header_t *) mobj_val->value;
+    mobj->statbuf = *((struct stat *) arg1);
+    return 0;
+}
+
+int metadb_setattr(struct MetaDB mdb,
+                   const metadb_inode_t dir_id,
+                   const int partition_id,
+                   const char* objname,
+                   const struct stat* statbuf) {
+    return metadb_update_internal(mdb, dir_id, partition_id, objname,
+                                  metadb_setattr_handler,
+                                  (void *) statbuf);
 }
 
 

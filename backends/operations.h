@@ -247,6 +247,12 @@ int metadb_get_file(struct MetaDB mdb,
                     const char* objname,
                     int* state, char* buf, int* buf_len);
 
+int metadb_get_state(struct MetaDB mdb,
+                     const metadb_inode_t dir_id,
+                     const int partition_id,
+                     const char* objname,
+                     int* state, char* link, int* link_len);
+
 int metadb_write_file(struct MetaDB mdb,
                       const metadb_inode_t dir_id,
                       const int partition_id,
@@ -258,6 +264,12 @@ int metadb_write_link(struct MetaDB mdb,
                       const int partition_id,
                       const char* objname,
                       const char* pathname);
+
+int metadb_setattr(struct MetaDB mdb,
+                   const metadb_inode_t dir_id,
+                   const int partition_id,
+                   const char* path,
+                   const struct stat* stbuf);
 
 int metadb_chmod(struct MetaDB mdb,
                  const metadb_inode_t dir_id,

@@ -98,13 +98,12 @@ int main(int argc, char *argv[])
     if (fuse_opt_parse(&args, &giga_options_t, giga_opts, NULL) == -1)
         return -1;
 
-//    fuse_opt_insert_arg(&args, 1, "-odirect_io");
     fuse_opt_insert_arg(&args, 1, "-oattr_timeout=0");
     fuse_opt_insert_arg(&args, 1, "-omax_write=524288");
     if ( getpid() == 0 )
         fuse_opt_insert_arg( &args, 1, "-oallow_other" );
     fuse_opt_insert_arg(&args, 1, "-s");
-    fuse_opt_insert_arg(&args, 1, "-d");
+    fuse_opt_insert_arg(&args, 1, "-f");
 
     ret = fuse_main(args.argc, args.argv, &giga_oper, NULL);
 

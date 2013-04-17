@@ -153,7 +153,7 @@ void GIGAdestroy(void * unused)
 
 int GIGAgetattr(const char *path, struct stat *statbuf)
 {
-    LOG_MSG(">>> FUSE_getattr(%s): stat=[0x%08x]", path, statbuf);
+    LOG_MSG(">>> FUSE_getattr(%s): stat=[0x%016lx]", path, statbuf);
 
     int ret = 0;
     char fpath[PATH_MAX] = {0};
@@ -286,7 +286,7 @@ int GIGAmknod(const char *path, mode_t mode, dev_t dev)
 
 int GIGAopendir(const char *path, struct fuse_file_info *fi)
 {
-    LOG_MSG(">>> FUSE_opendir(%s): fi=[0x%08x])", path, fi);
+    LOG_MSG(">>> FUSE_opendir(%s): fi=[0x%016lx])", path, fi);
 
     int ret = 0;
     char fpath[PATH_MAX] = {0};
@@ -366,7 +366,7 @@ int GIGAreaddir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offse
 
 int GIGAreleasedir(const char *path, struct fuse_file_info *fi)
 {
-    LOG_MSG(">>> FUSE_releasedir(%s): fi=[0x%08x])", path, fi);
+    LOG_MSG(">>> FUSE_releasedir(%s): fi=[0x%016lx])", path, fi);
 
     int ret = 0;
     char dir[PATH_MAX] = {0};
@@ -607,7 +607,7 @@ int GIGAutime(const char *path, struct utimbuf *ubuf)
 
 int GIGAopen(const char *path, struct fuse_file_info *fi)
 {
-    LOG_MSG(">>> FUSE_open(%s): fi=[0x%08x])", path, fi);
+    LOG_MSG(">>> FUSE_open(%s): fi=[0x%016lx])", path, fi);
 
     int ret = 0;
     char fpath[PATH_MAX] = {0};
@@ -620,7 +620,7 @@ int GIGAopen(const char *path, struct fuse_file_info *fi)
             get_full_path(fpath, path);
             if ((fd = open(fpath, fi->flags)) < 0)
                 ret = errno;
-            fi->fh = fd;
+            fi->fh = (intptr_t)fd;
             break;
         case BACKEND_RPC_LEVELDB:
             fh = (rpc_leveldb_fh_t *) malloc(sizeof(rpc_leveldb_fh_t));
@@ -634,19 +634,20 @@ int GIGAopen(const char *path, struct fuse_file_info *fi)
                   if ((fh->fd = open(fpath, fi->flags)) < 0)
                       ret = errno;
                 }
-                fi->fh = (uint64_t) fh;
+                fi->fh = (intptr_t) fh;
             } else {
                 LOG_MSG(" FUSE_open(%s): link cannot be read from server:"
-                        "ret=[%d:%s] and fi=[0x%08x])",
-                        path, ret, strerror(ret), fi->fh);
+                        "ret=[%d:%s])", path, ret, strerror(ret));
+                free(fh);
+                fi->fh = (intptr_t) NULL;
             }
             break;
         default:
-            ret = FUSE_ERROR(ENOTSUP);
+            ret = ENOTSUP;
             break;
     }
 
-    LOG_MSG("<<< FUSE_open(%s): ret=[%d:%s] and fi=[0x%08x])",
+    LOG_MSG("<<< FUSE_open(%s): ret=[%d:%s] and fh=[0x%016lx])",
             path, ret, strerror(ret), fi->fh);
 
     return FUSE_ERROR(ret);
@@ -655,7 +656,7 @@ int GIGAopen(const char *path, struct fuse_file_info *fi)
 int GIGAread(const char *path, char *buf, size_t size, off_t offset,
              struct fuse_file_info *fi)
 {
-    LOG_MSG(">>> FUSE_read(%s): size=%ld,offset=%ld,and fi=[0x%08x] ",
+    LOG_MSG(">>> FUSE_read(%s): size=%ld,offset=%ld,and fi=[0x%016lx] ",
             path, size, offset, fi);
 
     int ret = 0;
@@ -668,16 +669,19 @@ int GIGAread(const char *path, char *buf, size_t size, off_t offset,
                 ret = FUSE_ERROR(ret);
             break;
         case BACKEND_RPC_LEVELDB:
-            fh = (rpc_leveldb_fh_t*) fi->fh;
+            fh = (rpc_leveldb_fh_t*) (uintptr_t) fi->fh;
+            if (fh == NULL)
+              break;
             if (fh->state == RPC_LEVELDB_FILE_IN_FS) {
-                if ((ret = pread(fh->fd, buf, size, offset)) < 0)
+                if (fh->fd >= 0 && (ret = pread(fh->fd, buf, size, offset)) < 0)
                     ret = FUSE_ERROR(ret);
             } else {
                 ret = rpc_read(fh->dir_id, fh->file, buf, size, offset,
                                &fh->state, fpath);
                 if (fh->state == RPC_LEVELDB_FILE_IN_FS) {
                     if ((fh->fd = open(fpath, fi->flags)) < 0) {
-                        ret = errno;
+                        ret = FUSE_ERROR(errno);
+                        break;
                     }
                     if ((ret = pread(fh->fd, buf, size, offset)) < 0)
                         ret = FUSE_ERROR(ret);
@@ -697,7 +701,7 @@ int GIGAread(const char *path, char *buf, size_t size, off_t offset,
 int GIGAwrite(const char *path, const char *buf, size_t size, off_t offset,
               struct fuse_file_info *fi)
 {
-    LOG_MSG(">>> FUSE_write(%s): size=%ld, offset=%ld and fi=[0x%08x]",
+    LOG_MSG(">>> FUSE_write(%s): size=%ld, offset=%ld and fi=[0x%016x]",
             path, size, offset, fi);
 
     int ret = 0;
@@ -710,16 +714,20 @@ int GIGAwrite(const char *path, const char *buf, size_t size, off_t offset,
                 ret = FUSE_ERROR(ret);
             break;
         case BACKEND_RPC_LEVELDB:
-            fh = (rpc_leveldb_fh_t*) fi->fh;
+            fh = (rpc_leveldb_fh_t*) (uintptr_t) fi->fh;
+            if (fh == NULL)
+              break;
             if (fh->state == RPC_LEVELDB_FILE_IN_FS) {
-                if ((ret = pwrite(fh->fd, buf, size, offset)) < 0)
-                    ret = FUSE_ERROR(ret);
+                if (fh->fd >= 0 && (ret = pwrite(fh->fd, buf, size, offset)) < 0)
+                   ret = FUSE_ERROR(ret);
             } else {
                 ret = rpc_write(fh->dir_id, fh->file, buf, size, offset,
                                 &fh->state, fpath);
                 if (fh->state == RPC_LEVELDB_FILE_IN_FS) {
                     if ((fh->fd = open(fpath, fi->flags)) < 0) {
-                        ret = errno;
+                        fh->fd = 0;
+                        ret = FUSE_ERROR(errno);
+                        break;
                     }
                     if ((ret = pwrite(fh->fd, buf, size, offset)) < 0)
                         ret = FUSE_ERROR(ret);
@@ -731,7 +739,7 @@ int GIGAwrite(const char *path, const char *buf, size_t size, off_t offset,
             break;
     }
 
-    LOG_MSG("<<< FUSE_write(%s): ret=[%d]", path, ret);
+    LOG_MSG("<<< FUSE_write(%s): ret=[%d] %s", path, ret, strerror(ret));
 
     return ret;
 }
@@ -764,7 +772,7 @@ int GIGAflush(const char *path, struct fuse_file_info *fi)
 {
     int ret = 0;
 
-    LOG_MSG(">>> FUSE_flush(%s): fi=[0x%08x])", path, fi);
+    LOG_MSG(">>> FUSE_flush(%s): fi=[0x%016lx])", path, fi);
     // no need to get fpath on this one, since I work from fi->fh not the path
 
     return ret;
@@ -772,7 +780,8 @@ int GIGAflush(const char *path, struct fuse_file_info *fi)
 
 int GIGArelease(const char *path, struct fuse_file_info *fi)
 {
-    LOG_MSG(">>> FUSE_release(%s): fi=[0x%08x])", path, fi);
+    LOG_MSG(">>> FUSE_release(%s): fi=[0x%016lx] fh=[0x%016lx])",
+            path, fi, fi->fh);
 
     int ret = 0;
     int ret_remote = 0;
@@ -783,9 +792,11 @@ int GIGArelease(const char *path, struct fuse_file_info *fi)
             ret = close(fi->fh);
             break;
         case BACKEND_RPC_LEVELDB:
-            fh = (rpc_leveldb_fh_t*) fi->fh;
-            if (fh->state == RPC_LEVELDB_FILE_IN_DB) {
-                ret = close(fi->fh);
+            fh = (rpc_leveldb_fh_t*) (uintptr_t) fi->fh;
+            if (fh == NULL)
+                break;
+            if (fh->state == RPC_LEVELDB_FILE_IN_FS) {
+                ret = close(fh->fd);
             }
             ret_remote = rpc_close(fh->dir_id, fh->file);
             if (ret_remote < ret) {
@@ -803,7 +814,7 @@ int GIGArelease(const char *path, struct fuse_file_info *fi)
 
 int GIGAfsync(const char *path, int datasync, struct fuse_file_info *fi)
 {
-    LOG_MSG(">>> FUSE_fsync(%s): datasync=%d and fi=[0x%08x]", path, datasync, fi);
+    LOG_MSG(">>> FUSE_fsync(%s): datasync=%d and fi=[0x%016lx]", path, datasync, fi);
 
     int ret = 0;
 
@@ -829,7 +840,7 @@ int GIGAfsync(const char *path, int datasync, struct fuse_file_info *fi)
 
 int GIGAfsyncdir(const char *path, int datasync, struct fuse_file_info *fi)
 {
-    LOG_MSG(">>> FUSE_fsyncdir(%s): dsync=%d and fi=[0x%08x]", path, datasync, fi);
+    LOG_MSG(">>> FUSE_fsyncdir(%s): dsync=%d and fi=[0x%016lx]", path, datasync, fi);
 
     int ret = 0;
 
@@ -931,7 +942,7 @@ int GIGAftruncate(const char *path, off_t offset, struct fuse_file_info *fi)
 
 int GIGAfgetattr(const char *path, struct stat *statbuf, struct fuse_file_info *fi)
 {
-    LOG_MSG(">>> FUSE_fgetattr(%s): statbuf=[0x%08x] fi=[0x%08x]",
+    LOG_MSG(">>> FUSE_fgetattr(%s): statbuf=[0x%016lx] fi=[0x%016lx]",
             path, statbuf, fi);
 
     int ret = 0;

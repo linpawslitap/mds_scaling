@@ -325,10 +325,10 @@ void init_root_partition()
         }
     }
 
-    if (mkdir(DEFAULT_LEVELDB_DIR, DEFAULT_MODE) < 0) {
+    if (mkdir(giga_options_t.leveldb_dir, DEFAULT_MODE) < 0) {
         if (errno != EEXIST) {
             LOG_ERR("ERR_mkdir(%s): for leveldb [%s]",
-                    DEFAULT_LEVELDB_DIR, strerror(errno));
+                    giga_options_t.leveldb_dir, strerror(errno));
             exit(1);
         }
     }
@@ -362,7 +362,7 @@ void init_root_partition()
             break;
         case BACKEND_RPC_LEVELDB:
             snprintf(ldb_name, sizeof(ldb_name),
-                     "%s/l%d", DEFAULT_LEVELDB_DIR, giga_options_t.serverID);
+                     "%s/l%d", giga_options_t.leveldb_dir, giga_options_t.serverID);
             // FIXME: use new semantics of metadb_init.
             mdb_setup = metadb_init(&ldb_mds, ldb_name);
             if (mdb_setup == -1) {

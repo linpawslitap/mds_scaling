@@ -757,18 +757,23 @@ bool_t giga_rpc_read_1_svc(giga_dir_id dir_id, giga_pathname path,
                       if (offset + size > buf_len)
                           size = buf_len - offset;
                       if (size > 0) {
-                          rpc_reply->data.giga_read_t_u.buf = (char*) malloc(size+1);
-                          memcpy(rpc_reply->data.giga_read_t_u.buf,
-                                 buf+offset, size);
-                          rpc_reply->data.giga_read_t_u.buf[size] = '\0';
+                          rpc_reply->data.giga_read_t_u.buf.giga_file_data_val
+                              = (char*) malloc(size);
+                          rpc_reply->data.giga_read_t_u.buf.giga_file_data_len
+                              = size;
+                          memcpy(
+                            rpc_reply->data.giga_read_t_u.buf.giga_file_data_val
+                            ,buf+offset, size);
                           rpc_reply->result.errnum = size;
                       } else {
-                          rpc_reply->data.giga_read_t_u.buf = (char*) malloc(1);
-                          rpc_reply->data.giga_read_t_u.buf[0] = '\0';
-                          rpc_reply->result.errnum = 0;
+                          rpc_reply->data.giga_read_t_u.buf.giga_file_data_val
+                              = NULL;
+                          rpc_reply->data.giga_read_t_u.buf.giga_file_data_len
+                              = 0;
                       }
                       break;
                   case RPC_LEVELDB_FILE_IN_FS:
+                      rpc_reply->result.errnum = 0;
                       rpc_reply->data.state = state;
                       rpc_reply->data.giga_read_t_u.link = strdup(buf);
                       break;
@@ -795,7 +800,7 @@ char* get_random_pfs_volume() {
 }
 
 bool_t giga_rpc_write_1_svc(giga_dir_id dir_id, giga_pathname path,
-                            giga_file_data data, int size, int offset,
+                            giga_file_data data, int offset,
                             giga_write_reply_t *rpc_reply,
                             struct svc_req *rqstp)
 {
@@ -803,6 +808,8 @@ bool_t giga_rpc_write_1_svc(giga_dir_id dir_id, giga_pathname path,
 
     assert(rpc_reply);
     assert(path);
+
+    int size = data.giga_file_data_len;
 
     LOG_MSG(">>> RPC_write(d=%d,p=%s,offset=%d,size=%d)",
             dir_id, path, offset, size);
@@ -836,29 +843,29 @@ bool_t giga_rpc_write_1_svc(giga_dir_id dir_id, giga_pathname path,
                   rpc_reply->result.errnum =
                       metadb_write_file(ldb_mds,
                                         dir_id, index, path,
-                                        data, size, offset);
-                  LOG_MSG("RPC_write(d=%d,p=%s) debug [%s]",
-                          dir_id, path, data);
-
-                  rpc_reply->link = (char*) malloc(1);
-                  rpc_reply->link[0] = '\0';
+                                        data.giga_file_data_val,
+                                        size, offset);
+                  rpc_reply->link = strdup("0");
                 } else {
                     rpc_reply->state = RPC_LEVELDB_FILE_IN_FS;
 
-                    sprintf(fpath, "%s/%d",
+                    sprintf(fpath, "%s/files/%d",
                             get_random_pfs_volume(), dir_id);
                     local_mkdir(fpath, DEFAULT_MODE);
                     sprintf(fpath+strlen(fpath), "/%s", path);
                     rpc_reply->link = strdup(fpath);
 
-                    fd = open(fpath, O_RDWR);
+                    fd = open(fpath, O_RDWR | O_CREAT, 0777);
                     if (fd > 0) {
-                        rpc_reply->result.errnum = pwrite(fd, buf, 0, buf_len);
+                        pwrite(fd, buf, buf_len, 0);
                         close(fd);
+                        struct stat stbuf;
+                        stat(fpath, &stbuf);
                         metadb_write_link(ldb_mds, dir_id, index, path, fpath);
+                        rpc_reply->result.errnum = 0;
                     } else {
-                        LOG_ERR("Fail to migrate: %d, %s",
-                                dir_id, path);
+                        LOG_ERR("Fail to migrate: %d, %s, %s, %d, %s",
+                                dir_id, path, fpath, errno, strerror(errno));
                         exit(1);    //TODO: do something smarter???
                     }
                 }
@@ -873,8 +880,9 @@ bool_t giga_rpc_write_1_svc(giga_dir_id dir_id, giga_pathname path,
 
     release_dir_mapping(dir);
 
-    LOG_MSG("<<< RPC_write(d=%d,p=%s): status=[%d]",
-            dir_id, path, rpc_reply->result.errnum);
+    LOG_MSG("<<< RPC_write(d=%d,p=%s): link=[%s] state=[%d] status=[%d]",
+            dir_id, path, rpc_reply->link,
+            rpc_reply->state, rpc_reply->result.errnum);
     return true;
 }
 
@@ -911,8 +919,11 @@ bool_t giga_rpc_open_1_svc(giga_dir_id dir_id, giga_pathname path, int mode,
                 if (state == RPC_LEVELDB_FILE_IN_FS) {
                     rpc_reply->link = strdup(buf);
                 } else {
+                    rpc_reply->link = strdup("");
+                    /*
                     rpc_reply->link = (char *) malloc(1);
                     rpc_reply->link[0] = '\0';
+                    */
                 }
             }
             break;
@@ -922,8 +933,9 @@ bool_t giga_rpc_open_1_svc(giga_dir_id dir_id, giga_pathname path, int mode,
 
     release_dir_mapping(dir);
 
-    LOG_MSG("<<< RPC_open(d=%d,p=%s): status=[%d]",
-            dir_id, path, rpc_reply->result.errnum);
+    LOG_MSG("<<< RPC_open(d=%d,p=%s): state=[%d], link=[%s], status=[%d]",
+            dir_id, path, rpc_reply->state, rpc_reply->link,
+            rpc_reply->result.errnum);
     return true;
 }
 
@@ -931,10 +943,48 @@ bool_t giga_rpc_close_1_svc(giga_dir_id dir_id, giga_pathname path,
                             giga_close_reply_t *rpc_reply,
                             struct svc_req *rqstp)
 {
-    (void)(dir_id);
-    (void)(path);
-    (void)(rpc_reply);
-    (void)(rqstp);
+    (void)rqstp;
+    assert(rpc_reply);
+    assert(path);
+
+    LOG_MSG(">>> RPC_close(d=%d,p=%s)", dir_id, path);
+
+    struct giga_directory *dir = fetch_dir_mapping(dir_id);
+    // check for giga specific addressing checks.
+    //
+    int index = check_giga_addressing(dir, path, &(rpc_reply->result), NULL);
+    if (index < 0)
+        return true;
+
+    int state;
+    char link[PATH_MAX];
+    int link_len;
+
+    switch (giga_options_t.backend_type) {
+        case BACKEND_RPC_LEVELDB:
+            rpc_reply->result.errnum =
+                  metadb_get_state(ldb_mds,
+                                   dir_id, index, path,
+                                   &state, link, &link_len);
+            if (rpc_reply->result.errnum == 0) {
+                if (state == RPC_LEVELDB_FILE_IN_FS) {
+                    struct stat stbuf;
+                    rpc_reply->result.errnum = stat(link, &stbuf);
+                    if (rpc_reply->result.errnum == 0) {
+                        metadb_setattr(ldb_mds,
+                                       dir_id, index, path, &stbuf);
+                    }
+                }
+            }
+            break;
+        default:
+            break;
+    }
+
+    release_dir_mapping(dir);
+
+    LOG_MSG("<<< RPC_close(d=%d,p=%s): status=[%d]",
+            dir_id, path, rpc_reply->result.errnum);
     return true;
 }
 

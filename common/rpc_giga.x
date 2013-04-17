@@ -18,9 +18,8 @@
 
 typedef int giga_dir_id;
 typedef string giga_pathname<PATH_MAX>;
-typedef string giga_file_data<4096>;
+typedef opaque giga_file_data<4096>;
 typedef struct giga_mapping_t giga_bitmap;
-typedef int giga_write_feedback;
 
 typedef struct scan_entry_t* scan_list_t;
 
@@ -159,8 +158,7 @@ version GIGA_RPC_VERSION {          /* version number */
                                      uint64_t, uint64_t, int) = 401;
 
         giga_write_reply_t GIGA_RPC_WRITE(giga_dir_id, giga_pathname,
-                                          giga_file_data data, int size,
-                                          int offset) = 601;
+                                          giga_file_data data, int offset) = 601;
 
         giga_read_reply_t GIGA_RPC_READ(giga_dir_id, giga_pathname,
                                         int size, int offset) = 701;

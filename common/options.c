@@ -68,14 +68,19 @@ void init_default_backends(const char *cli_mnt)
             break;
         case GIGA_SERVER:
             giga_options_t.leveldb_dir = (char*)malloc(sizeof(char)*PATH_MAX);
+            giga_options_t.split_dir = (char*)malloc(sizeof(char)*PATH_MAX);
 #ifdef PANFS
             int volume_no =
                 giga_options_t.serverID % giga_options_t.num_pfs_volumes;
             snprintf(giga_options_t.leveldb_dir, PATH_MAX, "%s/%s",
                      giga_options_t.pfs_volumes[volume_no],
                      DEFAULT_LEVELDB_DIR);
+            snprintf(giga_options_t.split_dir, PATH_MAX, "%s/%s",
+                     giga_options_t.pfs_volumes[volume_no],
+                     DEFAULT_SPLIT_DIR);
 #else
             strncpy(giga_options_t.leveldb_dir, DEFAULT_LEVELDB_DIR, PATH_MAX);
+            strncpy(giga_options_t.split_dir, DEFAULT_SPLIT_DIR, PATH_MAX);
 #endif
             snprintf(giga_options_t.mountpoint, PATH_MAX,
                      "%s/s%d/", DEFAULT_SRV_BACKEND, giga_options_t.serverID+1);

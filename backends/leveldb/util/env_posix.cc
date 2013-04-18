@@ -268,7 +268,7 @@ class PosixEnv : public Env {
 
   virtual Status CopyFile(const std::string& src, const std::string& target) {
     Status result;
-    
+
     int r_fd, w_fd;
     if ((r_fd = open(src.c_str(), O_RDONLY)) < 0) {
       result = IOError(src, errno);
@@ -278,15 +278,24 @@ class PosixEnv : public Env {
       result = IOError(target, errno);
       return result;
     }
-    
+
     int p[2];
-    pipe(p); 
-    
+    pipe(p);
+
     while(splice(p[0], 0, w_fd, 0, splice(r_fd, 0, p[1], 0, 4096, 0), 0) > 0);
-   
+
     close(r_fd);
     close(w_fd);
 
+    return result;
+  }
+
+  virtual Status SymlinkFile(const std::string& src, const std::string& target) {
+    Status result;
+
+    if (symlink(src.c_str(), target.c_str()) != 0) {
+      result = IOError(src, errno);
+    }
     return result;
   }
 

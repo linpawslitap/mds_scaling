@@ -149,7 +149,7 @@ void test_read_write_files() {
         snprintf(filename, MAX_FILENAME_LEN, FILE_FORMAT, i);
         sprintf(write_buf+10, "%08d", (int) i);
         ASSERT(metadb_write_file(mdb, dir_id, partition_id,
-                      filename, write_buf, write_buf_len, 0) == 0);
+                      filename, write_buf, write_buf_len, 0) >= 0);
     }
 
     for (i = 0; i < num_test_entries; ++i) {

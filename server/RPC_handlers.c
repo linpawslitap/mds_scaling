@@ -857,16 +857,19 @@ bool_t giga_rpc_write_1_svc(giga_dir_id dir_id, giga_pathname path,
 
                     fd = open(fpath, O_RDWR | O_CREAT, 0777);
                     if (fd > 0) {
-                        pwrite(fd, buf, buf_len, 0);
-                        close(fd);
-                        struct stat stbuf;
-                        stat(fpath, &stbuf);
-                        metadb_write_link(ldb_mds, dir_id, index, path, fpath);
-                        rpc_reply->result.errnum = 0;
+                        if (pwrite(fd, buf, buf_len, 0) < 0) {
+                            rpc_reply->result.errnum = errno;
+                        } else {
+                            close(fd);
+                            struct stat stbuf;
+                            stat(fpath, &stbuf);
+                            metadb_write_link(ldb_mds, dir_id, index, path, fpath);
+                            rpc_reply->result.errnum = 0;
+                        }
                     } else {
                         LOG_ERR("Fail to migrate: %d, %s, %s, %d, %s",
                                 dir_id, path, fpath, errno, strerror(errno));
-                        exit(1);    //TODO: do something smarter???
+                        rpc_reply->result.errnum = errno;
                     }
                 }
             } else {

@@ -45,7 +45,7 @@ typedef enum backends {
 
 #ifdef  PANFS         /* LevelDB splits through NFS, everything else is local */
 #define DEFAULT_BACKEND_TYPE    BACKEND_RPC_LEVELDB
-#define DEFAULT_SPLIT_DIR       "/tmp/_splits/"
+#define DEFAULT_SPLIT_DIR       "/panfs/test_vol1/splits/"
 #define DEFAULT_SRV_BACKEND     "/tmp/giga_srv/"
 #define DEFAULT_LEVELDB_DIR     "giga_ldb"
 #define PARALLEL_VOL_LIST_FILE  "/tmp/giga_vols"

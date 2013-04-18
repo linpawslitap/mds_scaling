@@ -78,7 +78,7 @@ void init_default_backends(const char *cli_mnt)
             strncpy(giga_options_t.leveldb_dir, DEFAULT_LEVELDB_DIR, PATH_MAX);
 #endif
             snprintf(giga_options_t.mountpoint, PATH_MAX,
-                     "%s/s%d/", DEFAULT_SRV_BACKEND, giga_options_t.serverID);
+                     "%s/s%d/", DEFAULT_SRV_BACKEND, giga_options_t.serverID+1);
             break;
         default:
             LOG_MSG("ERR_giga_proc_type: invalid option[%d]", giga_proc_type);
@@ -230,7 +230,9 @@ void print_settings()
     LOG_MSG("-- SELF_PORT=%d\n", giga_options_t.port_num);
 
     LOG_MSG("-- BACKEND_TYPE=%s", backends_str[giga_options_t.backend_type]);
-    LOG_MSG("-- BACKEND_MNT=%s\n", giga_options_t.mountpoint);
+    LOG_MSG("-- BACKEND_MNT=%s", giga_options_t.mountpoint);
+    LOG_MSG("-- BACKEND_LEVELDB=%s\n", giga_options_t.leveldb_dir);
+
 
     LOG_MSG("-- NUM_SERVERS=%d",giga_options_t.num_servers);
     LOG_MSG("-- SPLIT_THRESHOLD=%d\n", giga_options_t.split_threshold);

@@ -103,7 +103,6 @@ int main(int argc, char *argv[])
     if ( getpid() == 0 )
         fuse_opt_insert_arg( &args, 1, "-oallow_other" );
     fuse_opt_insert_arg(&args, 1, "-s");
-    fuse_opt_insert_arg(&args, 1, "-f");
 
     ret = fuse_main(args.argc, args.argv, &giga_oper, NULL);
 

@@ -93,7 +93,11 @@ class Env {
   // Copy file src to target.
   virtual Status CopyFile(const std::string& src,
                           const std::string& target) = 0;
-  
+
+  // Create a symbolic link file "target" pointing to src.
+  virtual Status SymlinkFile(const std::string& src,
+                          const std::string& target) = 0;
+
   // Rename file src to target.
   virtual Status RenameFile(const std::string& src,
                             const std::string& target) = 0;

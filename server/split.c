@@ -249,7 +249,7 @@ int split_in_levelDB(struct giga_directory *dir,
     char split_dir_path[PATH_MAX] = {0};
     snprintf(split_dir_path, sizeof(split_dir_path),
              "%s/sst-d%d-p%dp%d",
-             DEFAULT_SPLIT_DIR, dir->handle, parent_index, child_index);
+             giga_options_t.split_dir, dir->handle, parent_index, child_index);
 
     // TODO: should we even do this for local splitting?? move to remote
     // split??

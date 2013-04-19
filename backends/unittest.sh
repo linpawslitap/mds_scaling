@@ -6,6 +6,7 @@
 # Description:
 #########################################################################
 
+mkdir /mnt/test
 rm -rf /mnt/test/ldb1
 rm -rf /mnt/test/ldb2
 rm -rf /mnt/test/split

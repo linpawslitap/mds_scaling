@@ -322,7 +322,7 @@ void fuse_cache_insert(char* path, DIR_handle_t dir_id)
     if (fuse_cache_lookup(path) != -1)
         return;
     HASH_ADD_KEYPTR(hh, fuse_cache, entry->pathname, strlen(entry->pathname), entry);
-    logMessage(LOG_WARN, __func__, "insert::[%s]-->[%d]", path, (int)dir_id);
+    logMessage(LOG_DEBUG, __func__, "insert::[%s]-->[%d]", path, (int)dir_id);
 }
 
 DIR_handle_t fuse_cache_lookup(char* path)
@@ -332,7 +332,7 @@ DIR_handle_t fuse_cache_lookup(char* path)
     if (ret == NULL) {
         return -1;
     } else {
-        logMessage(LOG_WARN, __func__, "lookup::[%s]-->[%d]", path, (int)ret->dir_id);
+        logMessage(LOG_DEBUG, __func__, "lookup::[%s]-->[%d]", path, (int)ret->dir_id);
         return ret->dir_id;
     }
 }

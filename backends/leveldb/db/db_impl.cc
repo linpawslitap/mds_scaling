@@ -1571,7 +1571,8 @@ Status DBImpl::MigrateLevel0Table(const std::string& fname,
   Status s;
   std::string new_fname = TableFileName(dbname_, meta.number);
   //s = env_->RenameFile(fname, new_fname);
-  s = env_->CopyFile(fname, new_fname);
+  //s = env_->CopyFile(fname, new_fname);
+  s = env_->SymlinkFile(fname, new_fname);
   Log(options_.info_log, "Level-0 table #%llu: %lld migrate bytes by rename file %s to file %s: %s",
       (unsigned long long) meta.number,
       (unsigned long long) meta.file_size,

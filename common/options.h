@@ -45,7 +45,7 @@ typedef enum backends {
 
 #ifdef  PANFS         /* LevelDB splits through NFS, everything else is local */
 #define DEFAULT_BACKEND_TYPE    BACKEND_RPC_LEVELDB
-#define DEFAULT_SPLIT_DIR       "/tmp/_splits/"
+#define DEFAULT_SPLIT_DIR       "splits"
 #define DEFAULT_SRV_BACKEND     "/tmp/giga_srv/"
 #define DEFAULT_LEVELDB_DIR     "giga_ldb"
 #define PARALLEL_VOL_LIST_FILE  "/tmp/giga_vols"
@@ -93,6 +93,7 @@ struct giga_options {
 
     char *mountpoint;           // client's mountpoint and server's backend
     char *leveldb_dir;          // directory of leveldb for server's backend
+    char *split_dir;            // directory of split files for server's backend
     int num_pfs_volumes;        // num of parallel FS's volume
     char **pfs_volumes;         // list of the mount points
 

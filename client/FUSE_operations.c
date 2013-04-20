@@ -144,8 +144,6 @@ void GIGAdestroy(void * unused)
 
     logClose();
 
-    LOG_MSG(">>> FUSE_destroy(%d) <<<", ROOT_DIR_ID);
-
     // FIXME: check cleanup code.
     //rpc_disconnect();
 }

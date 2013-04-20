@@ -727,14 +727,14 @@ int rpc_close(int dir_id, const char *path)
     }
 
     int server_id = 0;
-    giga_close_reply_t rpc_reply;
+    giga_result_t rpc_reply;
     memset(&rpc_reply, 0, sizeof(rpc_reply));
 
 retry:
     server_id = get_server_for_file(dir, path);
     CLIENT *rpc_clnt = getConnection(server_id);
 
-    LOG_MSG(">>> RPC_close%s): to s[%d]", path, server_id);
+    LOG_MSG(">>> RPC_close(%s): to s[%d]", path, server_id);
 
     if (giga_rpc_close_1(dir_id, (char*)path, &rpc_reply, rpc_clnt)
         != RPC_SUCCESS) {
@@ -744,9 +744,9 @@ retry:
 
     // check return condition
     //
-    ret = rpc_reply.result.errnum;
+    ret = rpc_reply.errnum;
     if (ret == -EAGAIN) {
-        update_client_mapping(dir, &rpc_reply.result.giga_result_t_u.bitmap);
+        update_client_mapping(dir, &rpc_reply.giga_result_t_u.bitmap);
         LOG_MSG("rpc_close: bitmap update from s%d -- RETRY ...", server_id);
         goto retry;
     } else if (ret == 0){

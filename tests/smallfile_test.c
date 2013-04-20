@@ -110,7 +110,7 @@ static void mknod_files(const char *dir)
             int f = open(p, O_WRONLY);
             char buf[4096];
             int i = 0;
-            for (i = 0; i < 8; ++i) {
+            for (i = 0; i < 2; ++i) {
                 write(f, buf, 4096);
             }
             close(f);

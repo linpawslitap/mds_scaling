@@ -399,6 +399,14 @@ void init_root_partition()
                     exit(1);
                 }
 
+                char path_name[PATH_MAX] = {0};
+                int vol_i;
+                for (vol_i=0; vol_i < giga_options_t.num_pfs_volumes; ++vol_i) {
+                    sprintf(path_name, "%s/files/%d",
+                            giga_options_t.pfs_volumes[vol_i], ROOT_DIR_ID);
+                    local_mkdir(path_name, DEFAULT_MODE);
+                }
+
                 cache_release(dir);
 
             }

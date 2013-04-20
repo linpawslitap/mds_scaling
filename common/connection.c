@@ -44,7 +44,7 @@ void rpcInit()
 {
     int i = 0;
 
-    rpc_clnts = malloc(sizeof(CLIENT*) * giga_options_t.num_servers);
+    rpc_clnts = (CLIENT**) malloc(sizeof(CLIENT*) * giga_options_t.num_servers);
     if (rpc_clnts == NULL) {
         LOG_ERR("ERR_malloc(): %d rpc conns", giga_options_t.num_servers);
         exit(1);

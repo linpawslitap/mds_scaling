@@ -113,6 +113,8 @@ bool_t giga_rpc_split_1_svc(giga_dir_id dir_id,
 
     ACQUIRE_MUTEX(&ldb_mds.mtx_bulkload, "bulkload(from=%s)", path);
 
+    bzero(rpc_reply, sizeof(giga_result_t));
+
     rpc_reply->errnum = metadb_bulkinsert(ldb_mds, path, min_seq, max_seq);
 
     if (rpc_reply->errnum < 0) {

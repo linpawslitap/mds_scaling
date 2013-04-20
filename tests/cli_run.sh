@@ -24,6 +24,7 @@ done
 
 killall -9 giga_client
 rm -rf /tmp/dbg.log.c.*
+rm -rf $MNT
 mkdir -p $MNT
 
 ## look at the command-line arguments and take appropriate action

@@ -111,11 +111,6 @@ struct giga_open_reply_t {
     /**int fn_retval;*/
 };
 
-struct giga_close_reply_t {
-    giga_result_t result;
-    /**int fn_retval;*/
-};
-
 struct giga_write_reply_t {
     giga_result_t result;
     int state;
@@ -165,7 +160,7 @@ version GIGA_RPC_VERSION {          /* version number */
 
         giga_open_reply_t GIGA_RPC_OPEN(giga_dir_id, giga_pathname, int mode ) = 801;
 
-        giga_close_reply_t GIGA_RPC_CLOSE(giga_dir_id, giga_pathname) = 901;
+        giga_result_t GIGA_RPC_CLOSE(giga_dir_id, giga_pathname) = 901;
 
 
         /* CLIENT API */

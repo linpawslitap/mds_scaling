@@ -1,5 +1,5 @@
 #ifndef GIGA_INDEX_H
-#define GIGA_INDEX_H   
+#define GIGA_INDEX_H
 
 #include <pthread.h>
 #include <stdlib.h>
@@ -51,7 +51,7 @@ struct giga_mapping_t {
     unsigned int curr_radix;            // current radix (depth in tree)
     unsigned int zeroth_server;
     unsigned int server_count;
-}; 
+};
 
 // Hash the component name (hash_key) to return the hash value.
 //
@@ -126,7 +126,7 @@ void giga_get_all_partitions(struct giga_mapping_t *mapping, int p[]);
 
 
 // FIXME: what's this for?
-index_t giga_get_index_for_backup(index_t index); 
+index_t giga_get_index_for_backup(index_t index);
 
 index_t get_split_index_for_newserver(index_t index);
 

@@ -1,7 +1,7 @@
 /*
  *
  * return;
- * GIGA+ indexing implementation 
+ * GIGA+ indexing implementation
  *  by- Swapnil V Patil (svp at cs)
  *
  * TERMINOLOGY:
@@ -25,14 +25,14 @@
 
 #define GIGA_LOG LOG_DEBUG
 
-#define ARRAY_LEN(array)(sizeof(array)/sizeof((array)[0])) 
+#define ARRAY_LEN(array)(sizeof(array)/sizeof((array)[0]))
 
 //static int hash_compare(char hash_val_1[], char hash_val_2[], int len);
 
 static index_t get_child_index(index_t index, int radix);
 static index_t get_parent_index(index_t index);
 
-static index_t compute_index(char hash_value[], int radix); 
+static index_t compute_index(char hash_value[], int radix);
 static int get_highest_index(bitmap_t bitmap[]);
 
 static int get_bit_status(bitmap_t bmap[], index_t index);
@@ -44,18 +44,18 @@ static void print_bitmap(bitmap_t bmap[]);
 
 //static void struct giga_mapping_t_update_radix(struct giga_mapping_t *table);
 
-// Compute the SHA-1 hash of the file name (or path name) 
+// Compute the SHA-1 hash of the file name (or path name)
 //
 void giga_hash_name(const char* hash_key, char hash_value[])
 {
-    uint8_t hash[SHA1_HASH_SIZE] = {0}; 
+    uint8_t hash[SHA1_HASH_SIZE] = {0};
     assert(hash_key);
     assert(hash_value);
     int len = (int)strlen(hash_key);
 
     shahash((uint8_t*) hash_key, len, hash);
     binary2hex(hash, SHA1_HASH_SIZE, hash_value);
-   
+
     char hash_buf[HASH_LEN+1] = {0};
     int i;
     for (i=0; i<HASH_LEN; i++)
@@ -73,7 +73,7 @@ void giga_hash_name(const char* hash_key, char hash_value[])
     //logMessage(GIGA_LOG, __func__, "} of len=%d\n", HASH_LEN);
 }
 
-// Initialize the mapping table: 
+// Initialize the mapping table:
 // - set the bitmap to all zeros, except for the first location to one which
 //   indicates the presence of a zeroth bucket
 // - set the radix to 1 (XXX: do we need radix??)
@@ -97,18 +97,18 @@ void giga_init_mapping(struct giga_mapping_t *mapping, int flag,
         mapping->server_count = server_count;
     else
         mapping->server_count = 1;
-    
+
     if (flag == -1) {
         mapping->bitmap[0] = 1;
         mapping->curr_radix = 1;
         return;
     }
-    
+
     switch(SPLIT_TYPE) {
         //case SPLIT_TYPE_KEEP_SPLITTING:
         case SPLIT_T_NO_BOUND:
             mapping->bitmap[0] = 1;
-            mapping->curr_radix = 1;    
+            mapping->curr_radix = 1;
             break;
         //case SPLIT_TYPE_NEVER_SPLIT:
         case SPLIT_T_NO_SPLITTING_EVER:
@@ -116,7 +116,7 @@ void giga_init_mapping(struct giga_mapping_t *mapping, int flag,
             if (flag < BITS_PER_MAP){
                 mapping->bitmap[i] = (1<<flag)-1;
             } else {
-                logMessage(LOG_FATAL, __func__, 
+                logMessage(LOG_FATAL, __func__,
                            "XXX: need to fixx this dude!!!\n");
 
                 exit(1);
@@ -126,20 +126,20 @@ void giga_init_mapping(struct giga_mapping_t *mapping, int flag,
         //case SPLIT_TYPE_ALL_SERVERS:
         case SPLIT_T_NUM_SERVERS_BOUND:
             mapping->bitmap[0] = 1;
-            mapping->curr_radix = 1;    
+            mapping->curr_radix = 1;
             break;
         //case SPLIT_TYPE_POWER_OF_2:
         case SPLIT_T_NEXT_HIGHEST_POW2:
             mapping->bitmap[0] = 1;
-            mapping->curr_radix = 1;    
+            mapping->curr_radix = 1;
             break;
         default:
-            logMessage(LOG_FATAL, __func__, 
+            logMessage(LOG_FATAL, __func__,
                        "ERROR: Illegal Split Type. %d\n", SPLIT_TYPE);
             exit(1);
             break;
     }
-    
+
     //mapping->curr_radix = get_radix_from_bmap(mapping->bitmap);
     assert(mapping != NULL);
 }
@@ -150,7 +150,7 @@ void giga_init_mapping(struct giga_mapping_t *mapping, int flag,
 void giga_init_mapping_from_bitmap(struct giga_mapping_t *mapping,
                                    bitmap_t bitmap[], int bitmap_len,
                                    int id,
-                                   unsigned int zeroth_server, 
+                                   unsigned int zeroth_server,
                                    unsigned int server_count)
 {
     int i;
@@ -169,7 +169,7 @@ void giga_init_mapping_from_bitmap(struct giga_mapping_t *mapping,
     mapping->curr_radix = get_radix_from_bmap(mapping->bitmap);
 }
 
-// Copy a source mapping to a destination mapping structure. 
+// Copy a source mapping to a destination mapping structure.
 //
 void giga_copy_mapping(struct giga_mapping_t *dest, struct giga_mapping_t *src, int z)
 {
@@ -178,17 +178,17 @@ void giga_copy_mapping(struct giga_mapping_t *dest, struct giga_mapping_t *src, 
     assert(dest != NULL);
 
     logMessage(GIGA_LOG, __func__, "copy one map into another");
-    
+
     if (z == 0) {
         giga_init_mapping(dest, -1, src->id, src->zeroth_server, src->server_count);
-    } 
+    }
     else {
         assert(src != NULL);
 
         //XXX: do we need to check the length of both bitmaps
         for(i = 0;i < MAX_BMAP_LEN; i++)
             dest->bitmap[i] = src->bitmap[i];
-        
+
         dest->curr_radix = get_radix_from_bmap(dest->bitmap);
         //XXX: why not this?
         //curr->curr_radix = update->curr_radix;
@@ -217,12 +217,12 @@ void giga_update_cache(struct giga_mapping_t *curr, struct giga_mapping_t *updat
     //
     for(i = 0;i < MAX_BMAP_LEN; i++)
         curr->bitmap[i] = curr->bitmap[i] | update->bitmap[i];
-    
+
     curr->curr_radix = get_radix_from_bmap(curr->bitmap);
 
     if (update->server_count > curr->server_count)
         curr->server_count = update->server_count;
-    
+
     logMessage(GIGA_LOG, __func__, "updating the cached copy. success.");
 
     return;

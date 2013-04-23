@@ -24,6 +24,8 @@ c) # cleanup and exit
 ps -ef | grep "giga_server" | grep -v grep | cut -c 9-15 |sudo xargs kill -9
 rm -rf /panfs/test_vol$2/giga/
 mkdir /panfs/test_vol$2/giga/
+mkdir /panfs/test_vol$2/giga/splits/
+mkdir /panfs/test_vol$2/giga/files/
 mkdir /tmp/giga_srv
 exit
 ;;

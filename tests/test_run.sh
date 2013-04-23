@@ -40,12 +40,12 @@ do
     for ((j=1; j<=$apps; j++))
     do
         echo "test app $j of FUSE instance $i creating $files files"
-        dir=${MNT}/d0
+        dir=${MNT}
         if (( $cli>1 ))
         then
             dir=${MNT}/${i}
         fi
-        ./mknod_test ${dir} $files > ~/_perf/$host.$i.$j 2>&1 &
+        ./smallfile_test ${dir} $files > ~/_perf/$host.$i.$j 2>&1 &
         #( time ./mknod_test ${dir} $files ) > ~/_perf/$host.$i.$j 2>&1 &
 
     done

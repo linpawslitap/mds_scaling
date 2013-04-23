@@ -1,5 +1,5 @@
 #ifndef FUSE_OPERATIONS_H
-#define FUSE_OPERATIONS_H  
+#define FUSE_OPERATIONS_H
 
 #include <fuse.h>
 

@@ -1,0 +1,17 @@
+
+Modern cluster file systems provide highly scalable I/O bandwidth along the
+data path by enabling highly parallel access to file data.
+Unfortunately metadata scaling is lagging behind data scaling.
+To support metadata-intensive workloads,
+we propose a middleware design that layers on existing cluster file systems
+and adds support for distributed and high-performance metadata operations
+without sacrificing data bandwidth.
+The core idea is to integrate a distributed indexing mechanism
+with general-purpose optimized on-disk metadata layout.
+The integration requires several optimizations including cross-server split
+operations with minimum data migration, and decoupling data and metadata paths.
+To demonstrate the feasibility of our approach,
+we implemented a prototype middleware layer and evaluated it with Panasas file system.
+The evaluation results show that our middleware improves
+metadata performance of the existing cluster file system by an order of magnitude,
+and still performs comparably on data-intensive workloads.

@@ -68,15 +68,17 @@ logarithmically with increasing numbers of entries.
 \textbf{Table schema -- }
 The local metadata storage backend aggregates directory entries,
 inode attributes and small files into one LSM tree
-with a entry for each file and directory.
-To link together the hierarchical structure of the user's namespace,
-the rows of the table are ordered by a 224-bit key consisting of
-the 64-bit inode number of a file's parent directory
-and a 160-bit SHA-1 hash value of its filename string (final component of its pathname).
-The value of a row contains the file's full name and inode attributes,
-such as inode number, ownership, access mode, file size, timestamps (\textit{struct stat} in Linux),
-and a symbolic link that contains the actual path of the file object in the object store.
-Figure \ref{fig:schema} shows an example of storing a sample file system's metadata into one LevelDB table.
+with an entry for each file and directory.
+To translate the hierarchical structure of file system namespace
+into key-value pairs, the 224-bit key is chosen to consist of
+the 64-bit inode number of a entry's parent directory
+and a 160-bit SHA-1 hash value of its filename string
+(final component of its pathname).
+The value of an entry contains the file's full name and inode attributes,
+such as inode number, ownership, access mode, file size, timestamps (\textit{struct stat} in Linux).
+For small files, the value also contains the file's data.
+For large files, its file data field is replaced by a symbolic link
+that points to the actual file object in the underlying cluster file system.
 
 %\begin{figure}[!ht]
 \begin{figure}[t]
@@ -84,21 +86,24 @@ Figure \ref{fig:schema} shows an example of storing a sample file system's metad
 \includegraphics[scale=0.4]{figs/schema}
 \caption{\normalsize
 An example illustrating a table schema for \tfs
-to represent metadata and small files as key-value pairs.}
+to store metadata and file data as key-value pairs.
+\kai{update the graph}}
 \vspace{10pt}
 \hrule
 \label{fig:schema}
 \end{figure}
 
-All the entries in the same directory have rows that 
-share the same first 64 bits in their the table's key.
-For $readdir$ operations, once the inode number
-of the target directory has been retrieved, 
-a scan sequentially lists all entries having 
-the directory's inode number as the first 64 bits of their table's key. 
-To resolve a single pathname, the metadata server starts searching from the root inode, 
-which has a well-known global inode number $(0)$.
+Figure \ref{fig:schema} shows an example of representing
+a sample file system's metadata into one table.
+Embedding inode number of parent directory into the key
+helps with resolving the pathname.
 Traversing the user's directory tree
-involves constructing a search key by concatenating the inode 
+only involves constructing a search key by concatenating the inode
 number of current directory with the hash of
 next component name in the pathname.
+Another benefit is that all the entries in the same directory have rows that
+share the same first 64 bits in their the table's key.
+For $readdir$ operations, once the inode number
+of the target directory has been retrieved,
+a scan sequentially lists all entries having
+the directory's inode number as the first 64 bits of their table's key.

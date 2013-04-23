@@ -13,7 +13,8 @@ in the following sections.
 %\begin{figure}[!ht]
 \begin{figure}[t]
 \includegraphics[scale=0.4]{figs/leveldb}
-\caption{
+\vspace{10pt}
+\caption{\textit{
 LevelDB is an implementation of LSM tree which represents data on disk
 in multiple SSTables that store sorted key-value pairs.
 SSTables are grouped into different levels with lower-numbered levels
@@ -22,7 +23,7 @@ Finding a specific pair on disk may search up to all SSTables in level 0
 and at most one in each higher-numbered level.
 Compaction is the process of combining SSTables
 by merge sort and moving combined SSTables into higher-numbered levels.
-}
+}}
 \vspace{10pt}
 \hrule
 \label{fig:leveldb}
@@ -66,7 +67,7 @@ logarithmically with increasing numbers of entries.
 
 ~\\
 \textbf{Table schema -- }
-The local metadata storage backend aggregates directory entries,
+\tfs aggregates directory entries,
 inode attributes and small files into one LSM tree
 with an entry for each file and directory.
 To translate the hierarchical structure of file system namespace
@@ -84,9 +85,10 @@ that points to the actual file object in the underlying cluster file system.
 \begin{figure}[t]
 \centering
 \includegraphics[scale=0.4]{figs/schema}
-\caption{\normalsize
+\vspace{10pt}
+\caption{\textit{
 An example illustrating a table schema for \tfs
-to store metadata and file data as key-value pairs.
+to store metadata and file data as key-value pairs.}
 \kai{update the graph}}
 \vspace{10pt}
 \hrule
@@ -95,7 +97,7 @@ to store metadata and file data as key-value pairs.
 
 Figure \ref{fig:schema} shows an example of representing
 a sample file system's metadata into one table.
-Embedding inode number of parent directory into the key
+Embedding the inode number of parent directory into the key
 helps with resolving the pathname.
 Traversing the user's directory tree
 only involves constructing a search key by concatenating the inode

@@ -31,11 +31,12 @@ with an average speed of 2,200 operations per second respectively,
 
 \begin{figure}[t]  %%%%%%%%%%%%%%%%%%%%%%%
 \centerline{\includegraphics[scale=0.5]{./figs/ldb_insertrate_onenode}}
+\vspace{10pt}
 \caption{\normalsize
-Single-node \ldb{}-based metadata store is 10X faster than modern Linux
+\textit{Single-node \ldb{}-based metadata store is 10X faster than modern Linux
 filesystems for a workload that creates 100 million zero-length files.
 X-axis only shows the time until LevelDB finished all insertions because the other
-file systems were much slower. Y-axis has a logarithmic scale.
+file systems were much slower. Y-axis has a logarithmic scale.}
 }
 \vspace{10pt}
 \hrule
@@ -82,14 +83,15 @@ i.e. 64,000 operations per second in aggregate.
 
 \begin{figure}[t]  %%%%%%%%%%%%%%%%%%%%%%%
 \centerline{\includegraphics[scale=0.33]{./figs/ldb_insertrate}}
+\vspace{10pt}
 \caption{\normalsize
-Our middleware metadata service prototype shows promising scalability
+\textit{Our middleware metadata service prototype shows promising scalability
 up to 64 servers.
 Note that at the end of the experiment,
 the throughput drops to zero
 because clients stop creating files as they finish 1 million files per client.
 And the solid lines in each configuration are Bezier
-curves to smooth the variability.
+curves to smooth the variability.}
 }
 \vspace{10pt}
 \hrule

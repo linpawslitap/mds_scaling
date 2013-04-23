@@ -2,7 +2,8 @@
 
 \begin{figure}[t]   %% START_FIGURE
 \centerline{\includegraphics[scale=0.3]{./figs/giga-impl-leveldb-clusterfs}}
-\caption{{
+\vspace{10pt}
+\caption{\textit{
 Our approach for a scalable metadata service integrates two components: a highly
 parallel and load-balanced indexing technique \cite{GIGA11}
 to partition metadata over multiple servers,
@@ -80,36 +81,43 @@ integrating \giga{} and \tfs to work with existing cluster file systems.
 \subsection{Integrating \giga{} and \tfs{}}
 \label{design.integration}
 
-To effectively integrate the \giga{} distribution mechanism with the
-\tfs-based metadata representation, we tackled several challenges. 
+To effectively build a middleware that integrates
+the \giga distribution mechanism and \tfs,
+we have to tackle two main challenges:
+one is to modify \tfs to support for
+migrating directory partition required by \giga;
+the other is to decouple metadata and data paths to
+achieve high peformance for both paths.
+This section discusses the modifications we made to
+overcome the two challenges.
+
 
 ~\\
 \textbf{Metadata representation -- }
-\tfs stores all metadata including \giga{} hash
+\tfs stores all metadata including \giga hash
 partitions for directories, entries in each hash partition, and other
-bootstrapping information such as root entry and \giga{} configuration state.
+bootstrapping information such as root entry and \giga configuration state.
 The general schema used to store all file is:
-%\texttt{\{key\} --> \{value\}} format:
 
-\begin{verbatim}
-    <KEY>         -->     <VALUE>
-
-{parentDirID,         {attr(dirEntry),
- gigaPartitionID, -->  symlink,
- hash(dirEntry),       gigaMetaState,
- dirEntry}             file data/pointer}
-\end{verbatim}
+\begin{table}[!htc]
+\begin{tabular}{c|c}
+key & parentDirID, gigaPartitionID, hash(dirEntry) \\
+\midrule \\
+value & attr(dirEntry), [symlink|file data|gigaMetaState] \\
+\end{tabular}
+\label{tab:keyschema}
+\end{table}
 
 The main difference from the \tfs schema described in Section
-\ref{design.tablefs} is the addition of two \giga specific fields: 
+\ref{design.tablefs} is the addition of two \giga specific fields:
 \texttt{gigaPartitionID} to identify a
-\giga{} hash partition and \texttt{gigaMetaState} to store the
-hash partition related mapping information. These \giga{} related fields are 
-used only if large directories are distributed over multiple metadata servers.\footnote{
-Since we already store the \texttt{hash} of the directory entry, we can use the
-hash-values to identify hash partitions if we chose to use the same hash
-function for both \giga and \ldb keys. This optimization can eliminate the
-need for \texttt{gigaPartitionID} in the schema.} 
+\giga hash partition and \texttt{gigaMetaState} to store the
+hash partition related mapping information for directories.
+These \giga related fields are used only
+if large directories are distributed over multiple metadata servers.
+A optimization is to eliminate \texttt{gigaPartitionID} in the key
+by using the same hash function for both \giga and \tfs keys,
+since the hash of entry name can determine the partition ID.
 
 ~\\
 \textbf{Partition splitting -- }
@@ -155,6 +163,8 @@ and unlocks the range.%\footnote{
 %left this optimization for future work. 
 %}
 
+%Split uses three phases
+
 ~\\
 \textbf{Decoupled data and metadata path -- }
 All metadata operations go through the \giga{} server; however, following the
@@ -176,7 +186,7 @@ While the file is open, some of its attributes (e.g., file size and last access 
 may change relative to \ldb's per-open
 copy of the attributes. \giga will capture these changes on file close on the
 metadata path. Other attribute changes relatvie to permissions can be updated on-flight
-through \giga servers. 
+through \giga servers.
 
-%\subsubsection*{Other challenges.}
+%Tricks in client side
 

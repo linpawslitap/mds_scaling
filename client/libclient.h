@@ -20,6 +20,8 @@ int gigaRmdir(const char *path);
 int gigaOpen(const char *path, int flags);
 int gigaRead(int fd, void *buf, size_t size);
 int gigaWrite(int fd, const void *buf, size_t size);
+int gigaPread(int fd, void *buf, size_t size, size_t offset);
+int gigaPwrite(int fd, const void *buf, size_t size, size_t offset);
 int gigaStat(const char *path, struct statvfs *buf);
 int gigaFsync(int fd);
 int gigaClose(int fd);

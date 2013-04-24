@@ -45,7 +45,6 @@ extern "C" {
 #include <errno.h>
 #include <sys/types.h>
 
-
 extern struct Parameters params;
 
 struct myoption {

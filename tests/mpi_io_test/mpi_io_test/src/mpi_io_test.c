@@ -59,7 +59,7 @@
 #include "mpi.h"
 #include "utilities.h"
 #include "print.h"
-
+#include "client/libclient.h"
 
 /*
    TODO:
@@ -206,6 +206,7 @@ fini( struct Parameters *params, struct State *state ) {
     if (MPI_Finalize() != MPI_SUCCESS) {
         fprintf(stderr,"Rank %d ERROR: MPI_Finalize failed.\n", state->my_rank);
     }
+    gigaDestroy();
     exit( 0 );
 }
 
@@ -535,6 +536,12 @@ init( int argc, char **argv, struct Parameters *params,
         fatal_error( state->efptr, state->my_rank, 0, NULL, 
               "Problem detected printing input and envirnoment variables.\n" );
     }
+    if(gigaInit() != 0)
+    {
+        fatal_error( state->efptr, state->my_rank, 0, NULL, 
+              "Fail to initialize giga clients.\n" );
+    }
+
     return 0;
 }
 
@@ -598,7 +605,7 @@ open_file(  struct Parameters *params,
     }
     
     if ( params->posix_io ) {
-        state->fd = open( target, posix_mode, 0666 );
+        state->fd = gigaOpen(target, posix_mode);
     } else {
         mpi_ret = MPI_File_open( comm_file, target,
                 mpi_mode, params->info, &(state->mpi_fh) );
@@ -874,7 +881,7 @@ close_file( struct Parameters *params,
     if(read_write == WRITE_MODE && params->sync_flag){
         wait_start = MPI_Wtime();
         if ( params->posix_io ) {
-            mpi_ret = fsync( state->fd );
+            mpi_ret = gigaFsync( state->fd );
         } else {
             mpi_ret = MPI_File_sync( state->mpi_fh );
         }
@@ -894,7 +901,7 @@ close_file( struct Parameters *params,
         // close the file
     wait_start = MPI_Wtime();
     if ( params->posix_io ) {
-        mpi_ret = close( state->fd );
+        mpi_ret = gigaClose( state->fd );
     } else {
         mpi_ret = MPI_File_close( &(state->mpi_fh) );
     }
@@ -935,7 +942,7 @@ close_file( struct Parameters *params,
             mpi_ret = MPI_SUCCESS;
             if ( params->posix_io ) { 
                 while( 1 ) {
-                    if ( ( mpi_ret = unlink( target ) ) != 0 ) {
+                    if ( ( mpi_ret = gigaUnlink( target ) ) != 0 ) {
                         perror( "perror unlink" );
                         if ( errno == EAGAIN ) {
                             fprintf(state->efptr, "Got EAGAIN for unlink...\n");

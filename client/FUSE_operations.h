@@ -25,7 +25,6 @@ int GIGAchown(const char *path, uid_t uid, gid_t gid);
 int GIGAtruncate(const char *path, off_t newsize);
 int GIGAutime(const char *path, struct utimbuf *ubuf);
 
-int GIGAopen(const char *path, struct fuse_file_info *fi);
 int GIGAread(const char *path, char *buf, size_t size, off_t offset, 
              struct fuse_file_info *fi);
 int GIGAwrite(const char *path, const char *buf, size_t size, off_t offset, 

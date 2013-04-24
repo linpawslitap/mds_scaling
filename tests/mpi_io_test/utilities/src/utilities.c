@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include "mpi.h"
 #include "utilities.h"
+#include "client/libclient.h"
 
 #if defined(MYSQL_HOST) || defined(MYSQL_FILE)
 #if defined(MYSQL_HOST)
@@ -1774,7 +1775,7 @@ Pwrite64(int fd, const void *vptr, size_t nbyte, off_t offset) {
         //printf( STDERR, "pwrite64 %d %x %lld %lld
 	ssize_t this_write = 0;
 //        if ( (this_write = pwrite64(fd, ptr, nleft, offset + nwritten) ) <= 0) {
-        if ( (this_write = pwrite(fd, ptr, nleft, offset + nwritten) ) <= 0) {
+        if ( (this_write = gigaPwrite(fd, ptr, nleft, offset + nwritten) ) <= 0) {
             if (errno == EINTR) {
                 nwritten = 0;       /* and call write() again */
             } else {
@@ -1803,7 +1804,7 @@ Pread64(int fd, void *vptr, size_t nbyte, off_t offset) {
     nleft = nbyte;
     while (nleft > 0) {
 //        if ( (nread = pread64(fd, ptr, nleft, offset + nread) ) <= 0) {
-        if ( (nread = pread(fd, ptr, nleft, offset + nread) ) <= 0) {
+        if ( (nread = gigaPread(fd, ptr, nleft, offset + nread) ) <= 0) {
             if (errno == EINTR)
                 nread = 0;       /* and call write() again */
             else

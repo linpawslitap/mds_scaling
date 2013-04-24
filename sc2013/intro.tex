@@ -1,24 +1,23 @@
 \section{Introduction}
-
 Lack of a highly scalable and parallel metadata service is the
 Achilles heel for many cluster file system deployments in both the HPC world
 \cite{hpcs-io:2008, hecfsio:tr06} and the Internet services world \cite{HDFS}.
 This is because most cluster file systems have used centrailzed, single-node
 metadata management, and focused merely on scaling the data path,
 i.e. providing high bandwidth parallel I/O to files that are gigabytes in size.
-But with proliferation of massively parallel applications that produce
-metadata-intensive workloads, such as large number of simultaneous file creates
-\cite{PLFS} and large-scale storage management \cite{issdm}, cluster file systems
-also need to scale metadata performance.
 
-Numerous applications and use-cases need support for concurrent and
-high-performance metadata operations.
+
+This inherent metadata scalability handicap limits numerous massively parallel
+applications that produce workloads
+requiring concurrent and high-performance metadata operations.
 One such example, checkpointing, requires the metadata service to
-handle large number of file creates and updates at very high speeds
-\cite{PLFS}.
+handle large number of file creates and updates at very high speeds \cite{PLFS}.
 Another example, storage management, produces read-intensive metadata workload
 that typically scans the metadata of the entire file system to perform
 administration tasks for analyzing and querying metadata \cite{filemgmt-ucsc, magellan-ucsc}.
+Thirdly, even in the era of big data, most things in many cluster file systems are small \cite{Dayal, brent13}.
+Scalable systems should expect the numbers of small files to soon achieve and exceed billions,
+a known challenge for many existing cluster file systems \cite{GIGA11}.
 
 We envision a scalable metadata service with two goals.
 The first goal -- \textit{evolution, not revolution} -- emphasizes the need for
@@ -43,9 +42,6 @@ In particular, all metadata, including directory entries, i-nodes and block
 management, should be stored in one structure; this is different from
 today's file systems that use specialized on-disk structures for each type of
 metadata.
-%It should also be efficient in the way metadata is distributed on multiple servers
-%and the way metadata is represented on disk on each server.
-
 
 To realize these goals, this paper makes a case for a scalable metadata service
 middleware that layers on existing cluster file system deployments and

@@ -77,8 +77,8 @@ and a 160-bit SHA-1 hash value of its filename string
 (final component of its pathname).
 The value of an entry contains the file's full name and inode attributes,
 such as inode number, ownership, access mode, file size, timestamps (\textit{struct stat} in Linux).
-For small files, the value also contains the file's data.
-For large files, its file data field is replaced by a symbolic link
+For small files with size less than $T$, the value field also contains the file's data.
+For large files, its file data is replaced by a symbolic link
 that points to the actual file object in the underlying cluster file system.
 
 %\begin{figure}[!ht]

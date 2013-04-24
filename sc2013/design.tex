@@ -167,29 +167,53 @@ initiator, who then deletes the migrated hash-range from its \tfs instance
 and unlocks the range.
 \end{itemize}
 
+The three phases of splitting can be refined even further:
+Assume that the splitting is initiated at the time $T_{split}$.
+The split initiator can generate SSTables containing entries
+older than $T_{split}$ without locking the hash range.
+When the generation of SSTables with entries older than $T_{split}$ is finished,
+the split initiator can lock the hash range and then write SSTables with
+newly added or updated entries later than $T_{split}$.
+By doing so, the duration of locking splitting hash range can be futher reduced.
+However, due to the code complexity of this optimization,
+we left this optimization for future work.
 
 ~\\
 \textbf{Decoupled data and metadata path -- }
-All metadata operations go through the \giga{} server; however, following the
-same path for data operations would incur an unnecessary performance penalty
-of shipping data over the network on extra time.
-This penalty can be significant in HPC use-cases where files can easily be
-gigabytes to terabytes in size.
+All metadata and small file operations go through the \giga server;
+however, following the same path for data operations on large files
+would incur an unnecessary performance penalty of shipping data over the network on extra time.
+This penalty can be significant in HPC use-cases
+where large files can easily be gigabytes to terabytes in size.
 
 To avoid this penalty our middleware is designed to perform all
-data-path operations directly through the cluster file system module in client
-machine. 
+data-path operations of large files directly
+through the cluster file system module in client machine.
 Figure \ref{fig:design} illustrates this data path (in BLUE color).
-Once the client completes a
-lookup on a desired file name, it gets back a symbolic link to the physical
-path in the cluster file system. All subsequent accesses using this symbolic
-link force the client operating system to resolve this link into the cluster
-file system.
+Once the application tries to open a file with size greater than $T$,
+our client library code will get back a symbolic link to the physical
+path in the cluster file system, and open it locally.
+All subsequent accesses to this large file will force
+the client operating system to read/write through the native cluster file system client.
+Thus applications can achieve the same data bandwidth.
+FUSE-based clients can use the same trick but with additional overhead
+of double context switching and memory copying \cite{PLFS}.
+Recent work \cite{fuseopt} shows that FUSE kernel module can be modified
+to make performance degradation less than $3\%$.
+
+
 While the file is open, some of its attributes (e.g., file size and last access time)
-may change relative to \ldb's per-open
-copy of the attributes. \giga will capture these changes on file close on the
-metadata path. Other attribute changes relatvie to permissions can be updated on-flight
+may change relative to \tfs's per-open copy of the attributes.
+\giga servers monitor what large files are currently opened for access.
+For attribute quries to these open files, \giga will directly query the underlying
+cluster file system to get the most updated attributes.
+Later \giga will synchronize these changes on file close on the metadata path.
+Other attribute changes relatvie to permissions can be updated on-flight
 through \giga servers.
+By doing so, \giga servers can achieve the same level of metadata consistency
+as provided by the underlying cluster file system.
 
-%Tricks in client side
 
+\subsection{Layering on Panasas File System}
+\label{design.panfs}
+\input{panfs}

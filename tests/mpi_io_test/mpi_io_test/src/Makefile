@@ -12,7 +12,7 @@ NAME = mpi_io_test
 # get MPI_CC, MPI_INC, and MPI_LD from environment
 CC		= ${MPI_CC}	
 CFLAGS  = -g -I../../../../ -I. ${MPI_INC} -DROMIO -I$(UTILS_DIR) ${LARGE_FILE} -DMPI_IO_TEST_VERSION2='"1.00.020"' -Wall
-CLIBS   = ${MPI_LD} ../../../../libclient.a
+CLIBS   = ${MPI_LD} ../../../../libgiga_client.a ../../../../backends/leveldb/libleveldb-64.a ../../../../common.a -lm -lpthread -lstdc++ -lfuse
 
 MPIIOOBJS	=	
 UTILS		=	$(UTILS_DIR)/print.o $(UTILS_DIR)/utilities.o

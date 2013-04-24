@@ -147,7 +147,7 @@ void TestFUSECache() {
     fuse_cache_insert(key, 1000);
     ASSERT(fuse_cache_lookup(key) == 1000);
 }
-
+/*
 int main() {
     cache_init();
     TestUTHASH();
@@ -159,3 +159,4 @@ int main() {
     cache_destory();
     return 0;
 }
+*/

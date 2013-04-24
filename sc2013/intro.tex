@@ -52,21 +52,21 @@ technique to distribute metadata with a tabular, on-disk representation of all
 file system metadata.
 
 For distributed indexing, we re-use the concurrent, incremental, hash-based
-\giga{} indexing technique \cite{GIGA11}.
-The main shortcoming of the \giga{} prototype is that splitting
+\giga indexing technique \cite{GIGA11}.
+The main shortcoming of the \giga prototype is that splitting
 the metadata partitions for better load-balancing involves migrating the
 directory entries and the associated file data \cite{GIGA11}.
 This is inefficient for HPC systems where files can be gigabytes or more in
 size. Our middleware avoids this data migration by interpreting directory
 entries as symbolic links: each directory entry (the name created by the
-application) has a physical pathname that points to a file in the underlying
-cluster file system that stores the contents of the file.
-This representation of directory entries is enabled through the use a novel
-on-disk metadata representation called \tfs \cite{TableFS},
+application) has a physical pathname that points to a file
+with the actual file content stored in the underlying cluster file system.
+This representation of directory entries is enabled through the use
+of a novel on-disk metadata representation called \tfs \cite{TableFS},
 based on a log-structure merge tree (LSM-tree) data structure \cite{ONeil1996}.
-We use the \tfs approach to manage all file system metadata
+We use the \tfs approach to compact all file system metadata
 (including directories, i-node attributes) and small files,
-in flat files sorted on a unique key \cite{LevelDB}.
+into flat files sorted on a unique key.
 This organization facilitates high-speed metadata creation, lookups and scans.
 
 Effectively integrating \tfs metadata store with the distributed indexing
@@ -78,5 +78,3 @@ on an existing Panasas PanFS deployment \cite{PanFS} that has 5 shelves consisti
 Our results show promising scalability and performance:
 thep middleware prototype was 10$\times$ faster than the original PanFS
 in metadata intensive workloads, and performs comparably in data-intensive workloads.
-
-

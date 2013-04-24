@@ -669,7 +669,7 @@ int GIGAread(const char *path, char *buf, size_t size, off_t offset,
         case BACKEND_RPC_LEVELDB:
             fh = (rpc_leveldb_fh_t*) (uintptr_t) fi->fh;
             if (fh == NULL)
-              break;
+                break;
             if (fh->state == RPC_LEVELDB_FILE_IN_FS) {
                 if (fh->fd >= 0 && (ret = pread(fh->fd, buf, size, offset)) < 0)
                     ret = FUSE_ERROR(ret);
@@ -714,7 +714,7 @@ int GIGAwrite(const char *path, const char *buf, size_t size, off_t offset,
         case BACKEND_RPC_LEVELDB:
             fh = (rpc_leveldb_fh_t*) (uintptr_t) fi->fh;
             if (fh == NULL)
-              break;
+                break;
             if (fh->state == RPC_LEVELDB_FILE_IN_FS) {
                 if (fh->fd >= 0 && (ret = pwrite(fh->fd, buf, size, offset)) < 0)
                    ret = FUSE_ERROR(ret);
@@ -722,13 +722,16 @@ int GIGAwrite(const char *path, const char *buf, size_t size, off_t offset,
                 ret = rpc_write(fh->dir_id, fh->file, buf, size, offset,
                                 &fh->state, fpath);
                 if (fh->state == RPC_LEVELDB_FILE_IN_FS) {
-                    if ((fh->fd = open(fpath, fi->flags)) < 0) {
+                    LOG_MSG("open(%s): %s", path, fpath);
+                    if ((fh->fd = open(fpath, O_RDWR)) <= 0) {
                         fh->fd = 0;
                         ret = FUSE_ERROR(errno);
+                        LOG_MSG("write(%s): error fpath=[%s] ret=[%d]", path, fpath, ret);
                         break;
                     }
                     if ((ret = pwrite(fh->fd, buf, size, offset)) < 0)
-                        ret = FUSE_ERROR(ret);
+                        ret = FUSE_ERROR(errno);
+                    LOG_MSG("write(%s): fd=[%d] fpath=[%s] ret=[%d]", path, fh->fd, fpath, ret);
                 }
             }
             break;

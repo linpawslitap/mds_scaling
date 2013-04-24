@@ -126,11 +126,6 @@ static void ls_files(const char *dir)
     closedir(dp);
 }
 
-void crash_test(char* crash) {
-    char buf[10];
-    memcpy(crash, buf, 10);
-}
-
 int main(int argc, char **argv)
 {
     if (argc != 3) {
@@ -175,8 +170,6 @@ int main(int argc, char **argv)
     }
 
     errors = 100;
-
-    crash_test(NULL);
 
     gigaDestroy();
 

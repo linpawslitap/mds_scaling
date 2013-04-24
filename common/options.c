@@ -242,23 +242,6 @@ void print_settings()
     LOG_MSG("-- NUM_SERVERS=%d",giga_options_t.num_servers);
     LOG_MSG("-- SPLIT_THRESHOLD=%d\n", giga_options_t.split_threshold);
 
-
-#if 0
-    fprintf(stdout, "==================\n");
-    fprintf(stdout, "Settings: server[%d]\n", giga_options_t.serverID);
-    fprintf(stdout, "==================\n");
-    fprintf(stdout, "\tSELF_HOSTNAME=%s\n", giga_options_t.hostname);
-    fprintf(stdout, "\tSELF_IP=%s\n", giga_options_t.ip_addr);
-    fprintf(stdout, "\tSELF_PORT=%d\n", giga_options_t.port_num);
-    fprintf(stdout, "\n");
-    fprintf(stdout, "\tBACKEND_TYPE=%s\n", backends_str[giga_options_t.backend_type]);
-    fprintf(stdout, "\tBACKEND_MNT=%s\n", giga_options_t.mountpoint);
-    fprintf(stdout, "\n");
-    fprintf(stdout, "\tNUM_SERVERS=%d\n",giga_options_t.num_servers);
-    fprintf(stdout, "\tSPLIT_THRESHOLD=%d\n",giga_options_t.split_threshold);
-    fprintf(stdout, "==================\n");
-#endif
-
     return;
 }
 

@@ -12,6 +12,7 @@ then
 fi
 
 killall giga_server
+ulimit -c unlimited
 
 case $1 in
 

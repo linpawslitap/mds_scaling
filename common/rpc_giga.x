@@ -18,7 +18,7 @@
 
 typedef int giga_dir_id;
 typedef string giga_pathname<PATH_MAX>;
-typedef opaque giga_file_data<4096>;
+typedef opaque giga_file_data<65536>;
 typedef struct giga_mapping_t giga_bitmap;
 
 typedef struct scan_entry_t* scan_list_t;

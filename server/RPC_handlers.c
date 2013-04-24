@@ -848,27 +848,6 @@ start:
 
     switch (giga_options_t.backend_type) {
         case BACKEND_RPC_LEVELDB:
-            (void) buf;
-            (void) buf_len;
-            (void) state;
-
-            rpc_reply->state = RPC_LEVELDB_FILE_IN_FS;
-
-            sprintf(fpath, "%s/files/%d/%s",
-                    giga_options_t.pfs_volumes[0], dir_id, path);
-            rpc_reply->link = strdup(fpath);
-
-            fd = open(fpath, O_RDWR | O_CREAT, 0777);
-            if (fd > 0) {
-                close(fd);
-                rpc_reply->result.errnum = 0;
-            } else {
-                LOG_ERR("Fail to create migrated file: %d, %s, %s, %d, %s",
-                        dir_id, path, fpath, errno, strerror(errno));
-                rpc_reply->result.errnum = -errno;
-            }
-
-            /*
             rpc_reply->result.errnum =
                   metadb_get_file(ldb_mds,
                                   dir_id, index, path,
@@ -917,7 +896,6 @@ start:
                 rpc_reply->state = state;
                 rpc_reply->link = strdup(buf);
             }
-            */
             break;
         default:
             break;
@@ -946,13 +924,14 @@ bool_t giga_rpc_open_1_svc(giga_dir_id dir_id, giga_pathname path, int mode,
 
     bzero(rpc_reply, sizeof(giga_open_reply_t));
 
+    /*
     rpc_reply->result.errnum = 0;
     rpc_reply->state = RPC_LEVELDB_FILE_IN_DB;
     rpc_reply->link = strdup("");
 
     return true;
+    */
 
-    /*
     struct giga_directory *dir = fetch_dir_mapping(dir_id);
     // check for giga specific addressing checks.
     //
@@ -991,7 +970,6 @@ bool_t giga_rpc_open_1_svc(giga_dir_id dir_id, giga_pathname path, int mode,
             dir_id, path, rpc_reply->state, rpc_reply->link,
             rpc_reply->result.errnum);
     return true;
-    */
 }
 
 bool_t giga_rpc_close_1_svc(giga_dir_id dir_id, giga_pathname path,
@@ -1003,13 +981,13 @@ bool_t giga_rpc_close_1_svc(giga_dir_id dir_id, giga_pathname path,
     assert(path);
 
     LOG_MSG(">>> RPC_close(d=%d,p=%s)", dir_id, path);
-
     bzero(rpc_reply, sizeof(giga_result_t));
 
+    /*
     rpc_reply->errnum = 0;
 
     return true;
-    /*
+    */
     struct giga_directory *dir = fetch_dir_mapping(dir_id);
     int index;
 
@@ -1061,7 +1039,6 @@ start:
     LOG_MSG("<<< RPC_close(d=%d,p=%s): status=[%d]",
             dir_id, path, rpc_reply->errnum);
     return true;
-    */
 }
 
 // =============================================================================

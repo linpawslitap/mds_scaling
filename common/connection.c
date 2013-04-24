@@ -32,7 +32,7 @@ CLIENT *getConnection(int srv_id)
             return NULL;
         }
         struct timeval to;
-        to.tv_sec = 60;
+        to.tv_sec = 180;
         to.tv_usec = 0;
         clnt_control(rpc_clnts[srv_id], CLSET_TIMEOUT, (char*)&to);
     }
@@ -112,17 +112,6 @@ void getHostIPAddress(char *ip_addr, int ip_addr_len)
     hostname[HOST_NAME_MAX-1] = '\0';
     gethostname(hostname, HOST_NAME_MAX-1);
 
-    //fprintf(stdout, "[%s] finding IP addr of host=%s\n", __func__, hostname);
-
-    /*
-    //FIXME: for local desktop testing on SVP's machine.
-    if (strcmp(hostname, "gs5017") == 0) {
-        snprintf(ip_addr, ip_addr_len, "128.2.209.15");
-        fprintf(stdout, "[%s] host=%s has IP=%s\n", __func__, hostname, ip_addr);
-        return;
-    }
-    */
-
     int gai_result;
     struct addrinfo hints, *info;
 
@@ -138,8 +127,6 @@ void getHostIPAddress(char *ip_addr, int ip_addr_len)
         exit(1);
     }
 
-    //fprintf(stdout, "[%s] finding non-loopback IP addr ... \n", __func__);
-
     void *ptr = NULL;
     struct addrinfo *p;
     for (p = info; p != NULL; p = p->ai_next) {
@@ -154,12 +141,7 @@ void getHostIPAddress(char *ip_addr, int ip_addr_len)
         }
 
         inet_ntop (p->ai_family, ptr, ip_addr, ip_addr_len);
-        //fprintf(stdout, "\t IPv%d address: %s (%s)\n",
-        //        p->ai_family == PF_INET6 ? 6 : 4, ip_addr, p->ai_canonname);
     }
-
-    //fprintf(stdout, "[%s] host=%s has IP=%s\n", __func__, hostname, ip_addr);
 
     return;
 }
-

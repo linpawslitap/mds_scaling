@@ -71,14 +71,6 @@ int main(int argc, char *argv[])
 {
     int ret = 0;
 
-    /*
-    if (argc != 2) {
-        fprintf(stdout, "***ERROR*** insufficient number of arguments.\n");
-        fprintf(stdout, "USAGE:: %s mount_point \n", argv[0]);
-        exit(1);
-    }
-    */
-
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 
     // initialize logging
@@ -92,7 +84,6 @@ int main(int argc, char *argv[])
     }
 
     memset(&giga_options_t, 0, sizeof(struct giga_options));
-    //initGIGAsetting(GIGA_CLIENT, argv[1], CONFIG_FILE);
     initGIGAsetting(GIGA_CLIENT, DEFAULT_MNT, CONFIG_FILE);
 
     if (fuse_opt_parse(&args, &giga_options_t, giga_opts, NULL) == -1)

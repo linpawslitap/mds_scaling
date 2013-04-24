@@ -13,53 +13,38 @@
 
 //TODO: fd may not be unique
 /* Open files info */
-struct giga_file_info
-{
+typedef struct {
     int fd; //Key for hashmap
-    int flags;
-    off_t offset;
+    int offset;
+    struct fuse_file_info fi;
     char path[PATH_MAX];
     UT_hash_handle hh;
-};
+} giga_file_info_t;
 
-struct giga_file_info *_open_files;
+giga_file_info_t *_open_files;
 
-void createGigaFileInfo(int p_fd, int p_flags, const char *p_path)
-{
-    struct giga_file_info *new_info = (struct giga_file_info *) malloc(sizeof(struct giga_file_info));
-    new_info->fd = p_fd;
-    new_info->offset = 0;
-    new_info->flags = p_flags;
-    memcpy(new_info->path, p_path, PATH_MAX*sizeof(char));
-
-    HASH_ADD_INT(_open_files, fd, new_info);
+void add_giga_fi(const struct fuse_file_info *fi, const char* path) {
+    giga_file_info_t *gi = (giga_file_info_t *) malloc(sizeof(giga_file_info_t));
+    memset(gi, 0, sizeof(giga_file_info_t));
+    gi->fd = fi->fh;
+    gi->fi = *fi;
+    strncpy(gi->path, path, strlen(path));
+    HASH_ADD_INT(_open_files, fd, gi);
 }
 
-void getGigaFileInfo(int fd, struct giga_file_info *info)
+giga_file_info_t* get_giga_fi(int fd)
 {
+    giga_file_info_t *info;
     HASH_FIND_INT(_open_files, &fd, info);
+    return info;
 }
 
-void deleteGigaFileInfo(int fd)
+void del_giga_fi(int fd)
 {
-    struct giga_file_info *info;
+    giga_file_info_t *info;
     HASH_FIND_INT(_open_files, &fd, info);
     if(info != NULL)
         HASH_DEL(_open_files, info);
-}
-
-void updateGigaOffset(int fd, off_t update_offset)
-{
-    struct giga_file_info *info;
-    HASH_FIND_INT(_open_files, &fd, info);
-
-    if(info != NULL)
-    {
-        info->offset += update_offset;
-    }
-    else {
-        //TODO: ?
-    }
 }
 
 /* Begin File Operations */
@@ -85,7 +70,6 @@ int gigaInit()
 
   memset(&giga_options_t, 0, sizeof(struct giga_options));
   initGIGAsetting(GIGA_CLIENT, DEFAULT_MNT, CONFIG_FILE);
-
   GIGAinit(NULL);
 
   return ret;
@@ -115,58 +99,38 @@ int gigaRmdir(const char *path)
 int gigaOpen(const char *path, int flags)
 {
     struct fuse_file_info fi;
+    fi.fh = 0;
     fi.flags = flags;
-    fi.fh = -1;
-
     GIGAopen(path, &fi);
 
-    if (fi.fh > 0)
-        createGigaFileInfo(fi.fh, flags, path);
+    if (fi.fh != 0)
+        add_giga_fi(&fi, path);
 
     return fi.fh;
 }
 
 int gigaCreat(const char *path, mode_t mode)
 {
-    //TODO: mode ignored
     (void) mode;
-
     return gigaOpen(path, O_CREAT | O_TRUNC | O_WRONLY);
 }
 
 int gigaRead(int fd, void *buf, size_t size)
 {
-    struct giga_file_info gi;
-    getGigaFileInfo(fd, &gi);
-
-    off_t offset = gi.offset;
-
-    struct fuse_file_info fi;
-    fi.flags = gi.flags;
-    fi.fh = fd;
-
-    int read = GIGAread(gi.path, buf, size, offset, &fi);
-    if (read == offset)
-        updateGigaOffset(fd, offset);
+    giga_file_info_t *gi = get_giga_fi(fd);
+    int read = GIGAread(gi->path, buf, size, gi->offset, &(gi->fi));
+    if (read >= 0)
+        gi->offset += size;
 
     return read;
 }
 
 int gigaWrite(int fd, const void *buf, size_t size)
 {
-    struct giga_file_info gi;
-    getGigaFileInfo(fd, &gi);
-
-    off_t offset = gi.offset;
-
-    struct fuse_file_info fi;
-    fi.flags = gi.flags;
-    fi.fh = fd;
-
-    int written = GIGAwrite(gi.path, buf, size, offset, &fi);
-    if (written == offset)
-        updateGigaOffset(fd, offset);
-
+    giga_file_info_t *gi = get_giga_fi(fd);
+    int written = GIGAwrite(gi->path, buf, size, gi->offset, &(gi->fi));
+    if (written >= 0)
+        gi->offset += size;
     return written;
 }
 
@@ -177,27 +141,15 @@ int gigaStat(const char *path, struct statvfs *buf)
 
 int gigaFsync(int fd)
 {
-    struct giga_file_info gi;
-    getGigaFileInfo(fd, &gi);
-
-    struct fuse_file_info fi;
-    fi.fh = fd;
-    fi.flags = gi.flags;
-
-    return GIGAflush(gi.path, &fi);
+    giga_file_info_t *gi = get_giga_fi(fd);
+    return GIGAflush(gi->path, &(gi->fi));
 }
 
 int gigaClose(int fd)
 {
-    struct giga_file_info gi;
-    getGigaFileInfo(fd, &gi);
-
-    struct fuse_file_info fi;
-    fi.flags = gi.flags;
-    fi.fh = fd;
-
-    int ret = GIGArelease(gi.path, &fi);
-    deleteGigaFileInfo(fd);
+    giga_file_info_t *gi = get_giga_fi(fd);
+    int ret = GIGArelease(gi->path, &(gi->fi));
+    del_giga_fi(fd);
     return ret;
 }
 

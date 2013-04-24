@@ -18,6 +18,8 @@
 #define GRP_RW          (S_IRGRP | S_IWGRP)
 #define OTHER_RW        (S_IROTH | S_IWOTH)
 
+#define DEFAULT_MODE    (S_IRWXU | S_IRWXG | S_IRWXO )
+
 #define CREATE_MODE     (USER_RW | GRP_RW | OTHER_RW)
 #define CREATE_FLAGS    (O_CREAT | O_APPEND)
 #define CREATE_RDEV     0
@@ -31,6 +33,8 @@ const int sampling = 1;
 volatile int curr;
 volatile int lastfile;
 int errors;
+int num_bytes;
+time_t start_exp, end_exp;
 
 void *timer_thread(void *unused)
 {
@@ -66,7 +70,7 @@ top:
 static void write_files(const char *dir)
 {
     printf("Creating %d files from test_%d ... \n", num_files, pid);
-    mode_t m = CREATE_MODE;
+    mode_t m = DEFAULT_MODE;
     dev_t d = CREATE_RDEV;
 
     for (curr=0; curr<num_files; curr++) {
@@ -77,10 +81,11 @@ static void write_files(const char *dir)
             return;
         } else {
             int f = gigaOpen(p, O_WRONLY);
-            char buf[4096];
+            const int buf_size = 1024 * 16;
+            char buf[buf_size];
             int i = 0;
-            for (i = 0; i < 2; ++i) {
-                gigaWrite(f, buf, 4096);
+            for (i = 0; i < (num_bytes-1)/buf_size+1; ++i) {
+                gigaWrite(f, buf, buf_size);
             }
             gigaClose(f);
         }
@@ -134,22 +139,18 @@ static void ls_files(const char *dir)
     closedir(dp);
 }
 
-void crash_test(char* crash) {
-    char buf[10];
-    memcpy(crash, buf, 10);
-}
-
 int main(int argc, char **argv)
 {
-    if (argc != 3) {
+    if (argc != 4) {
         fprintf(stdout, "*** ERROR: insufficient parameters ... \n\n");
-        fprintf(stdout, "USAGE: %s <dir_name> <num_files>\n", argv[0]);
+        fprintf(stdout, "USAGE: %s <dir_name> <num_bytes> <num_files>\n", argv[0]);
         fprintf(stdout, "\n");
         return -1;
     }
 
     setvbuf(stdout,NULL,_IONBF,0);
-    num_files = atoi(argv[2]);
+    num_bytes = atoi(argv[2]) * 1024;
+    num_files = atoi(argv[3]);
     pid = (int)getpid();
 
     if (gethostname(hostname, sizeof(hostname)) < 0) {
@@ -175,17 +176,16 @@ int main(int argc, char **argv)
                     ret);
             exit(1);
         }
-
+        start_exp = time(NULL);
         write_files(argv[1]);
+        end_exp = time(NULL);
     }
     else {
         ls_files(argv[1]);
     }
 
     errors = 100;
-
-    crash_test(NULL);
-
+    printf("tot_time %d\n", (int)(end_exp-start_exp));
     gigaDestroy();
 
     return 0;

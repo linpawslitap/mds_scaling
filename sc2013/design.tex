@@ -1,16 +1,16 @@
 \section{Design and implementation}
 
 \begin{figure}[t]   %% START_FIGURE
-\centerline{\includegraphics[scale=0.3]{./figs/giga-impl-leveldb-clusterfs}}
+\centerline{\includegraphics[scale=0.4]{./figs/giga-impl-leveldb-clusterfs}}
 \vspace{10pt}
 \caption{\textit{
 Our approach for a scalable metadata service integrates two components: a highly
 parallel and load-balanced indexing technique \cite{GIGA11}
 to partition metadata over multiple servers,
 and an optimized metadata on-disk representation \cite{TableFS} on each server.
-Our approach aims to layer this integrated solution on top of existing cluster
+This integrated solution is layered on top of existing cluster
 file system deployments to improve metadata and small file operation efficiency.
-\kai{update graph}}}
+}}
 \vspace{10pt}
 \hrule
 \label{fig:design}
@@ -214,6 +214,4 @@ By doing so, \giga servers can achieve the same level of metadata consistency
 as provided by the underlying cluster file system.
 
 
-\subsection{Layering on Panasas File System}
-\label{design.panfs}
-\input{panfs}
+\textbf{Layering on Panasas file system -- }

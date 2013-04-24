@@ -1,18 +1,60 @@
 \section{Experimental Evaluation}
 
-We built a FUSE-based middleware filesystem prototype and tested its metadata
-performance on a
-64-node cluster of dual core machines with 16GB memory interconnected with one
-GigE NIC.
-Each node had a \giga{} indexing server process that managed its own \ldb instance
-that was stored on a local disk running Linux Ext3 file system.
-This hardware does not have HPC-class networking or cluster file system, so our
-preliminary experiments exclusively used metadata-intensive microbenchmarks.
-To emulate shared storage for split operations, we used a NFS-mounted
-volume accessible from all machines; this volume was only used for
-our cross-server \ldb split optimization.
-We evaluated the performance of a single-node \ldb-based metadata store and
-the scalability of our distributed middleware on 64 nodes.
+Using metadata-intesnvie and data-intensive benchmarks,
+we evaluate our middleware's overall performance
+and explore how its system design contribute to meeting its goals.
+We specifically examine: (1) its improvement on the scability and
+efficiency of metadata service for cluster file systems,
+esepcially in concurrent file creation workloads;
+(2) the data throughput in N-N checkpointing workloads
+when layering our middleware on top of PanFS.
+
+\textbf{Implementation }
+Our middlware prototype is implemented in 14K lines of C using a modular desgin.
+\tfs, \ldb and PanFS are modular plugins that can be replaced by other backends
+that follow the API semantics. The current version implements most posix
+file system operations except \texttt{hardlink}, \texttt{rename},
+and operations for extended attributes.
+
+\textbf{Evaluation System }
+We evaluate the overall performance of our prototype
+on two clusters with different settings.
+One cluster is used to evaluate the scalability of \tfs and its integration with \giga.
+The other cluster is used to evaluate the performance of layering our
+prototype on top of a existing PanFS deployment.
+The following table shows the detailed hardware and software configurations:
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+      & Cluster 1 & Cluster 2 \\
+\midrule
+\#Nodes & 64  &  5 \\
+\hline
+Linux & Ubuntu 12.10  &   CentOS 6.3  \\
+kernel  & 3.6.6 x86\_64 & 2.6.32 x86\_64\\
+\hline
+CPU & AMD Opteron 242   &  AMD Opteron 6272 \\
+    & Dual Core & 6272 64 Cores\\
+\hline
+DRAM & 16GB DDR &  128GB DDR \\
+\hline
+Storage & Western Digital &  PanFS\\
+system & Local hard disk &      5 Shelves \\
+       &  2TB per node &   5MDS + 50 ODS \\
+& 100 seeks/sec & \\
+& rand. seeks        & \\
+& 137.6 MB/sec & \\
+& seq. reads      & \\
+& 135.4 MB/sec & \\
+& seq. writes      & \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+In the following sections, we first evaluate each individual component
+of our middlware, and finally evaluate end-to-end performance of
+the integrated system on top of PanFS.
 
 \subsection{Single Node Performance}
 We first evaluated the performance of a single-node \ldb-based metadata store
@@ -43,7 +85,17 @@ file systems were much slower. Y-axis has a logarithmic scale.}
 \label{graph:ldb-singlenode}
 \end{figure}       %%%%%%%%%%%%%%%%%%%%%%%
 
-\subsection{Metadata Path Performance}
+\subsection{Scalability Test on GIGA+TableFS}
+%Each node had a \giga{} indexing server process that managed its own \ldb instance
+%that was stored on a local disk running Linux Ext3 file system.
+%This hardware does not have HPC-class networking or cluster file system, so our
+%preliminary experiments exclusively used metadata-intensive microbenchmarks.
+%To emulate shared storage for split operations, we used a NFS-mounted
+%volume accessible from all machines; this volume was only used for
+%our cross-server \ldb split optimization.
+%We evaluated the performance of a single-node \ldb-based metadata store and
+%the scalability of our distributed middleware on 64 nodes.
+
 
 Next, we evaluated the scalability of our distributed metadata middleware
 prototype.

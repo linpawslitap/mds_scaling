@@ -3,7 +3,16 @@ TEXPARTS= *.tex
 BIBPARTS= *.bib
 FIGPARTS= figs
 
-$(ACM).pdf: $(ACM).tex reference.bib
+TEXFILE = abstract.tex \
+					intro.tex \
+					design.tex \
+					eval.tex\
+					relatedwork.tex\
+					tablefs.tex\
+					giga.tex\
+					summary.tex
+
+$(ACM).pdf: $(ACM).tex $(TEXFILE) reference.bib
 	pdflatex $(ACM).tex
 	bibtex $(ACM)
 	pdflatex $(ACM).tex

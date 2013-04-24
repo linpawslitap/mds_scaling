@@ -1,84 +1,110 @@
-LevelDB \cite{LevelDB} is an open-source key-value storage library
-that features a log-structured merge (LSM) Tree \cite{ONeil1996} for on-disk 
-storage.
-\ldb is inspired by the per-server tablet architecture in BigTable
-\cite{BigTable}.
-In a simple understanding of an LSM tree, an in-memory buffer cache delays 
-writing new and changed entries until it has a significant amount of change to 
-record on disk.
-Using LevelDB as a local storage representation for metadata  
-can transform metadata updates to large, non-overwrite, sorted and indexed logs on disks,
-which greatly reduces random disk seeks.
-The detailed design of LevelDB and how to use LevelDB to store metadata is
-explained in the following sections.
+Our metadata storage backend implements a modified version of \tfs
+to manage all the metadata and small files on disk.
+\tfs \cite{TableFS} is a stacked file system which uses another file system
+as an object store, and organize all metadata and small files in to a single
+on-disk table using a Log-Structured Merge (LSM) tree \cite{ONeil1996}.
+The reason of using LSM tree is that it buffers new and changed entries in
+memory and translate small random disk writes into large sequential writes.
+Therefore LSM tree can reduce random disk seeks effectively, and is a natural
+fit for metadata intensive workloads. We decribe the structure of LSM tree
+and how LSM tree is used in \tfs to store metadata in greater details
+in the following sections.
 
 %\begin{figure}[!ht]
 \begin{figure}[t]
-\centering
 \includegraphics[scale=0.4]{figs/leveldb}
-\caption{\normalsize
-LevelDB represents data on disk in multiple SSTables that store sorted key-value pairs.}
 \vspace{10pt}
-\hrule 
+\caption{\textit{
+LevelDB is an implementation of LSM tree which represents data on disk
+in multiple SSTables that store sorted key-value pairs.
+SSTables are grouped into different levels with lower-numbered levels
+containing more recently inserted key-value pairs.
+Finding a specific pair on disk may search up to all SSTables in level 0
+and at most one in each higher-numbered level.
+Compaction is the process of combining SSTables
+by merge sort and moving combined SSTables into higher-numbered levels.
+}}
+\vspace{10pt}
+\hrule
 \label{fig:leveldb}
 \end{figure}
 
 
-~\\
-\textbf{LevelDB and LSM trees -- }
-In LevelDB, by default, a set of changes are spilled to disk when the total
-size of modified entries exceeds 4 MB.  When a spill is triggered, called a
+\textbf{LSM tree and LevelDB --}
+\tfs uses an open-source implementation of LSM tree called LevelDB
+\cite{LevelDB}. LevelDB provides a simple key-value store interface,
+supporting point query and range query. In LevelDB, by default,
+a set of changes are spilled to disk when the total size of modified
+entries exceeds 4 MB.  When a spill is triggered, called a
 minor compaction, the changed entries are sorted, indexed and written to disk
-in a format called an SSTable\cite{BigTable}.  These entries may then be
+in a format called an SSTable \cite{BigTable}.  These entries may then be
 discarded by the in memory buffer and can be reloaded by searching each SSTable
 on disk, possibly stopping when the first match occurs if the SSTables are
 searched most recent to oldest.  The number of SSTables that need to be
-searched can be reduced by maintaining a Bloom filter\cite{bloomfilter} on
-each, but, with time, the cost of finding a record not in memory still increases.  Major compaction, or simply ``compaction", is the process of combining multiple SSTables into a smaller number of SSTables by merge sort. 
+searched can be reduced by maintaining a Bloom filter\cite{bloomfilter} on each,
+but, with time, the cost of finding a record not in memory still increases.
+Major compaction, or simply ``compaction",
+is the process of combining multiple SSTables
+into a smaller number of SSTables by merge sort.
 
-As illustrated in Figure \ref{fig:leveldb}, LevelDB extends this simple approach to further reduce read costs by dividing SSTables into sets, or levels.
-In 0-th level, each SSTable may contain entries with any key value, based on what was in memory at the time of its spill.
-The higher levels of LevelDB's SSTables are the results of compacting SSTables from their own or lower levels.
-In these higher levels, LevelDB maintains the following invariant: the key range spanning each SSTable is disjoint from the key range of all other SSTables at that level.
-So querying for an entry in the higher levels only need read at most one SSTable in each level.
-LevelDB also sizes each of the higher levels differentially:  all SSTables have the same maximum size and the sum of the sizes of all SSTables at level $L$ will not exceed $10^L$ MB.
-This ensures that the number of level grows logarithmically with increasing numbers of entries.
-LevelDB compactions are similar to streaming B-trees used in TokuDB products
-\cite{Bender2007, tokufs}.
+As illustrated in Figure \ref{fig:leveldb},
+LevelDB extends this simple approach to further
+reduce read costs by dividing SSTables into levels.
+In 0-th level, each SSTable may contain entries with any key value,
+based on what was in memory at the time of its spill.
+The higher-numbered levels of LevelDB's SSTables are
+the results of compacting SSTables from their own or lower-numbered levels.
+In levels excepth the 0-th level, LevelDB maintains the following invariant:
+the key range spanning each SSTable is disjoint from
+the key range of all other SSTables at that level.
+So querying for an entry in the higher levels
+only needs read at most one SSTable in each level.
+LevelDB also sizes each of the higher levels differentially:
+all SSTables have the same maximum size and
+the sum of the sizes of all SSTables at level $L$ will not exceed $10^L$ MB.
+This ensures that the number of level grows
+logarithmically with increasing numbers of entries.
 
 ~\\
-\textbf{Table schema -- } 
-The local metadata store aggregates directory entries and  
-inode attributes into one LevelDB table with a row for each file and directory.
-To link together the hierarchical structure of the user's namespace,
-the rows of the table are ordered by a 224-bit key consisting of 
-the 64-bit inode number of a file's parent directory 
-and a 160-bit SHA-1 hash value of its filename string (final component of its pathname).
-The value of a row contains the file's full name and inode attributes,
-such as inode number, ownership, access mode, file size, timestamps (\textit{struct stat} in Linux),
-and a symbolic link that contains the actual path of the file object in the object store.
-Figure \ref{fig:schema} shows an example of storing a sample file system's metadata into one LevelDB table.
+\textbf{Table schema -- }
+\tfs aggregates directory entries,
+inode attributes and small files into one LSM tree
+with an entry for each file and directory.
+To translate the hierarchical structure of file system namespace
+into key-value pairs, the 224-bit key is chosen to consist of
+the 64-bit inode number of a entry's parent directory
+and a 160-bit SHA-1 hash value of its filename string
+(final component of its pathname).
+The value of an entry contains the file's full name and inode attributes,
+such as inode number, ownership, access mode, file size, timestamps (\textit{struct stat} in Linux).
+For small files with size less than $T$, the value field also contains the file's data.
+For large files, its file data is replaced by a symbolic link
+that points to the actual file object in the underlying cluster file system.
 
 %\begin{figure}[!ht]
 \begin{figure}[t]
 \centering
-\includegraphics[scale=0.35]{figs/schema}
-\caption{\normalsize
-An example illustrating a table schema for storing metadata into LevelDB.}
+\includegraphics[scale=0.4]{figs/schema}
 \vspace{10pt}
-\hrule 
+\caption{\textit{
+An example illustrating a table schema for \tfs
+to store metadata and file data as key-value pairs.}}
+\vspace{10pt}
+\hrule
 \label{fig:schema}
 \end{figure}
 
-All the entries in the same directory have rows that 
-share the same first 64 bits in their the table's key.
-For $readdir$ operations, once the inode number
-of the target directory has been retrieved, 
-a scan sequentially lists all entries having 
-the directory's inode number as the first 64 bits of their table's key. 
-To resolve a single pathname, the metadata server starts searching from the root inode, 
-which has a well-known global inode number $(0)$.
+Figure \ref{fig:schema} shows an example of representing
+a sample file system's metadata into one table.
+Embedding the inode number of parent directory into the key
+helps with resolving the pathname.
 Traversing the user's directory tree
-involves constructing a search key by concatenating the inode 
+only involves constructing a search key by concatenating the inode
 number of current directory with the hash of
 next component name in the pathname.
+Another benefit is that all the entries in the same directory have rows that
+share the same first 64 bits in their the table's key.
+For $readdir$ operations, once the inode number
+of the target directory has been retrieved,
+a scan sequentially lists all entries having
+the directory's inode number as the first 64 bits of their table's key.

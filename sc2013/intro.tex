@@ -1,59 +1,59 @@
 \section{Introduction}
 
-Lack of a highly scalable and parallel metadata service is the 
-Achilles heel for many cluster file system deployments in both the HPC world 
+Lack of a highly scalable and parallel metadata service is the
+Achilles heel for many cluster file system deployments in both the HPC world
 \cite{hpcs-io:2008, hecfsio:tr06} and the Internet services world \cite{HDFS}.
-This is because most cluster file systems have focused on scaling the
-data path, i.e. providing high bandwidth parallel I/O to files that are 
-gigabytes in size.
-But with proliferation of massively parallel applications that produce 
+This is because most cluster file systems have used centrailzed, single-node
+metadata management, and focused merely on scaling the data path,
+i.e. providing high bandwidth parallel I/O to files that are gigabytes in size.
+But with proliferation of massively parallel applications that produce
 metadata-intensive workloads, such as large number of simultaneous file creates
-\cite{PLFS} and large-scale storage management \cite{issdm}, cluster file systems 
+\cite{PLFS} and large-scale storage management \cite{issdm}, cluster file systems
 also need to scale metadata performance.
 
-Numerous applications and use-cases need support for concurrent and 
+Numerous applications and use-cases need support for concurrent and
 high-performance metadata operations.
 One such example, checkpointing, requires the metadata service to
-handle large number of file creates and updates at very high speeds 
+handle large number of file creates and updates at very high speeds
 \cite{PLFS}.
 Another example, storage management, produces read-intensive metadata workload
 that typically scans the metadata of the entire file system to perform
 administration tasks for analyzing and querying metadata \cite{filemgmt-ucsc, magellan-ucsc}.
 
-We envision a scalable metadata service with two goals. 
+We envision a scalable metadata service with two goals.
 The first goal -- \textit{evolution, not revolution} -- emphasizes the need for
-a solution that adds new support to existing cluster file systems that lack a 
+a solution that adds new support to existing cluster file systems that lack a
 scalable metadata path.
-Although newer cluster file systems, including Google's Colossus file system 
+Although newer cluster file systems, including Google's Colossus file system
 \cite{50mfiles-in-googlefs:fikes10}, OrangeFS \cite{OrangeFS}, UCSC's Ceph \cite{ceph:weil06} and 
-Copernicus \cite{sfs-ucsc}, promise a distributed metadata 
-service, it is 
+Copernicus \cite{sfs-ucsc}, promise a distributed metadata
+service, it is
 undesirable to replace existing cluster file systems running in large production
 environments just because their metadata path does not provide the desired
 scalability or the desired functionality.
 Several large cluster file system installations, such as Panasas PanFS running
-at LANL \cite{panfs:welch08} and PVFS running on Argonne BG/P 
-\cite{bgp, pvfs:www}, can 
-benefit from a solution that provides, for instance, distributed directory support 
+at LANL \cite{panfs:welch08} and PVFS running on Argonne BG/P
+\cite{bgp, pvfs:www}, can
+benefit from a solution that provides, for instance, distributed directory support
 that does not require any modifications to the running cluster file system.
-The second goal -- \textit{generality and de-specialization} -- promises a 
+The second goal -- \textit{generality and de-specialization} -- promises a
 fully, distributed and
 scalable metadata service that performs well for ingest, lookups, and scans.
 In particular, all metadata, including directory entries, i-nodes and block
 management, should be stored in one structure; this is different from
-today's file systems that use specialized on-disk structures for each type of 
+today's file systems that use specialized on-disk structures for each type of
 metadata.
 %It should also be efficient in the way metadata is distributed on multiple servers
 %and the way metadata is represented on disk on each server.
 
- 
-To realize these goals, this paper makes a case for a scalable metadata service 
-middleware that layers on existing cluster file system deployments and 
-distributes file system metadata, including the namespace tree, small 
+
+To realize these goals, this paper makes a case for a scalable metadata service
+middleware that layers on existing cluster file system deployments and
+distributes file system metadata, including the namespace tree, small
 directories and large directories, across many servers.
-Our key idea is to effectively synthesize a concurrent indexing 
+Our key idea is to effectively synthesize a concurrent indexing
 technique to distribute metadata with a tabular, on-disk representation of all
-file system metadata. 
+file system metadata.
 
 For distributed indexing, we re-use the concurrent, incremental, hash-based
 \giga{} indexing technique \cite{GIGA11}.
@@ -61,26 +61,26 @@ The main shortcoming of the \giga{} prototype is that splitting
 the metadata partitions for better load-balancing involves migrating the
 directory entries and the associated file data \cite{GIGA11}.
 This is inefficient for HPC systems where files can be gigabytes or more in
-size. Our middleware avoids this data migration by interpreting directory 
+size. Our middleware avoids this data migration by interpreting directory
 entries as symbolic links: each directory entry (the name created by the
 application) has a physical pathname that points to a file in the underlying
 cluster file system that stores the contents of the file.
 This representation of directory entries is enabled through the use a novel
-on-disk metadata representation based on a log-structure merge tree (LSM-tree)
-data structure \cite{ONeil1996}.
-We use the \ldb{} key-value store to implement all file system metadata, including 
-files, directories, and their i-node attributes, in flat files sorted on a
-unique key \cite{LevelDB}.
+on-disk metadata representation called \tfs \cite{TableFS},
+based on a log-structure merge tree (LSM-tree) data structure \cite{ONeil1996}.
+We use the \tfs approach to manage all file system metadata
+(including directories, i-node attributes) and small files,
+in flat files sorted on a unique key \cite{LevelDB}.
 This organization facilitates high-speed metadata creation, lookups and scans.
 
-Effectively integrating the \ldb-based metadata store with the distributed indexing
-technique requires several optimizations including cross-server split operations 
+Effectively integrating \tfs metadata store with the distributed indexing
+technique requires several optimizations including cross-server split operations
 with minimum data migration, and decoupling data and metadata paths.
-To demonstrate the feasibility of our approach, we implemented a prototype middleware layer
-using the FUSE file system and evaluated it on 64-node cluster. Preliminary
-results show promising scalability and performance: the single-node local metadata 
-store was 10X faster than modern local file systems and the distributed
-middleware metadata service scaled well with a peak performance of 190,000 file creates per second 
-on a 64-server configuration. 
+To demonstrate the feasibility of our approach,
+we implemented a prototype middleware layer and evaluated it
+on an existing Panasas file system deployment \cite{PanFS} that has 5 shelves consisting of 50 nodes.
+Our results show promising scalability and performance:
+thep middleware prototype was 10$\times$ faster than the original Panasas file systems 
+in metadata intensive workloads, and performs comparably in data-intensive workloads.
 
 

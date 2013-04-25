@@ -199,8 +199,8 @@ Thus applications can achieve the same data bandwidth.
 FUSE-based clients can use the same trick but with additional overhead
 of double context switching and memory copying \cite{PLFS}.
 Recent work \cite{fuseopt} shows that FUSE kernel module can be modified
-to make performance degradation less than $3\%$.
-
+to make performance degradation less than $3\%$. We have not implemented
+this modification in our current prototype.
 
 While the file is open, some of its attributes (e.g., file size and last access time)
 may change relative to \tfs's per-open copy of the attributes.
@@ -215,4 +215,25 @@ as provided by the underlying cluster file system.
 
 
 \textbf{Layering on Panasas file system -- }
-To further take advantage of PanFS's architecture,
+In PanFS \cite{PanFS}, \textit{Volume} is the basic logical unit
+for administrators to manage the storage pool of PanFS.
+The volume is a directory hierarchy with quota limit, and appears
+as a directory below the single mount point of the whole storage system.
+Each volume is only managed by a single metadata magager, but
+the data of files created in the volume are spread over the entire storage pool.
+
+A typical PanFS storage cluster may have multiple shelves,
+each shelf consisting of one or two metadata managers and 9 or 10 storage nodes.
+However, since a volume is assigned to a particular metadata manager,
+all the metadata accesses to any files/directories in a volume
+can only be served by that single metadata manager.
+
+To take advantage of multiple metadadta managers in PanFS,
+our middleware load balance the storage of SSTables and large files across volumes.
+Assume the case that we run the same number of GIGA+ server processes
+as the available metadata managers in PanFS.
+GIGA+ server processes can be run in the same machines that run PanFS metadata managers,
+or in other machines behaving like proxies.
+For each metadata manager, we create a volume and assign the volume to a unique GIGA+ server process.
+The GIGA+ server process then stores all the SSTables,
+and large files in its managed directory partitions to it assigned volume.

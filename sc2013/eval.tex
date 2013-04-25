@@ -59,46 +59,8 @@ of our middlware, and finally evaluate end-to-end performance of
 the integrated system on top of PanFS.
 
 \subsection{Single Node Performance}
-We first evaluated the performance of a single-node \ldb-based metadata store
-by running a test that creates 100 million zero-length files in a single
-directory.
-Figure \ref{graph:ldb-singlenode} compares the instantaneous throughput of \ldb-based metadata 
-store with three Linux file systems: Ext4 \cite{Ext4}, XFS \cite{XFS}, and
-Btrfs \cite{BTRFS}.
-All systems perform well at the beginning of the test, but the file create
-throughput drops gradually for all systems.
-Btrfs suffers the most serious throughput drop, slowing down to 100 operations
-per second.
-The \ldb-based store, however, maintains a more steady performance
-with an average speed of 2,200 operations per second respectively,
-\textit{and is 10X faster than all other tested file systems.}
-
-\begin{figure}[t]  %%%%%%%%%%%%%%%%%%%%%%%
-\centerline{\includegraphics[scale=0.5]{./figs/ldb_insertrate_onenode}}
-\vspace{10pt}
-\caption{\normalsize
-\textit{Single-node \ldb{}-based metadata store is 10X faster than modern Linux
-filesystems for a workload that creates 100 million zero-length files.
-X-axis only shows the time until LevelDB finished all insertions because the other
-file systems were much slower. Y-axis has a logarithmic scale.}
-}
-\vspace{10pt}
-\hrule
-\label{graph:ldb-singlenode}
-\end{figure}       %%%%%%%%%%%%%%%%%%%%%%%
 
 \subsection{Scalability Test on GIGA+TableFS}
-%Each node had a \giga{} indexing server process that managed its own \ldb instance
-%that was stored on a local disk running Linux Ext3 file system.
-%This hardware does not have HPC-class networking or cluster file system, so our
-%preliminary experiments exclusively used metadata-intensive microbenchmarks.
-%To emulate shared storage for split operations, we used a NFS-mounted
-%volume accessible from all machines; this volume was only used for
-%our cross-server \ldb split optimization.
-%We evaluated the performance of a single-node \ldb-based metadata store and
-%the scalability of our distributed middleware on 64 nodes.
-
-
 Next, we evaluated the scalability of our distributed metadata middleware
 prototype.
 Figure \ref{graph:ldb-scaling} shows the instantaneous throughput during the

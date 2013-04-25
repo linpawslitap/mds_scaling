@@ -135,8 +135,8 @@ This estimation projects that when inserting 64 billion files with 64 servers,
 the system may deliver an average of 1,000 operations per second per server,
 i.e. 64,000 operations per second in aggregate.
 
-\begin{figure}[t]  %%%%%%%%%%%%%%%%%%%%%%%
-\centerline{\includegraphics[scale=0.33]{./figs/ldb_insertrate}}
+\begin{figure*}[t]  %%%%%%%%%%%%%%%%%%%%%%%
+\centerline{\includegraphics[scale=0.6]{./figs/ldb_insertrate}}
 \vspace{10pt}
 \caption{\normalsize
 \textit{Our middleware metadata service prototype shows promising scalability
@@ -150,7 +150,7 @@ curves to smooth the variability.}
 \vspace{10pt}
 \hrule
 \label{graph:ldb-scaling}
-\end{figure}       %%%%%%%%%%%%%%%%%%%%%%%
+\end{figure*}       %%%%%%%%%%%%%%%%%%%%%%%
 
 \subsection{Data Path Performance}
 
@@ -161,7 +161,6 @@ curves to smooth the variability.}
 \caption{\normalsize
 Create five million zero-length files in one empty directory
 with different number of clients.
-\kai{Missing some data points: PanFS with only one volume service}
 \textit{}
 }
 \vspace{10pt}
@@ -170,10 +169,11 @@ with different number of clients.
 \end{figure}       %%%%%%%%%%%%%%%%%%%%%%%
 
 \begin{figure}[t]  %%%%%%%%%%%%%%%%%%%%%%%
-\centerline{\includegraphics[scale=0.5]{./figs/ldb_insertrate_onenode}}
+\centerline{\includegraphics[scale=0.5]{./figs/small_file_creates}}
 \vspace{10pt}
 \caption{\normalsize
-\textit{Create Small files test with different chunck size}
+\textit{Create 5 million small files with different size
+in one share directory}
 }
 \vspace{10pt}
 \hrule
@@ -181,10 +181,12 @@ with different number of clients.
 \end{figure}       %%%%%%%%%%%%%%%%%%%%%%%
 
 \begin{figure}[t]  %%%%%%%%%%%%%%%%%%%%%%%
-\centerline{\includegraphics[scale=0.5]{./figs/mdtest}}
+\centerline{\includegraphics[scale=0.6]{./figs/mdtest}}
 \vspace{10pt}
 \caption{\normalsize
-\textit{mdtest \kai{Dummy figure}}
+\textit{mdtest:
+Create 5 million zero-length files in one shared directory.
+}
 }
 \vspace{10pt}
 \hrule
@@ -192,11 +194,13 @@ with different number of clients.
 \end{figure}       %%%%%%%%%%%%%%%%%%%%%%%
 
 \begin{figure}[t]  %%%%%%%%%%%%%%%%%%%%%%%
-\centerline{\includegraphics[scale=0.5]{./figs/checkpointing}}
+\centerline{\includegraphics[scale=0.6]{./figs/checkpointing_write}}
 \vspace{10pt}
 \caption{\normalsize
-\textit{N-N check pointint workloads write throughput
-\kai{Dummy figure}}
+\textit{
+The aggregated write throughput in N-N check-pointing workload.
+Each volume receives 640 GB data.
+}
 }
 \vspace{10pt}
 \hrule
@@ -204,11 +208,12 @@ with different number of clients.
 \end{figure}       %%%%%%%%%%%%%%%%%%%%%%%
 
 \begin{figure}[t]  %%%%%%%%%%%%%%%%%%%%%%%
-\centerline{\includegraphics[scale=0.5]{./figs/checkpointing}}
+\centerline{\includegraphics[scale=0.6]{./figs/checkpointing_read}}
 \vspace{10pt}
 \caption{\normalsize
-\textit{N-N check pointint workloads read throughput
-\kai{Dummy figure}}
+\textit{
+The aggregated read throughput in N-N check-pointing workload.
+}
 }
 \vspace{10pt}
 \hrule

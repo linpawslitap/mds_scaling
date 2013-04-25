@@ -216,14 +216,3 @@ as provided by the underlying cluster file system.
 
 \textbf{Layering on Panasas file system -- }
 To further take advantage of PanFS's architecture,
-
-Creating a large number of files in a single directory can make it a hot-spot. 
-Looking up metadata from such a large directory can cause performance degradation. 
-By layering Giga+TeableFS, such hotspots can be avoided at the create step 
-by creating a file in PanFS at path = \begin{verbatim} “/dir_id/partition_id/file_name.” \end{verbatim} 
-In Giga+, a directory is partitioned if the number of dentries in it exceeds 
-a configurable split threshold (default=8000).
-This feature is extended and used for evenly distributing the files across 
-the underlying cluster file system.
-Including “partition\_id” in the path name ensures that
-no directory of the underlying cluster file system has more than “split threshold” files.

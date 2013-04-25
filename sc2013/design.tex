@@ -16,7 +16,7 @@ file system deployments to improve metadata and small file operation efficiency.
 \label{fig:design}
 \end{figure}       %% END_FIGURE
 
-Figure \ref{fig:design} persents the overall architecture of our scalable
+Figure \ref{fig:design} presents the overall architecture of our scalable
 metadata service. Our metadata service is a middleware inserted into
 existing deployments of cluster file systems to improve metadata efficiency
 while maintaining high I/O bandwidth for data transferring.
@@ -28,7 +28,7 @@ and consists of three core components:
 using posix-similar library interface, or the VFS interface exposed
 through the FUSE user-level file system \cite{fuse}.
 The stateless client-side code redirects applications' file operations
-to approriate destinations according to the types of operations.
+to appropriate destinations according to the types of operations.
 All metadata requests (e.g. \texttt{create()} and \texttt{mkdir()}),
 and data requests to small files (e.g. \texttt{read()} and \texttt{write()}),
 are handled through the metadata indexing modules that address
@@ -48,8 +48,8 @@ when their sizes exceed the threshold.
 Metadata storage backend is a modified version of \tfs which packs metadata and
 small file data into flat files, and stores flat files
 in the underlying cluster file system. Since \tfs converts random updates into
-sequential writes, it greatly improves metadata peformance. In order to
-dynamcially distribute large directories, metadata storage backend also modifies
+sequential writes, it greatly improves metadata performance. In order to
+dynamically distribute large directories, metadata storage backend also modifies
 \tfs to support exporting and importing flat files in a batch.
 
 \end{itemize}
@@ -57,7 +57,7 @@ dynamcially distribute large directories, metadata storage backend also modifies
 
 Using \giga and \tfs enables us to tackle two key challenges: highly
 concurrent metadata distribution for ingest-intensive parallel applications
-such as checkpointing \cite{PLFS} and
+such as check-pointing \cite{PLFS} and
 optimized metadata representation that stores all file system
 metadata in structured, indexed files managed by existing cluster file system
 deployments.
@@ -87,7 +87,7 @@ we have to tackle two main challenges:
 one is to modify \tfs to support for
 migrating directory partition required by \giga;
 the other is to decouple metadata and data paths to
-achieve high peformance for both paths.
+achieve high performance for both paths.
 This section discusses the modifications we made to
 overcome the two challenges.
 
@@ -127,7 +127,7 @@ Recall that each \giga server process splits a hash partition $P$ on
 overflow and creates another hash partition $P'$ which is managed by a
 different server; this split involves migrating approximately half the entries
 from old partition $P$ to the new hash partition $P'$ on another server.
-During splitting, the partition in migratoin has to be locked from
+During splitting, the partition in migration has to be locked from
 concurrent accessing for correctness.
 We explored several ways to perform this cross-server partition split.
 
@@ -174,7 +174,7 @@ older than $T_{split}$ without locking the hash range.
 When the generation of SSTables with entries older than $T_{split}$ is finished,
 the split initiator can lock the hash range and then write SSTables with
 newly added or updated entries later than $T_{split}$.
-By doing so, the duration of locking splitting hash range can be futher reduced.
+By doing so, the duration of locking splitting hash range can be further reduced.
 However, due to the code complexity of this optimization,
 we left this optimization for future work.
 
@@ -205,10 +205,10 @@ this modification in our current prototype.
 While the file is open, some of its attributes (e.g., file size and last access time)
 may change relative to \tfs's per-open copy of the attributes.
 \giga servers monitor what large files are currently opened for access.
-For attribute quries to these open files, \giga will directly query the underlying
+For attribute quires to these open files, \giga will directly query the underlying
 cluster file system to get the most updated attributes.
 Later \giga will synchronize these changes on file close on the metadata path.
-Other attribute changes relatvie to permissions can be updated on-flight
+Other attribute changes relative to permissions can be updated on-flight
 through \giga servers.
 By doing so, \giga servers can achieve the same level of metadata consistency
 as provided by the underlying cluster file system.
@@ -219,7 +219,7 @@ In PanFS \cite{PanFS}, \textit{Volume} is the basic logical unit
 for administrators to manage the storage pool of PanFS.
 The volume is a directory hierarchy with quota limit, and appears
 as a directory below the single mount point of the whole storage system.
-Each volume is only managed by a single metadata magager, but
+Each volume is only managed by a single metadata manager, but
 the data of files created in the volume are spread over the entire storage pool.
 
 A typical PanFS storage cluster may have multiple shelves,
@@ -228,12 +228,13 @@ However, since a volume is assigned to a particular metadata manager,
 all the metadata accesses to any files/directories in a volume
 can only be served by that single metadata manager.
 
-To take advantage of multiple metadadta managers in PanFS,
+To take advantage of multiple metadata managers in PanFS,
 our middleware load balance the storage of SSTables and large files across volumes.
 Assume the case that we run the same number of GIGA+ server processes
 as the available metadata managers in PanFS.
 GIGA+ server processes can be run in the same machines that run PanFS metadata managers,
 or in other machines behaving like proxies.
-For each metadata manager, we create a volume and assign the volume to a unique GIGA+ server process.
+For each metadata manager, we create a volume and assign the volume
+to a unique GIGA+ server process.
 The GIGA+ server process then stores all the SSTables,
 and large files in its managed directory partitions to it assigned volume.

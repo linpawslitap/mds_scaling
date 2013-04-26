@@ -14,7 +14,7 @@ in the following sections.
 \begin{figure}[t]
 \includegraphics[scale=0.4]{figs/leveldb}
 \vspace{10pt}
-\caption{\textsf{\footnotesize
+\caption{\textit{\footnotesize
 LevelDB is an on-disk LSM-tree implementation that represents data in multiple 
 files (called SSTables) containing sorted key-value pairs.
 SSTables are grouped into different levels with lower-numbered levels
@@ -86,7 +86,7 @@ that points to the actual file object in the underlying cluster file system.
 \centering
 \includegraphics[scale=0.4]{figs/schema}
 \vspace{10pt}
-\caption{\textsf{\footnotesize
+\caption{\textit{\footnotesize
 An example illustrating a table schema for \tfs
 to store metadata and file data as key-value pairs.}}
 %\vspace{10pt}
@@ -127,7 +127,7 @@ with an average speed of 2,200 operations per second respectively,
 \begin{figure}[t]  %%%%%%%%%%%%%%%%%%%%%%%
 \centerline{\includegraphics[scale=0.5]{./figs/ldb_insertrate_onenode}}
 \vspace{10pt}
-\caption{\textsf{\footnotesize
+\caption{\textit{\footnotesize
 This graph (from prior work \cite{TableFS}) shows
 that the performance of single-node \tfs with FUSE is 10X faster than modern Linux
 filesystems. The workload is to create 100 million zero-length files in one directory.

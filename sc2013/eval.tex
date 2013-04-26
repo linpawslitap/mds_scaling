@@ -73,9 +73,10 @@ and then present the results of a strong scaling experiment on another platform.
 
 \subsection{Strong Scaling Experiment}
 Next, we evaluated the scalability of our distributed metadata middleware prototype.
-The scalability experiment was conducted in another 64-nodes cluster.
-Each node had a GIGA+ indexing server process that manages its own \tfs
-instance whose SSTables are stored on a local disk running Ext4 file system.
+The scalability experiment was conducted in another 64-nodes cluster
+without accessing PanFS.
+We emulate the case of scaling NFS by put \sys server process in each NFS node,
+which manages its own \tfs instance and store SSTables into a local disk.
 To emulate shared storage for split operations,
 we used a NFS-mounted directory accessible from all machines;
 this shared directory was only used for moving SStables of

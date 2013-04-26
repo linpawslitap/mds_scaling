@@ -75,8 +75,8 @@ Effectively integrating \tfs metadata store with the distributed indexing
 technique requires several optimizations including cross-server split operations
 with minimum data migration, and decoupling data and metadata paths.
 To demonstrate the feasibility of our approach,
-we implemented a prototype middleware layer and evaluated it
+we implemented a prototype middleware layer called \sys and evaluated it
 on an existing Panasas PanFS deployment \cite{PanFS} that has 5 shelves consisting of 50 nodes.
 Our results show promising scalability and performance:
-the middleware prototype was more than 10$\times$ faster than the original PanFS
+\sys layering on top of PanFS (\psys) was more than 10$\times$ faster than the original PanFS
 in metadata intensive workloads, and performs comparably in data-intensive workloads.

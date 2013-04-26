@@ -1,13 +1,14 @@
 \section{Experimental Evaluation}
 
 Using metadata-intensive and data-intensive benchmarks,
-we evaluate our middleware's overall performance
-and explore how its system design contribute to meeting its goals.
+we evaluate \sys's overall performance
+and explore how its system design contributes to meeting its goals.
 We specifically examine: (1) its improvement on the scalability and
 efficiency of metadata service for cluster file systems,
 especially in concurrent file creation workloads;
 (2) the data throughput in N-N checkpointing workloads
 when layering our middleware on top of PanFS.
+(3) the portability to other platforms.
 
 \textbf{Implementation}
 Our prototype is implemented in 14K lines of C using a modular design.
@@ -15,6 +16,8 @@ Our prototype is implemented in 14K lines of C using a modular design.
 that follow the API semantics. The current version implements most posix
 file system operations except \texttt{hardlink}, \texttt{rename},
 and operations for extended attributes.
+\texttt{hardlink} and \texttt{rename} involve distributed transactions
+which can be solved by similar techniques used for splitting.
 
 \textbf{Evaluation System }
 We evaluate the overall performance of our prototype on
@@ -44,7 +47,7 @@ CPU & AMD Opteron 6272 &  AMD Opteron 242 \\
 \hline
 Memory & 128GB DDR &  16GB DDR \\
 \hline
-Network &       &           \\
+Network & 40GE NIC &  1GE NIC  \\
 \hline
 Storage & PanFS & Western Digital \\
 System &      5 Shelves & Local hard disk  \\
@@ -65,17 +68,16 @@ System &      5 Shelves & Local hard disk  \\
 
 In the following sections, we will first show the evaluation
 on the end-to-end performance of the integrated system on top of PanFS,
-and then present the results of a strong scaling experiment on another platform. 
+and then present the results of a strong scaling experiment on another platform.
 
 \subsection{Full System Benchmark}
 \label{sec:fullsystem}
 \input{full}
 
-\subsection{Strong Scaling Experiment}
-Next, we evaluated the scalability of our distributed metadata middleware prototype.
-The scalability experiment was conducted in another 64-nodes cluster
-without accessing PanFS.
-We emulate the case of scaling NFS by put \sys server process in each NFS node,
+\subsection{Scaling Experiment on Another Platform}
+Next, we evaluated the scalability of \sys on another cluster
+consisting of 64 nodes and without access to PanFS.
+We emulate the case of scaling NFS by put GIGA+ server process in each NFS node,
 which manages its own \tfs instance and store SSTables into a local disk.
 To emulate shared storage for split operations,
 we used a NFS-mounted directory accessible from all machines;
@@ -117,6 +119,8 @@ relative to the disk speed and splitting overhead.
 This estimation projects that when inserting 64 billion files with 64 servers,
 the system may deliver an average of 1,000 operations per second per server,
 i.e. 64,000 operations per second in aggregate.
+This still exceeds today supercomputer's most rigorous scalability demands for
+40,000 file creates per second in a single directory \cite{hpcs-io:2008}.
 
 \begin{figure*}[t]
 \centerline{\includegraphics[scale=0.65]{./figs/ldb_insertrate}}

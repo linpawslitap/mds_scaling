@@ -4,12 +4,13 @@
 \centerline{\includegraphics[scale=0.4]{./figs/giga-impl-leveldb-clusterfs}}
 \vspace{10pt}
 \caption{\textit{
-Our approach for a scalable metadata service integrates two components: a highly
+Our scalable metadata service \sys integrates two components: a highly
 parallel and load-balanced indexing technique \cite{GIGA11}
 to partition metadata over multiple servers,
 and an optimized metadata on-disk representation \cite{TableFS} on each server.
 This integrated solution is layered on top of existing cluster
-file system deployments to improve metadata and small file operation efficiency.
+file system deployments (e.g. PanFS) to improve metadata
+and small file operation efficiency.
 }}
 \vspace{10pt}
 \hrule
@@ -238,3 +239,6 @@ For each metadata manager, we create a volume and assign the volume
 to a unique GIGA+ server process.
 The GIGA+ server process then stores all the SSTables,
 and large files in its managed directory partitions to it assigned volume.
+
+\textbf{Fault Tolerance Design -- }
+

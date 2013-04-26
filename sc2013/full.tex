@@ -4,15 +4,17 @@ with 5 metadata nodes and 50 storage nodes.
 Since each test node has 64 cores and a 40GE NIC, they are able to
 to saturate the data bandwidth of our PanFS storage cluster.
 Because of some technique difficulties,
-we did not run our GIGA+ server processes inside the metadata node.
-Instead, we co-locate our GIGA+ server processes
+we did not run our \sys server process inside the metadata node.
+Instead, we co-locate our \sys server processes
 with client processes in the test nodes.
-Each test node runs a GIGA+ server that is assigned to a metadata node
+Each test node runs a \sys server that is assigned to a metadata node
 as explained in Section \ref{design.integration}.
+The system of layering \sys on top of PanFS is called \psys through
+this evaluation section.
 We ran a series of HPC benchmarks (used by parallel file system vendors and users)
 to test metadata path and data path separately,
 including the open source \textit{mdtest} synthetic benchmark \cite{mdtest}
-and File System Test Suite checkpoint benchmark from LANL \cite{mpiio}
+and File System Test Suite checkpoint benchmark from LANL \cite{mpiio}.
 
 \textbf{Metadata Intensive Workloads -- }
 We used the synthetic mdtest benchmark \cite{mdtest}
@@ -25,7 +27,7 @@ Each phase involves multiple clients to issue the operations concurrently.
 
 If we directly use the above workload to directly compare our layered system
 against the original PanFS, it would not be fair enough.
-This is because a single directory can only use the hardware resource
+This is because a single directory can only utilize the hardware resource
 of one metadata manager in PanFS,
 and PanFS also limits a single directory to 1 million files.
 Therefore we chose to compare native PanFS creating 1 million files
@@ -39,7 +41,7 @@ are kept the same.
 \caption{\normalsize
 \textit{Average throughput during creating five million zero-length files
 in one empty directory with different number of clients per test node.
-Running 32 and more clients per test node is able to saturate \sys
+Running 32 and more clients per test node is able to saturate \psys
 and original PanFS}
 }
 \vspace{10pt}
@@ -71,16 +73,16 @@ to find the right number that can saturate both systems.
 Both systems achieve the highest aggregated throughput when the number
 of clients per node is 32 or more. In all the experiments shown later,
 we present the results with 32 clients per test node if without explanation.
-For all cases, \sys  is approximately 3.5 times faster than the native PanFS
+For all cases, \psys is approximately 3.5 times faster than the native PanFS
 using 5 volumes. The aggregated throughput with 32 clients per server
 achieves about 24,571 creation per second.
 
 Figure \ref{graph:mdtest_ops} shows the aggregated througphut of
 different operations during three phases in mdtest.
-Besides \sys and PanFS using 5 volumes, it also shows
+Besides \psys and PanFS using 5 volumes, it also shows
 the aggregated throughput of creating 1 million files in one volume of PanFS.
 For $lookup$ and $deletion$ workloads,
-\sys gains more advantages over original PanFS,
+\psys gains more advantages over original PanFS,
 and achieves about 10 to 15 times speed up.
 Fast lookup is due to the memory indexing and Bloom filters in \ldb.
 For deletion of a key, \ldb essentially just inserts the key and a deletion mark
@@ -101,8 +103,8 @@ are stored in \tfs instance.
 %compaction and CPU usage
 Figure \ref{graph:smallfiles} shows the aggregated throughput during the test,
 which is aggregated from all clients. For 4KB file size,
-\sys is about $2.5\times$ faster than original PanFS.
-However, \sys is about $35\%$ slower than PanFS for 16KB file size.
+\psys is about $2.5\times$ faster than original PanFS.
+However, \psys is about $35\%$ slower than PanFS for 16KB file size.
 We found that embedding 16KB file makes the key-value pair significanly larger,
 and causes higher write amplification during compaction process in \ldb,
 since \ldb tries to merge sort both file data and metadata.
@@ -112,7 +114,7 @@ With larger key-value pairs, LevelDB's per-operation efficiency is
 slowed down by the cost of extra copies of large values.
 This suggests that the threshold $T$ for embedding file size should not be
 greater than 16 KB. For larger embedding file size,
-we might sacrafice the read performance to maitain its fast insertion rate
+we might sacrafice the read performance to maintain its fast insertion rate
 by using column-based approach which stores metadata and small file separately.
 Such investigation is left for future works.
 
@@ -162,15 +164,15 @@ from 8 to 64 clients. The clients in each node will generate
 640GB checkpoint data in total to the underlying file system,
 no mater what number of clients each node has.
 The size of data buffer for each file system call is set to be 16KB.
-For \sys, the checkpoint files generated in the test will be
-first stored in \tfs, and the migrated to the underlying PanFS.
+For \psys, the checkpoint files generated in the test will be
+first stored in \tfs, and then migrated to the underlying PanFS.
 
 Figure \ref{graph:checkpoint_write} and \ref{graph:checkpoint_read}
 show the average throughput during the write phase and read phase
-in the N-N checkpoint workload respectively. We can see \sys
+in the N-N checkpoint workload respectively. We can see \psys
 performs comparably with the native PanFS.
 For read checkpoint worload, the largest performance loss is less than $10\%$.
-And \sys is even faster in write checkpoint phase.
+And \psys is even faster in write checkpoint phase.
 The embedding of small files do not affect the data transferring
 of large files.
 

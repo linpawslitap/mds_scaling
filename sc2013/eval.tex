@@ -1,16 +1,16 @@
 \section{Experimental Evaluation}
 
-Using metadata-intesnvie and data-intensive benchmarks,
+Using metadata-intensive and data-intensive benchmarks,
 we evaluate our middleware's overall performance
 and explore how its system design contribute to meeting its goals.
-We specifically examine: (1) its improvement on the scability and
+We specifically examine: (1) its improvement on the scalability and
 efficiency of metadata service for cluster file systems,
-esepcially in concurrent file creation workloads;
+especially in concurrent file creation workloads;
 (2) the data throughput in N-N checkpointing workloads
 when layering our middleware on top of PanFS.
 
 \textbf{Implementation}
-Our middlware prototype is implemented in 14K lines of C using a modular desgin.
+Our prototype is implemented in 14K lines of C using a modular design.
 \tfs, \ldb and PanFS are modular plugins that can be replaced by other backends
 that follow the API semantics. The current version implements most posix
 file system operations except \texttt{hardlink}, \texttt{rename},
@@ -55,42 +55,12 @@ System & Local hard disk &      5 Shelves \\
 \end{center}
 
 In the following sections, we first evaluate each individual component
-of our middlware, and finally evaluate end-to-end performance of
+of our middleware, and finally evaluate end-to-end performance of
 the integrated system on top of PanFS.
 
-\subsection{Single Node Performance}
-We first evaluated the performance of a single-node \ldb-based metadata store
-by running a test that creates 100 million zero-length files in a single
-directory.
-%To see the scalability of \ldb-based metadata store for supporting large directories,
-%we run a test that creates 100 million zero-length files in a single directory,
-Figure \ref{graph:ldb-singlenode} compares the instantaneous throughput of \ldb-based metadata 
-store with three Linux file systems: Ext4 \cite{Ext4}, XFS \cite{XFS}, and
-BTRFS \cite{BTRFS}.
-%Figure \ref{graph:ldb-singlenode} shows a throughput timeline during the test. 
-All systems perform well at the beginning of the test, but the file create
-throughput drops gradually for all systems. 
-BTRFS suffers the most serious throughput drop, slowing down to 100 operations 
-per second. 
-The \ldb-based store, however, maintains a more steady performance 
-with an average speed of 2,200 operations per second respectively,
-\textit{and is 10X faster than all other tested file systems.}
-
-\begin{figure}[t]  %%%%%%%%%%%%%%%%%%%%%%%
-\centerline{\includegraphics[scale=0.5]{./figs/ldb_insertrate_onenode}}
-\vspace{10pt}
-\caption{\normalsize
-\textit{Single-node \tfs with FUSE is 10X faster than modern Linux
-filesystems for a workload that creates 100 million zero-length files.
-X-axis only shows the time until LevelDB finished all insertions because the other 
-file systems were much slower. Y-axis has a logarithmic scale.}
-}
-\vspace{10pt}
-\hrule 
-\label{graph:ldb-singlenode}
-\end{figure}       %%%%%%%%%%%%%%%%%%%%%%%
-
-
+\subsection{Full System Benchmark}
+\label{sec:fullsystem}
+\input{full}
 
 \subsection{Scalability Test on GIGA+TableFS}
 Next, we evaluated the scalability of our distributed metadata middleware prototype.
@@ -160,7 +130,4 @@ curves to smooth the variability.}
 \label{graph:ldb-scaling}
 \end{figure*}
 
-\subsection{Full System Benchmark}
-\label{sec:fullsystem}
-\input{full}
 

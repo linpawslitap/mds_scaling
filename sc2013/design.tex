@@ -20,14 +20,15 @@ and small file operation efficiency.
 Figure \ref{fig:design} presents the overall architecture of our scalable
 metadata service. Our metadata service is a middleware inserted into
 existing deployments of cluster file systems to improve metadata efficiency
-while maintaining high I/O bandwidth for data transferring.
+while maintaining high I/O bandwidth for data transfers.
 The system uses a client-server architecture,
 and consists of three core components:
 
 \begin{itemize}
 \item{\textbf{Client:}} Applications interact with our middleware
-using posix-similar library interface, or the VFS interface exposed
-through the FUSE user-level file system \cite{fuse}.
+through FUSE user-level file system \cite{fuse},
+through a library linked into the application
+or through a module in a common library such as MPI-IO.
 The stateless client-side code redirects applications' file operations
 to appropriate destinations according to the types of operations.
 All metadata requests (e.g. \texttt{create()} and \texttt{mkdir()}),
@@ -141,7 +142,7 @@ The split receiver inserts each key in the batch into its own \tfs instance.
 While simplicity of this solution makes it attractive,
 it is slow in practice and vulnerable to failures during splitting.
 We have to devise a faster and safer technique to
-reduce the time that the splitting range is in lock.
+reduce the time that the splitting range is locked.
 
 The immutability of SSTables in \ldb makes such a fast bulk insert possible --
 an SSTable can be added to Level 0 without its data being pushed through the
@@ -183,7 +184,8 @@ we left this optimization for future work.
 \textbf{Decoupled data and metadata path -- }
 All metadata and small file operations go through the \giga server;
 however, following the same path for data operations on large files
-would incur an unnecessary performance penalty of shipping data over the network on extra time.
+would incur an unnecessary performance penalty of shipping data
+over the network an extra time.
 This penalty can be significant in HPC use-cases
 where large files can easily be gigabytes to terabytes in size.
 
@@ -209,7 +211,7 @@ may change relative to \tfs's per-open copy of the attributes.
 For attribute quires to these open files, \giga will directly query the underlying
 cluster file system to get the most updated attributes.
 Later \giga will synchronize these changes on file close on the metadata path.
-Other attribute changes relative to permissions can be updated on-flight
+Other attribute changes relative to permissions can be updated in-flight
 through \giga servers.
 By doing so, \giga servers can achieve the same level of metadata consistency
 as provided by the underlying cluster file system.
@@ -231,14 +233,22 @@ can only be served by that single metadata manager.
 
 To take advantage of multiple metadata managers in PanFS,
 our middleware load balance the storage of SSTables and large files across volumes.
-Assume the case that we run the same number of GIGA+ server processes
+Assume the case that we run the same number of \sys server processes
 as the available metadata managers in PanFS.
-GIGA+ server processes can be run in the same machines that run PanFS metadata managers,
+\sys server processes can be run in the same machines that run PanFS metadata managers,
 or in other machines behaving like proxies.
 For each metadata manager, we create a volume and assign the volume
-to a unique GIGA+ server process.
-The GIGA+ server process then stores all the SSTables,
+to a unique \sys server process.
+The \sys server process then stores all the SSTables,
 and large files in its managed directory partitions to it assigned volume.
 
-\textbf{Fault Tolerance Design -- }
+\textbf{Handling Failures -- }
+The middleware design and using library-version client not impose
+any major challenges on handling failures for \sys.
+
+%Server fault tolerant
+
+
+%Client fault tolerant
+
 

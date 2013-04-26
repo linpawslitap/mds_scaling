@@ -1,13 +1,13 @@
 Our metadata storage backend implements a modified version of \tfs
 to manage all the metadata and small files on disk.
 \tfs \cite{TableFS} is a stacked file system which uses another file system
-as an object store, and organize all metadata and small files in to a single
+as an object store, and organizes all metadata and small files in to a single
 on-disk table using a Log-Structured Merge (LSM) tree \cite{ONeil1996}.
-The reason of using LSM tree is that it buffers new and changed entries in
+The reason for using LSM tree is that it buffers new and changed entries in
 memory and translate small random disk writes into large sequential writes.
 Therefore LSM tree can reduce random disk seeks effectively, and is a natural
 fit for metadata intensive workloads. We decribe the structure of LSM tree
-and how LSM tree is used in \tfs to store metadata in greater details
+and how LSM tree is used in \tfs to store metadata in greater detail
 in the following sections.
 
 %\begin{figure}[!ht]
@@ -41,7 +41,7 @@ in a format called an SSTable \cite{BigTable}.  These entries may then be
 discarded by the in memory buffer and can be reloaded by searching each SSTable
 on disk, possibly stopping when the first match occurs if the SSTables are
 searched most recent to oldest.  The number of SSTables that need to be
-searched can be reduced by maintaining a Bloom filter\cite{bloomfilter} on each,
+searched is reduced by maintaining a Bloom filter\cite{bloomfilter} on each,
 but, with time, the cost of finding a record not in memory still increases.
 Major compaction, or simply ``compaction",
 is the process of combining multiple SSTables
@@ -58,7 +58,7 @@ In levels excepth the 0-th level, LevelDB maintains the following invariant:
 the key range spanning each SSTable is disjoint from
 the key range of all other SSTables at that level.
 So querying for an entry in the higher levels
-only needs read at most one SSTable in each level.
+only needs to read at most one SSTable in each level.
 LevelDB also sizes each of the higher levels differentially:
 all SSTables have the same maximum size and
 the sum of the sizes of all SSTables at level $L$ will not exceed $10^L$ MB.

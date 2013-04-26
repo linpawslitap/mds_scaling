@@ -19,7 +19,7 @@ and operations for extended attributes.
 \texttt{hardlink} and \texttt{rename} involve distributed transactions
 which can be solved by similar techniques used for splitting.
 
-\textbf{Evaluation System }
+\textbf{Evaluation System}
 We evaluate the overall performance of our prototype on
 a 5-shelves PanFS cluster with five 64-core test nodes. The detailed hardware
 and software configuration is shown in Table \ref{tab:setting}.
@@ -83,6 +83,8 @@ To emulate shared storage for split operations,
 we used a NFS-mounted directory accessible from all machines;
 this shared directory was only used for moving SStables of
 splitting directory partitions across servers.
+%The distributed logging is not available in this experiment setting,
+%but which does not limit testing the scalability of our system.
 
 The workload we used is a \textit{strong scaling} experiment, i.e.
 creating 1 million files per server, for a total of 64 million files in the

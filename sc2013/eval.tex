@@ -77,6 +77,24 @@ and then present the results of a strong scaling experiment on another platform.
 \input{full}
 
 \subsection{Scaling Experiment on Another Platform}
+
+\begin{figure*}[t]
+\centerline{\includegraphics[scale=0.55]{./figs/ldb_insertrate}}
+\vspace{10pt}
+\caption{\textsf{\footnotesize 
+Our middleware metadata service prototype shows promising scalability
+up to 64 servers.
+Note that at the end of the experiment,
+the throughput drops to zero
+because clients stop creating files as they finish 1 million files per client.
+(Solid lines are Bezier curves to smooth the variability.)
+}
+}
+%\vspace{10pt}
+\hrule
+\label{graph:ldb-scaling}
+\end{figure*}
+
 Next, we evaluated the scalability of \sys on another cluster
 consisting of 64 nodes and without access to PanFS.
 We emulate the case of scaling NFS by put GIGA+ server process in each NFS node,
@@ -103,6 +121,8 @@ has been spread among all servers.
 Reaching steady-state, the throughput quickly grows
 due to the splitting policies adopted by \giga.
 
+
+
 After reaching the steady state, throughput slowly drops
 as \tfs builds a larger metadata store.
 In fact, in large setups with 8 or more servers,
@@ -125,22 +145,4 @@ the system may deliver an average of 1,000 operations per second per server,
 i.e. 64,000 operations per second in aggregate.
 This still exceeds today supercomputer's most rigorous scalability demands for
 40,000 file creates per second in a single directory \cite{hpcs-io:2008}.
-
-\begin{figure}[t]
-\centerline{\includegraphics[scale=0.33]{./figs/ldb_insertrate}}
-\vspace{10pt}
-\caption{\textsf{\footnotesize 
-Our middleware metadata service prototype shows promising scalability
-up to 64 servers.
-Note that at the end of the experiment,
-the throughput drops to zero
-because clients stop creating files as they finish 1 million files per client.
-(Solid lines are Bezier curves to smooth the variability.)
-}
-}
-%\vspace{10pt}
-\hrule
-\label{graph:ldb-scaling}
-\end{figure}
-
 

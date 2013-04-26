@@ -14,17 +14,17 @@ in the following sections.
 \begin{figure}[t]
 \includegraphics[scale=0.4]{figs/leveldb}
 \vspace{10pt}
-\caption{\textit{
-LevelDB is an implementation of LSM tree which represents data on disk
-in multiple SSTables that store sorted key-value pairs.
+\caption{\textsf{\footnotesize
+LevelDB is an on-disk LSM-tree implementation that represents data in multiple 
+files (called SSTables) containing sorted key-value pairs.
 SSTables are grouped into different levels with lower-numbered levels
 containing more recently inserted key-value pairs.
-Finding a specific pair on disk may search up to all SSTables in level 0
+Finding a specific pair on disk may search up to all SSTables in level-0
 and at most one in each higher-numbered level.
 Compaction is the process of combining SSTables
 by merge sort and moving combined SSTables into higher-numbered levels.
 }}
-\vspace{10pt}
+%\vspace{10pt}
 \hrule
 \label{fig:leveldb}
 \end{figure}
@@ -86,10 +86,10 @@ that points to the actual file object in the underlying cluster file system.
 \centering
 \includegraphics[scale=0.4]{figs/schema}
 \vspace{10pt}
-\caption{\textit{
+\caption{\textsf{\footnotesize
 An example illustrating a table schema for \tfs
 to store metadata and file data as key-value pairs.}}
-\vspace{10pt}
+%\vspace{10pt}
 \hrule
 \label{fig:schema}
 \end{figure}
@@ -127,14 +127,14 @@ with an average speed of 2,200 operations per second respectively,
 \begin{figure}[t]  %%%%%%%%%%%%%%%%%%%%%%%
 \centerline{\includegraphics[scale=0.5]{./figs/ldb_insertrate_onenode}}
 \vspace{10pt}
-\caption{\normalsize
-\textit{This figure taken from \cite{TableFS} shows
+\caption{\textsf{\footnotesize
+This graph (from prior work \cite{TableFS}) shows
 that the performance of single-node \tfs with FUSE is 10X faster than modern Linux
 filesystems. The workload is to create 100 million zero-length files in one directory.
 X-axis only shows the time until \tfs finished all insertions because the other
 file systems were much slower. Y-axis has a logarithmic scale.}
 }
-\vspace{10pt}
+%\vspace{10pt}
 \hrule 
 \label{graph:ldb-singlenode}
 \end{figure}       %%%%%%%%%%%%%%%%%%%%%%%

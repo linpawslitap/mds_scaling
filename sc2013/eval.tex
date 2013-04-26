@@ -32,6 +32,7 @@ In all tests, the client uses library version code;
 the threshold for splitting a partition is always 8,000 entries;
 and \tfs managed by GIGA+ server syncs its data every 5 seconds.
 
+\begin{footnotesize}
 \begin{table}
 \begin{tabular}{lcc}
 \toprule
@@ -61,10 +62,11 @@ System &      5 Shelves & Local hard disk  \\
 \bottomrule \\
 \end{tabular}
 \caption{
-\textit{The settings of two clusters for evaluation.}
+\textsf{\footnotesize Settings of two clusters used for evaluation.}
 }
 \label{tab:setting}
 \end{table}
+\end{footnotesize}
 
 In the following sections, we will first show the evaluation
 on the end-to-end performance of the integrated system on top of PanFS,
@@ -122,21 +124,21 @@ i.e. 64,000 operations per second in aggregate.
 This still exceeds today supercomputer's most rigorous scalability demands for
 40,000 file creates per second in a single directory \cite{hpcs-io:2008}.
 
-\begin{figure*}[t]
-\centerline{\includegraphics[scale=0.65]{./figs/ldb_insertrate}}
+\begin{figure}[t]
+\centerline{\includegraphics[scale=0.33]{./figs/ldb_insertrate}}
 \vspace{10pt}
-\caption{\normalsize
-\textit{Our middleware metadata service prototype shows promising scalability
+\caption{\textsf{\footnotesize 
+Our middleware metadata service prototype shows promising scalability
 up to 64 servers.
 Note that at the end of the experiment,
 the throughput drops to zero
 because clients stop creating files as they finish 1 million files per client.
-And the solid lines in each configuration are Bezier
-curves to smooth the variability.}
+(Solid lines are Bezier curves to smooth the variability.)
 }
-\vspace{10pt}
+}
+%\vspace{10pt}
 \hrule
 \label{graph:ldb-scaling}
-\end{figure*}
+\end{figure}
 
 

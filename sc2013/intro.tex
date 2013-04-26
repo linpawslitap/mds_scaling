@@ -10,7 +10,7 @@ i.e. providing high bandwidth parallel I/O to files that are gigabytes in size.
 This inherent metadata scalability handicap limits numerous massively parallel
 applications that produce workloads
 requiring concurrent and high-performance metadata operations.
-One such example, checkpointing, requires the metadata service to
+One such example, file-per-process checkpointing, requires the metadata service to
 handle large number of file creates and updates at very high speeds \cite{PLFS}.
 Another example, storage management, produces read-intensive metadata workload
 that typically scans the metadata of the entire file system to perform

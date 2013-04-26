@@ -242,13 +242,34 @@ to a unique \sys server process.
 The \sys server process then stores all the SSTables,
 and large files in its managed directory partitions to it assigned volume.
 
-\textbf{Handling Failures -- }
-The middleware design and using library-version client not impose
-any major challenges on handling failures for \sys.
+\textbf{Fault tolerance -- }
+The middleware design and techniques used for scaling the performance
+of \sys does not impose any new major challenges on handling failures.
+The primary functions required for fault tolerance include
+replication of the \sys server's write-ahead logging for file system
+state changes, detection of server failure, switching of backup servers,
+and replaying of the replicated write-ahead log.
+The replication of the write-ahead log may be not even necessary
+if \sys is layered on a full-featured file system such as PanFS,
+and the log can be replicated by the underlying file system.
 
-%Server fault tolerant
+For directory partition splitting and other operations requiring
+distributed transactions (e.g.\texttt{ hardlink} and \texttt{rename}),
+they can be implemented as a three-phase operation with protection
+from write-ahead logging and garbaging collection of interrupted states.
+\ldb also implements write-ahead logging and atomic batching operation
+which can be used as primitives for fault tolerance in \tfs level.
 
 
-%Client fault tolerant
-
-
+The library version of client does not bring any new failure properties, either.
+Directory-specific client state recovery is naturally supported by GIGA+
+protocal, which only requires re-fetching the current server list and
+rebuilding directory indexing by contacting speicfic servers.
+For most operations except \texttt{open} and \texttt{close},
+\sys server does not need to keep states for the clients.
+Revoking the \texttt{open} handler for a large file can be achieved by
+maintaining lease in the server side,
+or by polling states from the underlying file system that
+supports such functionality (e.g. PanFS).
+The migration of small files from \tfs to the underlying file system is
+handled by the \sys server, and is protected by the write-ahead logging.

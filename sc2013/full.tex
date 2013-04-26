@@ -16,7 +16,7 @@ to test metadata path and data path separately,
 including the open source \textit{mdtest} synthetic benchmark \cite{mdtest}
 and File System Test Suite checkpoint benchmark from LANL \cite{mpiio}.
 
-\textbf{Metadata Intensive Workloads -- }
+\textbf{Metadata intensive workloads -- }
 We used the synthetic mdtest benchmark \cite{mdtest}
 to generate a three-phase workload:
 The first phase is to create 5 million
@@ -89,7 +89,7 @@ For deletion of a key, \ldb essentially just inserts the key and a deletion mark
 into its memtable, and delays the actual deletion in later compaction processes.
 
 
-\textbf{Small File Workloads -- }
+\textbf{Small file workloads -- }
 We also use mdtest benchmark to generate files with small size data to evaluate
 the effectiveness of embedding file content with the metadata inside \tfs.
 Similar to the previous test,
@@ -134,7 +134,7 @@ with different sizes in one shared directory}
 %Library version not FUSE
 %Clean cache
 
-\textbf{Data Intensive Workloads -- }
+\textbf{Data intensive workloads -- }
 The LANL filesystem checkpoint benchmark can
 generate many types for HPC checkpoint I/O patterns.
 For our test purposes, we configured the benchmark to generate

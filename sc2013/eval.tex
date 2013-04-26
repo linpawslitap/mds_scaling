@@ -9,7 +9,7 @@ esepcially in concurrent file creation workloads;
 (2) the data throughput in N-N checkpointing workloads
 when layering our middleware on top of PanFS.
 
-\textbf{Implementation }
+\textbf{Implementation}
 Our middlware prototype is implemented in 14K lines of C using a modular desgin.
 \tfs, \ldb and PanFS are modular plugins that can be replaced by other backends
 that follow the API semantics. The current version implements most posix
@@ -59,46 +59,92 @@ of our middlware, and finally evaluate end-to-end performance of
 the integrated system on top of PanFS.
 
 \subsection{Single Node Performance}
+We first evaluated the performance of a single-node \ldb-based metadata store
+by running a test that creates 100 million zero-length files in a single
+directory.
+%To see the scalability of \ldb-based metadata store for supporting large directories,
+%we run a test that creates 100 million zero-length files in a single directory,
+Figure \ref{graph:ldb-singlenode} compares the instantaneous throughput of \ldb-based metadata 
+store with three Linux file systems: Ext4 \cite{Ext4}, XFS \cite{XFS}, and
+BTRFS \cite{BTRFS}.
+%Figure \ref{graph:ldb-singlenode} shows a throughput timeline during the test. 
+All systems perform well at the beginning of the test, but the file create
+throughput drops gradually for all systems. 
+BTRFS suffers the most serious throughput drop, slowing down to 100 operations 
+per second. 
+The \ldb-based store, however, maintains a more steady performance 
+with an average speed of 2,200 operations per second respectively,
+\textit{and is 10X faster than all other tested file systems.}
+
+\begin{figure}[t]  %%%%%%%%%%%%%%%%%%%%%%%
+\centerline{\includegraphics[scale=0.5]{./figs/ldb_insertrate_onenode}}
+\vspace{10pt}
+\caption{\normalsize
+\textit{Single-node \tfs with FUSE is 10X faster than modern Linux
+filesystems for a workload that creates 100 million zero-length files.
+X-axis only shows the time until LevelDB finished all insertions because the other 
+file systems were much slower. Y-axis has a logarithmic scale.}
+}
+\vspace{10pt}
+\hrule 
+\label{graph:ldb-singlenode}
+\end{figure}       %%%%%%%%%%%%%%%%%%%%%%%
+
+
 
 \subsection{Scalability Test on GIGA+TableFS}
-Next, we evaluated the scalability of our distributed metadata middleware
-prototype.
-Figure \ref{graph:ldb-scaling} shows the instantaneous throughput during the
-\textit{concurrent create} workload in a strong scaling experiment, i.e.
-creating 1 million files per server, for a total of 64 million files in the
-64-server configuration.
-The main result in this figure is that as the number of servers doubles the
-throughput of the system also scales up. With 64 servers, \giga{} can achieve a
-peak throughput of about 190,000 file creates per second. The prototype delivers
-peak performance after the directory workload has been spread among all
-servers.
-Reaching steady-state, the throughput quickly grows due to the splitting
-policies adopted by \giga{}.
+Next, we evaluated the scalability of our distributed metadata middleware prototype.
+The scalability experiment was also conducted in the first cluster.
+Each node had a GIGA+ indexing server process that manages its own \tfs
+instance whose SSTables are stored on a local disk running Ext4 file system.
+To emulate shared storage for split operations,
+we used a NFS-mounted directory accessible from all machines;
+this shared directory was only used for moving SStables of
+splitting directory partitions across servers.
+The threshold for splitting a partition is always 8,000 entries.
 
-After reaching the steady state, throughput slowly drops as \ldb builds a
-larger metadata store.
-%Another observation in Figure \ref{graph:ldb-scaling} is that the system is
-%unable to sustain the steady-state peak throughput (similar to our observation
-%in the single-node test in Figure \ref{graph:ldb-singlenode}):
+We used the synthetic mdtest benchmark \cite{mdtest}
+(used by parallel file system vendors and users) to insert
+zero-byte files in to a single shared directory \cite{ceph:weil06, GIGA11}.
+This workload is a \textit{strong scaling}
+workload in a strong scaling experiment, i.e.
+creating 1 million files per server, for a total of 64 million files in the
+64-server configuration. We varies the number of servers from 1 to 64
+to see how the performance of the integration scale with more machine power.
+
+Figure \ref{graph:ldb-scaling} shows the instantaneous throughput
+during the concurrent create workload.
+The main result in this figure is that as the number of servers doubles the
+throughput of the system also scales up. With 64 servers, \giga can achieve a
+peak throughput of about 190,000 file creates per second.
+The prototype delivers peak performance after the directory workload
+has been spread among all servers.
+Reaching steady-state, the throughput quickly grows
+due to the splitting policies adopted by \giga.
+
+After reaching the steady state, throughput slowly drops
+as \tfs builds a larger metadata store.
 In fact, in large setups with 8 or more servers,
 the peak throughput drops by as much as 25\% (in case of the 64-server setup).
-This is because when there are more entries already existing in \ldb,
-it requires more compaction work to maintain \ldb invariants and to perform a
-negative lookup before each create has to search more SSTables on disk.
+This is because when there are more entries already existing in \tfs,
+it requires more compaction work to maintain invariants inside \ldb
+and to perform a negative lookup before each create
+has to search more SSTables on disk.
 In theory, the work of inserting a new entry to a LSM-tree is $O(\log_{B}(n))$
 where $n$ is the total number of inserted entries, and $B$ is a constant factor
 proportional to the average number of entries transferred in each disk request
 \cite{Bender2007}.
 Thus we can use the formula $\frac{a\cdot S+b}{\log{T}}$ to
 approximate the throughput timeline in Figure \ref{graph:ldb-scaling},
-where $S$ is the number of servers, $T$ is the running time, and $a$ as well as $b$
-are constant factors relative to the disk speed and splitting overhead.
+where $S$ is the number of servers, $T$ is the running time,
+and $a$ as well as $b$ are constant factors
+relative to the disk speed and splitting overhead.
 This estimation projects that when inserting 64 billion files with 64 servers,
 the system may deliver an average of 1,000 operations per second per server,
 i.e. 64,000 operations per second in aggregate.
 
-\begin{figure*}[t]  %%%%%%%%%%%%%%%%%%%%%%%
-\centerline{\includegraphics[scale=0.6]{./figs/ldb_insertrate}}
+\begin{figure*}[t]
+\centerline{\includegraphics[scale=0.65]{./figs/ldb_insertrate}}
 \vspace{10pt}
 \caption{\normalsize
 \textit{Our middleware metadata service prototype shows promising scalability
@@ -112,9 +158,7 @@ curves to smooth the variability.}
 \vspace{10pt}
 \hrule
 \label{graph:ldb-scaling}
-\end{figure*}       %%%%%%%%%%%%%%%%%%%%%%%
-
-
+\end{figure*}
 
 \subsection{Full System Benchmark}
 \label{sec:fullsystem}

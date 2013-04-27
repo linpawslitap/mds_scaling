@@ -46,6 +46,12 @@ by caching directory blocks on all readers \cite{GIGA11}.
 The second aspect of this paper is the use of a optimized single-node metadata
 representation that enables high throughput (metadata operations per second).
 Several recent efforts have focused on using advanced data-structures, such
-as modified LSM-trees, stratified B-trees and fractal trees, to speed up number
-of IOs per second \cite{blsm, tokufs, Andrew11}. 
+as modified LSM-trees \cite{blsm}, stratified B-trees \cite{Andrew11},
+fractal trees \cite{tokufs}, VT-tree \cite{VTtree}
+to speed up number of IOs per second for hard drives or solid state devices
+by improving compaction process, or even provide new functionality
+such as data versioning. \tfs may benefit from all of these improvements.
+However, some of these changes require reorganize on-disk data structures
+which may prevent its integration with \giga. Future work needs to be
+done to incorporate all these improvements.
 

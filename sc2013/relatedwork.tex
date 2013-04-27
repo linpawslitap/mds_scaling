@@ -43,15 +43,16 @@ this may result is much lower file create performance (when files are created
 in a single directory) but GPFS delivers very high directory read performance 
 by caching directory blocks on all readers \cite{GIGA11}.
 
-The second aspect of this paper is the use of a optimized single-node metadata
-representation that enables high throughput (metadata operations per second).
+Another novel aspect of this paper is the use of optimized single-node metadata
+representation to faster metadata performance.
 Several recent efforts have focused on using advanced data-structures, such
 as modified LSM-trees \cite{blsm}, stratified B-trees \cite{Andrew11},
-fractal trees \cite{tokufs}, VT-tree \cite{VTtree}
-to speed up number of IOs per second for hard drives or solid state devices
-by improving compaction process, or even provide new functionality
-such as data versioning. \tfs may benefit from all of these improvements.
-However, some of these changes require reorganize on-disk data structures
-which may prevent its integration with \giga. Future work needs to be
-done to incorporate all these improvements.
+fractal trees \cite{tokufs}, and VT-trees \cite{VTtree}.
+These approaches speed up the number of IOs per second for hard drives or solid 
+state devices by improving compaction process or by using new functionality
+such as data versioning. Although \tfs may benefit from all of these 
+improvements, \giga integration in some cases may result in a complex
+implementation and deployment.
+Understanding the interaction between these single-node \tfs optimizations and 
+cross-server operations will be explored in future work. 
 

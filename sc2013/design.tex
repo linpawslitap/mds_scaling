@@ -7,7 +7,7 @@
 Our scalable metadata service integrates two components: GIGA+ \cite{GIGA11},
 a highly parallel and load-balanced indexing technique 
 to partition metadata over multiple servers, and TableFS \cite{TableFS},
-an optimized on-disk metadata representation on each server.
+an log-structured (LevelDB) on-disk metadata representation on each server.
 This integrated solution is layered on top of an existing cluster
 file system deployment (PanFS) to improve metadata
 and small file operation efficiency.
@@ -26,43 +26,40 @@ and consists of three core components:
 
 \begin{itemize}
 \item{\textbf{Client:}} Applications interact with our middleware
-through FUSE user-level file system \cite{fuse},
-through a library linked into the application
-or through a module in a common library such as MPI-IO.
+through the FUSE user-level file system \cite{fuse},
+through a library directly linked into the application
+or through a module in a common library such as MPI-IO \cite{mpi}.
 The stateless client-side code redirects applications' file operations
-to appropriate destinations according to the types of operations.
+to the appropriate destination according to the types of operations.
 All metadata requests (e.g. \texttt{create()} and \texttt{mkdir()}),
-and data requests to small files (e.g. \texttt{read()} and \texttt{write()}),
-are handled through the metadata indexing modules that address
-requests to the appropriate metadata indexing server.
-For all data operations to large size files, the client code forwards
-them directly to the underlying cluster file system to take full
-advantage of data I/O bandwidth.
+and data requests on small files (e.g. \texttt{read()} and \texttt{write()}),
+are handled by the metadata indexing modules that address
+these requests to the appropriate server.
+For all data operations on large size files, the client code redirects
+the request directly to the underlying cluster file system to take full
+advantage of data I/O bandwidth. A newly created, but growing file
+may be transparently reopened by the client module.
 
 \item{\textbf{Metadata Indexing Server:}}
 Each indexing server manages its local metadata storage backend to store and
-access all metadata information and small file data. It uses GIGA+ algorithm to
-partition large directory across indexing servers. It also monitors the growth
-of small files, and migrates files into the underlying cluster file system
-when their sizes exceed the threshold.
+access all metadata information and small file data.
+It uses the GIGA+ algorithm to
+partition large directories across indexing servers. It also monitors the growth
+of small files, and migrates newly large files into
+the underlying cluster file system
+when its size exceeds a threshold.
 
 \item{\textbf{Metadata Storage Backend:}}
-Metadata storage backend is a modified version of \tfs which packs metadata and
-small file data into flat files, and stores flat files
+The metadata storage backend is a modified version of \tfs which packs metadata
+and small file data into large, log-structured, flat files,
+and stores these files
 in the underlying cluster file system. Since \tfs converts random updates into
-sequential writes, it greatly improves metadata performance. In order to
-dynamically distribute large directories, metadata storage backend also modifies
-\tfs to support exporting and importing flat files in a batch.
+sequential writes, it greatly improves disk performance. In order to
+dynamically redistribute large directories,
+the metadata storage backend also modifies
+\tfs to support exporting and importing flat files in batch.
 
 \end{itemize}
-
-
-Using \giga and \tfs enables us to tackle two key challenges: highly
-concurrent metadata distribution for ingest-intensive parallel applications
-such as check-pointing \cite{PLFS} and
-optimized metadata representation that stores all file system
-metadata in structured, indexed files managed by existing cluster file system
-deployments.
 
 Remainder of this section describes more details of our system.
 Section \ref{design.giga} presents a primer on how \giga distributes metadata.

@@ -1,13 +1,16 @@
 Our metadata storage backend implements a modified version of \tfs
-to manage all the metadata and small files on disk.
+to pack together and manage all the metadata and small files,
+hiding them from the underlying cluster file system.
+
 \tfs \cite{TableFS} is a stacked file system which uses another file system
-as an object store, and organizes all metadata and small files in to a single
-on-disk table using a Log-Structured Merge (LSM) tree \cite{ONeil1996}.
+as an object store, and organizes all metadata and small files into a single
+on-disk table using a Log-Structured Merge (LSM) tree \cite{ONeil1996, LevelDB}.
 The reason for using LSM tree is that it buffers new and changed entries in
 memory and translate small random disk writes into large sequential writes.
-Therefore LSM tree can reduce random disk seeks effectively, and is a natural
-fit for metadata intensive workloads. We decribe the structure of LSM tree
-and how LSM tree is used in \tfs to store metadata in greater detail
+Because LSM tree can dramatically reduce random disk seeks,
+it is a natural fit for metadata intensive workloads.
+We decribe the structure of an LSM tree
+and how LSM trees are used in \tfs in greater detail
 in the following sections.
 
 %\begin{figure}[!ht]
@@ -30,22 +33,24 @@ by merge sort and moving combined SSTables into higher-numbered levels.
 \end{figure}
 
 
-\textbf{LSM tree and LevelDB --}
-\tfs uses an open-source implementation of LSM tree called LevelDB
+\textbf{LSM trees and LevelDB --}
+\tfs uses an open-source implementation of an LSM tree called LevelDB
 \cite{LevelDB}. LevelDB provides a simple key-value store interface,
-supporting point query and range query. In LevelDB, by default,
+supporting point queries and range queries. In LevelDB, by default,
 a set of changes are spilled to disk when the total size of modified
 entries exceeds 4 MB.  When a spill is triggered, called a
 minor compaction, the changed entries are sorted, indexed and written to disk
 in a format called an SSTable \cite{BigTable}.  These entries may then be
-discarded by the in memory buffer and can be reloaded by searching each SSTable
+discarded from the in memory buffer. Discarded entries
+can be reloaded by searching each SSTable
 on disk, possibly stopping when the first match occurs if the SSTables are
 searched most recent to oldest.  The number of SSTables that need to be
-searched is reduced by maintaining a Bloom filter\cite{bloomfilter} on each,
+searched is reduced by maintaining the minimum and maximum key value
+and a Bloom filter\cite{bloomfilter} on each,
 but, with time, the cost of finding a record not in memory still increases.
 Major compaction, or simply ``compaction",
-is the process of combining multiple SSTables
-into a smaller number of SSTables by merge sort.
+is the process of combining multiple overlapping range SSTables
+into a number of disjoint range SSTables by merge sort.
 
 As illustrated in Figure \ref{fig:leveldb},
 LevelDB extends this simple approach to further
@@ -67,19 +72,21 @@ logarithmically with increasing numbers of entries.
 
 ~\\
 \textbf{Table schema -- }
-\tfs aggregates directory entries,
-inode attributes and small files into one LSM tree
+\tfs (prior to \sys) aggregates directory entries,
+i-node attributes and small files into one LSM tree
 with an entry for each file and directory.
-To translate the hierarchical structure of file system namespace
+To translate the hierarchical structure of the file system namespace
 into key-value pairs, the 224-bit key is chosen to consist of
-the 64-bit inode number of a entry's parent directory
+the 64-bit i-node number of a entry's parent directory
 and a 160-bit SHA-1 hash value of its filename string
 (final component of its pathname).
-The value of an entry contains the file's full name and inode attributes,
-such as inode number, ownership, access mode, file size, timestamps (\textit{struct stat} in Linux).
-For small files with size less than $T$, the value field also contains the file's data.
-For large files, its file data is replaced by a symbolic link
-that points to the actual file object in the underlying cluster file system.
+The value of an entry contains the file's full name and i-node attributes,
+such as i-node number, ownership, access mode, file size, timestamps (\textit{struct stat} in Linux).
+For small files with size less than $T$ (defaulting to 4KB),
+the value field also contains the file's data.
+For large files, the file data field in a file row of the table
+is replaced by a symbolic link that points to
+the actual file object in the underlying file system.
 
 %\begin{figure}[!ht]
 \begin{figure}[t]
@@ -96,27 +103,30 @@ to store metadata and file data as key-value pairs.}}
 
 Figure \ref{fig:schema} shows an example of representing
 a sample file system's metadata into one table.
-Embedding the inode number of parent directory into the key
+Embedding the i-node number of parent directory into the key
 helps with resolving the pathname.
 Traversing the user's directory tree
-only involves constructing a search key by concatenating the inode
+involves constructing a search key by concatenating the i-node
 number of current directory with the hash of
 next component name in the pathname.
-Another benefit is that all the entries in the same directory have rows that
-share the same first 64 bits in their the table's key.
-For $readdir$ operations, once the inode number
+Another benefit of this schema is that all the entries
+in the same directory have rows that
+share the same first 64 bits in their row key.
+For $readdir$ operations, once the i-node number
 of the target directory has been retrieved,
 a scan sequentially lists all entries having
-the directory's inode number as the first 64 bits of their table's key.
+the directory's i-node number as the first 64 bits of their table's key.
 
-Previous evaluation \cite{TableFS} has shown using \tfs schema with \ldb backend
-can greatly improve metadata performance of the local file system.
-Figure \ref{graph:ldb-singlenode} is taken from the original \tfs paper,
-which compares the instantaneous throughput of FUSE-based \tfs
-with three Linux file systems: Ext4 \cite{Ext4}, XFS \cite{XFS}, and
+Previous evaluation \cite{TableFS} has shown using
+the \tfs schema with a \ldb backend
+can greatly improve metadata performance of a local file system.
+Figure \ref{graph:ldb-singlenode} is taken from a prior \tfs paper,
+which compared the instantaneous single disk throughput of a FUSE-based \tfs
+with three underlying Linux file systems: Ext4 \cite{Ext4}, XFS \cite{XFS}, and
 Btrfs \cite{BTRFS}.
-The workload is to create 100 million zero-length files in a single directory.
-All systems perform well at the beginning of the test, but the file create
+The workload created 100 million zero-length files in a single directory
+on one disk.
+All systems perform well at the very beginning of the test, but the file create
 throughput drops gradually for all systems.
 Btrfs suffers the most serious throughput drop, slowing down to 100 operations
 per second.

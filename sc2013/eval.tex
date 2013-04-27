@@ -83,11 +83,11 @@ In the following sections, we will first show the evaluation
 on the end-to-end performance of the integrated system on top of PanFS,
 and then present the results of a strong scaling experiment on another platform.
 
-\subsection{Full system evalution}
+\subsection{Full system evaluation}
 \label{sec:fullsystem}
 \input{full}
 
-\subsection{Scaling Experiment on Another Platform}
+\subsection{Evaluating scaling behavior}
 
 \begin{figure*}[t]
 \centerline{\includegraphics[scale=0.55]{./figs/ldb_insertrate}}
@@ -106,21 +106,22 @@ because clients stop creating files as they finish 1 million files per client.
 \label{graph:ldb-scaling}
 \end{figure*}
 
-Next, we evaluated the scalability of \sys on another cluster
-consisting of 64 nodes and without access to PanFS.
-We emulate the case of scaling NFS by put GIGA+ server process in each NFS node,
-which manages its own \tfs instance and store SSTables into a local disk.
-To emulate shared storage for split operations,
-we used a NFS-mounted directory accessible from all machines;
-this shared directory was only used for moving SStables of
-splitting directory partitions across servers.
+This section shows how \sys scales over time in large multi-server setup. To
+understand this behavior we layered \sys on a different cluster (cluster \#2
+from Table \ref{tab:setting}) comprising of 64-nodes running \sys clients and
+servers. The main difference is the backend storage: this analysis emulates a
+federated NFS setup where each \psys server process in node manages its own \tfs 
+instance and store SSTables into a local disk.
+To emulate shared storage for split operations, we used a NFS-mounted shared 
+directory accessible from all machines; this shared directory was only used for 
+moving SSTables of splitting directory partitions across servers.
 %The distributed logging is not available in this experiment setting,
 %but which does not limit testing the scalability of our system.
 
-The workload we used is a \textit{strong scaling} experiment, i.e.
-creating 1 million files per server, for a total of 64 million files in the
-64-server configuration. We varies the number of servers from 1 to 64
-to see how the performance of the integration scale with more machine power.
+This analysis uses a \textit{strong scaling} experiment that creates
+1 million files per server, for a total of 64 million files in the
+64-server configuration. We vary the number of servers from 1 to 64
+to understand how performance scales with more servers.
 
 Figure \ref{graph:ldb-scaling} shows the instantaneous throughput
 during the concurrent create workload.
@@ -131,7 +132,6 @@ The prototype delivers peak performance after the directory workload
 has been spread among all servers.
 Reaching steady-state, the throughput quickly grows
 due to the splitting policies adopted by \giga.
-
 
 
 After reaching the steady state, throughput slowly drops

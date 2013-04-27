@@ -127,7 +127,7 @@ Btrfs \cite{BTRFS}.
 The workload created 100 million zero-length files in a single directory
 on one disk.
 All systems perform well at the very beginning of the test, but the file create
-throughput drops gradually for all systems.
+throughput drops significantly for all systems as the total disk gets larger.
 Btrfs suffers the most serious throughput drop, slowing down to 100 operations
 per second.
 \tfs, however, maintains a more steady performance

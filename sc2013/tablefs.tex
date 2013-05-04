@@ -17,7 +17,7 @@ in the following sections.
 \begin{figure}[t]
 \includegraphics[scale=0.4]{figs/leveldb}
 \vspace{10pt}
-\caption{\textit{\footnotesize
+\caption{\textit{
 LevelDB is an on-disk LSM-tree implementation that represents data in multiple 
 files (called SSTables) containing sorted key-value pairs.
 SSTables are grouped into different levels with lower-numbered levels
@@ -93,7 +93,7 @@ the actual file object in the underlying file system.
 \centering
 \includegraphics[scale=0.4]{figs/schema}
 \vspace{10pt}
-\caption{\textit{\footnotesize
+\caption{\textit{
 An example illustrating a table schema for \tfs
 to store metadata and file data as key-value pairs.}}
 %\vspace{10pt}
@@ -127,7 +127,7 @@ Btrfs \cite{BTRFS}.
 The workload created 100 million zero-length files in a single directory
 on one disk.
 All systems perform well at the very beginning of the test, but the file create
-throughput drops significantly for all systems as the total disk gets larger.
+throughput drops significantly for all systems as the total data gets larger.
 Btrfs suffers the most serious throughput drop, slowing down to 100 operations
 per second.
 \tfs, however, maintains a more steady performance
@@ -137,7 +137,7 @@ with an average speed of 2,200 operations per second respectively,
 \begin{figure}[t]  %%%%%%%%%%%%%%%%%%%%%%%
 \centerline{\includegraphics[scale=0.5]{./figs/ldb_insertrate_onenode}}
 \vspace{10pt}
-\caption{\textit{\footnotesize
+\caption{\textit{
 This graph (from prior work \cite{TableFS}) shows
 that the performance of single-node \tfs with FUSE is 10X faster than modern Linux
 filesystems. The workload is to create 100 million zero-length files in one directory.

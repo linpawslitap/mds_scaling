@@ -34,7 +34,6 @@ To test the data path, we used LANL's File System Test Suite checkpoint
 benchmark\cite{mpiio}.
 
 \textbf{Metadata Intensive Workloads -- }
-
 We use the synthetic {\it mdtest} benchmark to generate a three-phase workload:
 The first phase creates 5 million
 zero-files in a single shared directory \cite{ceph:weil06, GIGA11}.
@@ -54,7 +53,7 @@ files in 5 different directories owned by 5 different metadata servers.
 \begin{figure}[t]  %%%%%%%%%%%%%%%%%%%%%%%
 \centerline{\includegraphics[scale=0.7]{./figs/zero_file_creation_on_panfs}}
 \vspace{10pt}
-\caption{\footnotesize
+\caption{
 \textit{Average throughput during creating five million zero-length files
 in one empty directory with different number of clients per test node.
 Running 32 and more clients per test node is able to saturate \psys
@@ -68,7 +67,7 @@ and original PanFS}
 \begin{figure}[t]  %%%%%%%%%%%%%%%%%%%%%%%
 \centerline{\includegraphics[scale=0.7]{./figs/mdtest}}
 \vspace{10pt}
-\caption{\footnotesize
+\caption{
 \textit{
 The average aggregated throughput of different operations in {\it mdtest}
 when generating 5 million zero-length files in a single shared directory.
@@ -106,7 +105,6 @@ later compaction processes.
 
 
 \textbf{Small File Workloads -- }
-
 We also use {\it mdtest} benchmark to generate small file workloads to evaluate
 the effectiveness of embedding file content with the metadata inside \tfs.
 In this test, {\it mdtest} benchmark creates 5 million files in 
@@ -139,7 +137,7 @@ These tradeoffs are not studied in this paper and left for future work.
 \begin{figure}[t]  %%%%%%%%%%%%%%%%%%%%%%%
 \centerline{\includegraphics[scale=0.7]{./figs/small_file_creates}}
 \vspace{10pt}
-\caption{\footnotesize
+\caption{
 \textit{Average aggregated throughput during creating 5 million small files
 with different size in one shared directory}
 }
@@ -153,7 +151,6 @@ with different size in one shared directory}
 %Clean cache
 
 \textbf{Data Intensive Workloads -- }
-
 To study the data path throughput, we use the LANL filesystem checkpoint 
 benchmark to generate different types for HPC checkpoint I/O patterns
 \cite{mpiio}.
@@ -200,7 +197,7 @@ For the checkpoint reading workload, in Figure \ref{graph:checkpoint_read},
 \begin{figure}[t]  %%%%%%%%%%%%%%%%%%%%%%%
 \centerline{\includegraphics[scale=0.7]{./figs/checkpointing_write}}
 \vspace{10pt}
-\caption{\footnotesize
+\caption{
 \textit{
 The aggregated write throughput in N-N check-pointing workload.
 Each volume receives 640 GB data.
@@ -214,7 +211,7 @@ Each volume receives 640 GB data.
 \begin{figure}[t]  %%%%%%%%%%%%%%%%%%%%%%%
 \centerline{\includegraphics[scale=0.7]{./figs/checkpointing_read}}
 \vspace{10pt}
-\caption{\footnotesize
+\caption{
 \textit{
 The aggregated read throughput in N-N check-pointing workload.
 }

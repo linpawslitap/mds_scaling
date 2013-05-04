@@ -6,6 +6,7 @@ LIBS =../backends/$(LEVELDBLIBRARY) ../common.a
 
 all:
 	gcc -o ./mknod_test ./mknod_test.c -lpthread
+	gcc -o ./mix_test ./mix_test.c -lpthread
 	gcc -o ./stat_test ./stat_test.c
 	gcc -o ./smallfile_test ./smallfile_test.c -lpthread
 	gcc -o ./mknod_lib_test ./mknod_lib_test.c -I.. ../libgiga_client.a $(LIBS) $(LDFLAGS) -I..

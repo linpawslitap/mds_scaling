@@ -1,6 +1,6 @@
 \section{Experimental Evaluation}
 
-This section evaluates the scale and performance of \sys using a mix of
+This section evaluates the scale and performance of our prototype using a mix of
 metadata-intensive and data-intensive benchmarks. Our evaluation layers \sys on
 the Panasas PanFS file system, and focuses on three questions:
 \begin{itemize}
@@ -13,9 +13,9 @@ workload found in HPC systems?
 configurations?
 \end{itemize}
 
-\subsection{Setup and methodology}
+\subsection{Setup and Methodology}
 
-Our prototype is implemented in about 14,000 lines of C code using
+Our prototype is implemented in about 10,000 lines of C code using
 a modular design comprising of \tfs, \ldb and PanFS layers. In particular, the
 PanFS layer is unmodified and can be replaced with any other cluster file
 system. The current version implements most common POSIX file system operations 
@@ -81,13 +81,13 @@ System &      5 Shelves & Local hard disk  \\
 
 In the following sections, we will first show the evaluation
 on the end-to-end performance of the integrated system on top of PanFS,
-and then present the results of a strong scaling experiment on another platform.
+and then present the results of a scaling experiment on another platform.
 
-\subsection{End-to-end system evaluation}
+\subsection{End-to-end System Evaluation}
 \label{sec:fullsystem}
 \input{full}
 
-\subsection{Understanding scaling behavior}
+\subsection{Understanding Scaling Behavior}
 
 \begin{figure*}[t]
 \centerline{\includegraphics[scale=0.55]{./figs/ldb_insertrate}}
@@ -118,7 +118,7 @@ moving SSTables of splitting directory partitions across servers.
 %The distributed logging is not available in this experiment setting,
 %but which does not limit testing the scalability of our system.
 
-This analysis uses a \textit{strong scaling} experiment that creates
+This analysis uses a \textit{weak scaling} experiment that creates
 1 million files per server, for a total of 64 million files in the
 64-server configuration. We vary the number of servers from 1 to 64
 to understand how performance scales with more servers.

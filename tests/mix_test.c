@@ -20,9 +20,10 @@
 #define CREATE_MODE     (USER_RW | GRP_RW | OTHER_RW)
 #define CREATE_FLAGS    (O_CREAT | O_APPEND)
 #define CREATE_RDEV     0
-    
+
 static char hostname[64];
 static int num_files;
+static int num_stats;
 static int pid;
 static int num_threads;
 
@@ -49,7 +50,7 @@ void spawn_threads(int n)
         if (pthread_detach(thd[i]) < 0)
             printf("ERR_pthread_detach(%d): %s", split_tid, strerror(errno));
     }
-   
+
     return;
 }
 #endif
@@ -84,91 +85,51 @@ top:
             errors++;
     }
 
-    //if ((errors > 50) || (curr = num_files-1))
     if (errors > 50) 
         return NULL;
     else
         goto top;
 }
 
-static void mknod_files(const char *dir)
+static void mknod_and_stat_files(const char *dir)
 {
     printf("Creating %d files from test_%d ... \n", num_files, pid);
     mode_t m = CREATE_MODE;
     dev_t d = CREATE_RDEV;
-    
-    //int i = 0;
-    for (curr=0; curr<num_files; curr++) {
+    int num_ops = num_files + num_stats;
+    int num_created_files = 0;
+    for (curr=0; curr<num_ops; curr++) {
         char p[512] = {0};
-        //int i = ((int)random())%2;
-        //snprintf(p, sizeof(p), "%s/d%d/%s_p%d_f%d", dir, i, hostname, pid, curr);
-        snprintf(p, sizeof(p), "%s/%s_p%d_f%d", dir, hostname, pid, curr);
-        if (mknod(p, m, d) < 0) {
-            printf ("ERROR during mknod(%s): %s\n", p, strerror(errno));
-            return;
+        if (rand()%num_ops < num_files) {
+          num_created_files++;
+          snprintf(p, sizeof(p), "%s/%s_p%d_f%d",
+                   dir, hostname, pid, num_created_files);
+          if (mknod(p, m, d) < 0) {
+              printf ("ERROR during mknod(%s): %s\n", p, strerror(errno));
+              return;
+          }
+        } else {
+          int file_id = rand()%(num_created_files+1);
+          snprintf(p, sizeof(p), "%s/%s_p%d_f%d",
+                   dir, hostname, pid, file_id);
+          struct stat statbuf;
+          stat(p, &statbuf);
         }
     }
 }
-
-static void ls_files(const char *dir)
-{
-    printf("Scanning files from %s ... \n", dir);
-    DIR* dp;
-    struct dirent *de;
-
-    struct timeval begin;
-    struct timeval end;
-
-    if ((dp = opendir(dir)) == NULL) {
-        printf("[%s] ERR_opendir: %s\n",__FILE__, strerror(errno)); 
-        exit(1);
-    }
-
-    gettimeofday(&begin, NULL);
-
-    int num_ent = 0;
-    while (1) {
-        errno = 0; // to distinguish error from End of Directory
-
-        if ((de = readdir(dp)) == NULL) {
-            //printf("err=%s\n", strerror(errno));
-            break;
-        }
-        if ((strcmp(de->d_name, ".") == 0) ||
-            (strcmp(de->d_name, "..") == 0))
-            continue;
-
-        //printf("entry=%s\n", de->d_name);
-        num_ent += 1;
-    }
-    
-    gettimeofday(&end, NULL);
-
-    if (errno != 0) { 
-        printf("[%s] ERR_readdir: %s\n",__FILE__, strerror(errno)); 
-        exit(1);
-    }
-
-    int microsec = (end.tv_sec - begin.tv_sec)*1000000 + ((int)end.tv_usec - (int)begin.tv_usec);
-    int millisec = microsec/1000;
-
-    printf("readdir_ret=%d in %d\n", num_ent, millisec);
-    closedir(dp);
-}
-
-
 
 int main(int argc, char **argv)
 {
     if (argc != 3) {
         fprintf(stdout, "*** ERROR: insufficient parameters ... \n\n");
-        fprintf(stdout, "USAGE: %s <dir_name> <num_files>\n", argv[0]);
+        fprintf(stdout, "USAGE: %s <dir_name> <num_files> <num_stats>\n", argv[0]);
         fprintf(stdout, "\n");
         return -1;
     }
 
     setvbuf(stdout,NULL,_IONBF,0);
     num_files = atoi(argv[2]);
+    num_stats = atoi(argv[3]);
     pid = (int)getpid();
 
     if (gethostname(hostname, sizeof(hostname)) < 0) {
@@ -191,12 +152,8 @@ int main(int argc, char **argv)
             exit(1);
         }
 
-        mknod_files(argv[1]);
+        mknod_and_stat_files(argv[1]);
     }
-    else {
-        ls_files(argv[1]);
-    }
-
     errors = 100;
 
     return 0;

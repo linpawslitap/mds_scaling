@@ -1,10 +1,11 @@
 \section{Related Work}
 \label{relatedwork}
 
-This paper proposes a layered approach that allows a cluster file system to 
-distribute both namespace and directories. In this section, we discuss prior
-work related to metadata systems in modern cluster file systems and optimized
-layouts for high-performance metadata.
+This paper proposes a layered approach that allows a cluster file system to
+distribute both namespace and directories. A prior proposal of this work
+was presented in a workshop \cite{gigapdsw}.
+In this section, we discuss prior work related to metadata systems
+in modern cluster file systems and optimized layouts for high-performance metadata.
 
 In many cluster file systems, the metadata path lacks the concurrency and 
 scalability found in the data path.
@@ -20,10 +21,10 @@ PanFS and PVFS cluster distribute different parts of the namespace on different
 metadata servers.
 PanFS uses a coarse-grained distribution by assigning a subtree of the
 namespace (called volume) to each metadata server (called directory blade) 
-\cite{panfs:welch08}.
+\cite{PanFS}.
 PVFS is more fine-grained: it spreads different directories, even the ones in
 the same sub-tree, on different metadata servers \cite{pvfs}.
-However, both PanFS and PVFS lack support for distributed directories.
+However, both PanFS and PVFS lack support for distributed large directories.
 
 Few cluster file systems have added support for distributed directories but
 each system uses a different technique to spread these directories.
@@ -31,16 +32,16 @@ A beta release of OrangeFS, a commercially supported PVFS distribution, uses a
 simplified version of GIGA+ to distribute large directories on several metadata 
 servers \cite{OrangeFS}.
 Ceph uses an adaptive partitioning technique called CRUSH for distributing its
-metadata and directories on multiple metadata servers \cite{ceph:weil06}. While
-experimental version of Ceph (from 2006) shows promising directory scalability,
-the recent versions of Ceph directory clustering have been described as
-``less stable" \cite{ceph-baddirs1:www} and ``buggy" \cite{ceph-baddirs2:www}.
+metadata and directories on multiple metadata servers \cite{ceph:weil06}.
+%While experimental version of Ceph (from 2006) shows promising directory scalability,
+%the recent versions of Ceph directory clustering have been described as
+%``less stable" \cite{ceph-baddirs1:www} and ``buggy" \cite{ceph-baddirs2:www}.
 IBM GPFS uses extensible hashing to distribute directories on different disks on 
 a shared disk subsystem \cite{gpfs:schmuck02}. GPFS has the most complete and
 stable distributed directory implementation, but its design relies heavily on
 cache consistency and distributed locking mechanisms. When compared to GIGA+,
 this may result is much lower file create performance (when files are created
-in a single directory) but GPFS delivers very high directory read performance 
+in a single directory) but GPFS delivers very high read-only directory read performance 
 by caching directory blocks on all readers \cite{GIGA11}.
 
 Another novel aspect of this paper is the use of optimized single-node metadata
@@ -48,11 +49,11 @@ representation to faster metadata performance.
 Several recent efforts have focused on using advanced data-structures, such
 as modified LSM-trees \cite{blsm}, stratified B-trees \cite{Andrew11},
 fractal trees \cite{tokufs}, and VT-trees \cite{VTtree}.
-These approaches speed up the number of IOs per second for hard drives or solid 
+These approaches speed up the number of IOs per second for hard drives or solid
 state devices by improving compaction process or by using new functionality
-such as data versioning. Although \tfs may benefit from all of these 
+such as data versioning. Although \tfs may benefit from all of these
 improvements, \giga integration in some cases may result in a complex
 implementation and deployment.
-Understanding the interaction between these single-node \tfs optimizations and 
-cross-server operations will be explored in future work. 
+Understanding the interaction between these single-node \tfs optimizations and
+cross-server operations will be explored in future work.
 

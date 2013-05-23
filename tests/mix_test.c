@@ -120,7 +120,7 @@ static void mknod_and_stat_files(const char *dir)
 
 int main(int argc, char **argv)
 {
-    if (argc != 3) {
+    if (argc != 4) {
         fprintf(stdout, "*** ERROR: insufficient parameters ... \n\n");
         fprintf(stdout, "USAGE: %s <dir_name> <num_files> <num_stats>\n", argv[0]);
         fprintf(stdout, "\n");

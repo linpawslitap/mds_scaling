@@ -75,7 +75,8 @@ void rpcDisconnect(void)
 {
     int i;
     for (i = 0; i < giga_options_t.num_servers; i++)
-        clnt_destroy (rpc_clnts[i]);
+      if (rpc_clnts[i] != NULL)
+          clnt_destroy (rpc_clnts[i]);
 }
 
 static

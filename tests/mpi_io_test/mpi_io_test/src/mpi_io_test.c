@@ -605,6 +605,8 @@ open_file(  struct Parameters *params,
     }
     
     if ( params->posix_io ) {
+        if (read_write == WRITE_MODE)
+            gigaMknod(target, 0666, 0);
         state->fd = gigaOpen(target, posix_mode);
     } else {
         mpi_ret = MPI_File_open( comm_file, target,

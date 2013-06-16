@@ -81,10 +81,10 @@ static void write_files(const char *dir)
             return;
         } else {
             int f = gigaOpen(p, O_WRONLY);
-            const int buf_size = 1024 * 16;
+            const int buf_size = num_bytes;
             char buf[buf_size];
             int i = 0;
-            for (i = 0; i < (num_bytes-1)/buf_size+1; ++i) {
+            for (i = 0; i < 1; ++i) {
                 gigaWrite(f, buf, buf_size);
             }
             gigaClose(f);

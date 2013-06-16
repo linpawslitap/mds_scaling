@@ -7,6 +7,7 @@ TEXFILE = abstract.tex \
 					intro.tex \
 					design.tex \
 					eval.tex\
+					full.tex\
 					relatedwork.tex\
 					tablefs.tex\
 					giga.tex\

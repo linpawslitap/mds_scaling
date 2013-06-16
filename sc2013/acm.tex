@@ -3,12 +3,15 @@
 \usepackage{epsfig,endnotes}
 \usepackage{xspace}
 \usepackage{array}
-\usepackage{graphicx,algorithm,algorithmic,xspace,subfigure,color,url,multirow,listings,booktabs}
+\usepackage{color,url,multirow,listings,booktabs}
 \usepackage{pdfsync, caption}
 \usepackage{balance}
 %our commands
+%\usepackage{fancyhdr}
 %\usepackage{setspace}
-%\doublespacing
+%\linespread{2.5}
+%\pagestyle{fancy}
+%\fancyhead{10:31pm \today}
 
 \usepackage{url}
 
@@ -16,6 +19,8 @@
 \newcommand{\tfs}{TableFS\xspace}
 \newcommand{\giga}{GIGA+\xspace}
 \newcommand{\ldb}{{LevelDB}\xspace}
+\newcommand{\sys}{GIGA+TableFS\xspace}
+\newcommand{\psys}{PanFS-GT\xspace}
 \newcommand{\comment}[1]{{\color{red} [{#1}]}}
 \newcommand{\kai}[1]{\comment{Kai says: #1}}
 
@@ -59,5 +64,6 @@ Kai Ren, Swapnil Patil, Kartik Kulkarni, Adit Madan, Garth Gibson \\
 
 \bibliographystyle{plain}
 \bibliography{reference}
-
 \end{document}
+
+

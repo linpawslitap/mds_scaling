@@ -1,9 +1,25 @@
 \section{Conclusion}
 \label{conclusion}
 
+Many HPC cluster file systems lack a general-purpose scalable metadata service
+that distributes both namespace and directories. This paper presents an approach
+that allows {\it existing} file systems to deliver scalable and parallel 
+metadata performance. The key idea is to re-use a cluster file system's
+scalable data path to provide concurrent access on the metadata path. 
+Our experimental prototype has demonstrated a {\it 10X} improvement in the
+metadata performance of a production cluster file system, Panasas's PanFS. 
 
-%inherits data bandwidth and adds the metadata bandwidth scaling
-
-%split and migrate without moving the underlying objects
-
+This paper makes three contributions.
+The first contribution is an efficient combination of scale-out indexing 
+technique (GIGA+) with a scale-up metadata representation (TableFS) to enhance 
+the scalability and performance of metadata operations.
+The second contribution is the ease of deployment: our system can be layered 
+on a cluster file system without any changes to the file system. This layering 
+also facilitates easy federation of different file systems through a middleware 
+library, an approach that is popular with other HPC systems such as MPI-IO and
+PLFS.
+The third contribution is the portable design that can use any existing file
+system deployments without any configuration changes (but with different fault
+tolerance assumptions) to the file system or the systems software on compute
+nodes. 
 

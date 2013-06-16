@@ -11,7 +11,7 @@ then
     exit
 fi
 
-killall giga_server
+killall -9 giga_server
 ulimit -c unlimited
 . ~/.bashrc
 
@@ -19,16 +19,18 @@ case $1 in
 
 c) # cleanup and exit
    #
-#rm -rf $GIGA
-#rm -rf $LDB
-#mkdir $GIGA
-#mkdir $LDB
-ps -ef | grep "giga_server" | grep -v grep | cut -c 9-15 |sudo xargs kill -9
-rm -rf /panfs/test_vol$2/giga/
-mkdir /panfs/test_vol$2/giga/
-mkdir /panfs/test_vol$2/giga/splits/
-mkdir /panfs/test_vol$2/giga/files/
-mkdir /tmp/giga_srv
+rm -rf $GIGA
+rm -rf $LDB
+sudo mkdir /l0
+sudo chmod 777 /l0
+mkdir $GIGA
+mkdir $LDB
+#ps -ef | grep "giga_server" | grep -v grep | cut -c 9-15 |sudo xargs kill -9
+#rm -rf /panfs/test_vol$2/giga/
+#mkdir /panfs/test_vol$2/giga/
+#mkdir /panfs/test_vol$2/giga/splits/
+#mkdir /panfs/test_vol$2/giga/files/
+#mkdir /tmp/giga_srv
 exit
 ;;
 

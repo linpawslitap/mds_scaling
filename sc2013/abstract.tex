@@ -1,17 +1,18 @@
 
-Modern cluster file systems provide highly scalable I/O bandwidth along the
-data path by enabling highly parallel access to file data.
-Unfortunately metadata scaling is lagging behind data scaling.
+Modern parallel and cluster file systems provide highly scalable I/O bandwidth
+by enabling highly parallel access to file data.
+Unfortunately metadata access does not benefit from parallel data transfer,
+so metadata performance scaling is less common.
 To support metadata-intensive workloads,
-we propose a middleware design that layers on existing cluster file systems
-and adds support for distributed and high-performance metadata operations
-without sacrificing data bandwidth.
+we offer a middleware design that layers on top of existing cluster
+file systems, adds support for load balanced and
+high-performance metadata operations without sacrificing data bandwidth.
 The core idea is to integrate a distributed indexing mechanism
-with general-purpose optimized on-disk metadata layout.
+with a metadata optimized on-disk Log-Structured Merge tree layout.
 The integration requires several optimizations including cross-server split
-operations with minimum data migration, and decoupling data and metadata paths.
-To demonstrate the feasibility of our approach,
-we implemented a prototype middleware layer and evaluated it with Panasas file system.
-The evaluation results show that our middleware improves
-metadata performance of the existing cluster file system by an order of magnitude,
-and still performs comparably on data-intensive workloads.
+operations with minimum data migration, and decoupling of
+data and metadata paths. To demonstrate the feasibility of our approach,
+we implemented a prototype middleware layer GIGA+TableFS
+and evaluated it with a Panasas parallel file system. GIGA+TableFS improves
+metadata performance of PanFS by as much an order of magnitude,
+while still performing comparably on data-intensive workloads.

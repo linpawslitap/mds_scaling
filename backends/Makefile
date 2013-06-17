@@ -46,6 +46,9 @@ metadb_fs_check.o : metadb_fs_check.c operations.h
 metadb_stress_test : metadb_stress_test.o metadb_fs.o
 	$(CC) -o $@ $^ $(LIBS) $(LDFLAGS)
 
+metadb_split_test : metadb_split_test.o metadb_fs.o
+	$(CC) -o $@ $^ $(LIBS) $(LDFLAGS)
+
 metadb_stress_test_padding.o : metadb_stress_test_padding.c operations.h
 	$(CC) $(CFLAGS) -c metadb_stress_test_padding.c
 

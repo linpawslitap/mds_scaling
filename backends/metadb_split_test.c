@@ -20,6 +20,7 @@
 #define MAX_BUF_SIZE (2 << 20)
 #define ASSERT(x) \
   if (!((x))) { fprintf(stderr, "%s %d failed\n", __FILE__, __LINE__); exit(1); }
+char* split_dir_path;
 
 int64_t timespecDiff(struct timespec *timeA_p, struct timespec *timeB_p)
 {
@@ -45,6 +46,10 @@ typedef struct {
   pthread_cond_t cv;
   struct MetaDB mdb;
   int start_threshold;
+  int dir_id;
+  int partition_id;
+  int split_threshold;
+  int num_done;
   int num_entries;
   int num_initialized;
   int start;
@@ -101,24 +106,26 @@ void create_entry(thread_state_t* thread, shared_state_t* shared) {
     int parent_index = 0;
     int child_index = 1;
     mdb_seq_num_t min, max = 0;
+    (void) thread->tid;
 
-    for (i=0; i < thread->num_entries; ++i) {
+    for (i=0; i < shared->num_entries; ++i) {
         memset(filename, 0, sizeof(filename));
         snprintf(filename, MAX_FILENAME_LEN, FILE_FORMAT, (int) i);
 
-        ASSERT(metadb_create(thread->mdb,
-                             thread->dir_id,
-                             thread->partition_id,
+        ASSERT(metadb_create(shared->mdb,
+                             shared->dir_id,
+                             shared->partition_id,
                              filename, filename) == 0);
 
-        if (i % thread->threshold == 0) {
-            metadb_extract_do(thread->mdb,
-                              thread->dir_id,
+        if (i % shared->split_threshold == 0) {
+            metadb_extract_do(shared->mdb,
+                              shared->dir_id,
                               parent_index,
                               child_index,
                               split_dir_path,
                               &min, &max);
-            metadb_extract_clean(thread->mdb);
+            printf("extracting %s\n", split_dir_path);
+            metadb_extract_clean(shared->mdb);
             child_index = child_index * 2;
         }
     }
@@ -130,30 +137,34 @@ void create_entry(thread_state_t* thread, shared_state_t* shared) {
 void lookup_entry(thread_state_t* thread, shared_state_t* shared) {
   char filename[MAX_FILENAME_LEN];
   struct stat statbuf;
-  int j;
+  int j, finish;
+  (void) thread;
   do {
     memset(filename, 0, sizeof(filename));
-    j = rand() % thread->num_entries;
+    j = rand() % shared->num_entries;
     snprintf(filename, MAX_FILENAME_LEN, FILE_FORMAT, (int) j);
-    metadb_lookup(thread->mdb,
-                  thread->dir_id,
+    metadb_lookup(shared->mdb,
+                  shared->dir_id,
                   0,
                   filename,
-                  statbuf);
+                  &statbuf);
     pthread_mutex_lock(&(shared->mutex));
-    shared->finish = 1;
+    finish = shared->finish;
     pthread_mutex_unlock(&(shared->mutex));
   } while (finish == 0);
 }
 
 void run_mix(struct MetaDB mdb, int num_entries, int n) {
   shared_state_t shared;
-  shared.num_entries = 0;
-  shared.threshold = 8000;
+  shared.num_entries = num_entries;
+  shared.dir_id = 0;
+  shared.partition_id = 0;
+  shared.split_threshold = 8000;
   shared.num_initialized = 0;
-  shared.start_threshold = 2;
+  shared.start_threshold = n+1;
   shared.start = 0;
   shared.finish = 0;
+  shared.num_done = 0;
   shared.mdb = mdb;
   pthread_mutex_init(&(shared.mutex), NULL);
   pthread_cond_init(&(shared.cv), NULL);
@@ -164,12 +175,12 @@ void run_mix(struct MetaDB mdb, int num_entries, int n) {
     arg[i].shared = &shared;
     arg[i].thread = (thread_state_t*) malloc(sizeof(thread_state_t));
     arg[i].thread->tid = i;
-    arg[i].ops_func = lookup_entry;
-    if (i < n) {
-      pthread_create(&(arg[i].thread->ptid), NULL, thread_body, &arg[i]);
+    if (i < n-1) {
+      arg[i].ops_func = lookup_entry;
     } else {
-      pthread_create(&(arg[i].thread->ptid), NULL, scan_body, &arg[i]);
+      arg[i].ops_func = create_entry;
     }
+    pthread_create(&(arg[i].thread->ptid), NULL, thread_body, &arg[i]);
     ASSERT(pthread_detach(arg[i].thread->ptid) == 0);
   }
 
@@ -197,26 +208,16 @@ void run_mix(struct MetaDB mdb, int num_entries, int n) {
   pthread_cond_destroy(&(shared.cv));
 }
 
-void run_test_mix(int nargs, char* args[], int num_small, int num_big, int small_size) {
-    if (nargs < 2) {
-        return;
-    }
-
-    printf("Test %d %d Start: %ld\n", num_small, num_big, time(NULL));
-    ++num_test;
-
+void run_test_mix(int nargs, char* args[]) {
+    if (nargs < 2)
+      return;
     char* dbname = args[1];
+    split_dir_path = args[2];
 
-    create_entries(dbname, num_small, num_big, small_size);
-    remap = (int *) malloc(sizeof(int) * num_small);
-    generate_permutation(remap, num_small);
     struct MetaDB mdb;
     metadb_init(&mdb, dbname);
-    run_mix(mdb, num_small, num_big, 4, 10);
+    run_mix(mdb, 56000, 8);
     metadb_close(mdb);
-    free(remap);
-    drop_buffer_cache();
-    printf("Test %d %d End: %ld\n", num_small, num_big, time(NULL));
 }
 
 int main(int nargs, char* args[]) {
@@ -224,5 +225,6 @@ int main(int nargs, char* args[]) {
       return 1;
     }
 
+    run_test_mix(nargs, args);
     return 0;
 }

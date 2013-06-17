@@ -1721,7 +1721,7 @@ Write(int fd, const void *vptr, size_t nbyte ) {
     nleft = nbyte;
     while (nleft > 0) {
         ssize_t this_write = 0;
-        if ( (this_write = write(fd, ptr, nleft ) ) <= 0) {
+        if ( (this_write = gigaWrite(fd, ptr, nleft ) ) <= 0) {
             if (errno == EINTR) {
                 nwritten = 0;       /* and call write() again */
             } else {
@@ -1747,7 +1747,7 @@ Read(int fd, void *vptr, size_t nbyte ) {
     nleft = nbyte;
     while (nleft > 0) {
         ssize_t this_read = 0;
-        if ( (this_read = read(fd, ptr, nleft ) ) <= 0) {
+        if ( (this_read = gigaRead(fd, ptr, nleft ) ) <= 0) {
             if (errno == EINTR) {
                 nread = 0;       /* and call write() again */
             } else {

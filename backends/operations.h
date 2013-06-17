@@ -38,6 +38,7 @@ int local_mkdir(const char *path, mode_t mode);
  * Operations for sending RPC to backends.
  */
 int rpc_init();
+void rpc_disconnect();
 int rpc_getattr(int dir_id, const char *path, struct stat *statbuf);
 int rpc_mkdir(int dir_id, const char *path, mode_t mode);
 int rpc_mknod(int dir_ID, const char *path, mode_t mode, dev_t dev);

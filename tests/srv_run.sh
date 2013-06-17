@@ -13,6 +13,7 @@ fi
 
 killall -9 giga_server
 ulimit -c unlimited
+. ~/.bashrc
 
 case $1 in
 
@@ -50,6 +51,8 @@ f) # foreground server execution
 
 n) # normal server execution
    #
+echo "lauch giga_server $PWD"
+export LD_LIBRARY_PATH="/usr/lib64/openmpi/lib/:/usr/libexec/dropbox/"
 ../giga_server &
 ;;
 

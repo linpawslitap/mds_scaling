@@ -101,6 +101,10 @@ int rpc_init()
     return ret;
 }
 
+void rpc_disconnect()
+{
+    rpcDisconnect();
+}
 int rpc_getattr(int dir_id, const char *path, struct stat *stbuf)
 {
     int ret = 0;

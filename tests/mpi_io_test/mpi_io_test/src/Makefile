@@ -21,6 +21,7 @@ all:    $(NAME).$(MY_MPI_HOST).x
 
 $(NAME).$(MY_MPI_HOST).x: $(NAME).x
 	cp $< $@
+	cp $(NAME).x giga_$(NAME).x
 
 $(NAME).x:	$(OBJS) $(UTILS) $(MPIIOOBJS) $(NAME).c
 	$(CC) $(CFLAGS) $(CLIBS) $(BENCH_COMM) \

@@ -138,8 +138,6 @@ int gigaPread(int fd, void *buf, size_t size, size_t offset)
 {
     giga_file_info_t *gi = get_giga_fi(fd);
     int read = GIGAread(gi->path, buf, size, offset, &(gi->fi));
-    if (read >= 0)
-        gi->offset += size;
 
     return read;
 }
@@ -148,8 +146,6 @@ int gigaPwrite(int fd, const void *buf, size_t size, size_t offset)
 {
     giga_file_info_t *gi = get_giga_fi(fd);
     int written = GIGAwrite(gi->path, buf, size, offset, &(gi->fi));
-    if (written >= 0)
-        gi->offset += size;
     return written;
 }
 

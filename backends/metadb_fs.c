@@ -15,8 +15,8 @@
 #define METADB_LOG LOG_DEBUG
 
 #define DEFAULT_LEVELDB_CACHE_SIZE (16 << 20)
-#define DEFAULT_WRITE_BUFFER_SIZE  (16 << 20)
-#define DEFAULT_MAX_OPEN_FILES     800
+#define DEFAULT_WRITE_BUFFER_SIZE  (128 << 20)
+#define DEFAULT_MAX_OPEN_FILES     1000
 #define DEFAULT_MAX_BATCH_SIZE     1024
 #define DEFAULT_SSTABLE_SIZE       (2 << 20)
 #define DEFAULT_METRIC_SAMPLING_INTERVAL 1
@@ -370,14 +370,12 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name)
     leveldb_options_set_write_buffer_size(mdb->options,
                                           DEFAULT_WRITE_BUFFER_SIZE);
     leveldb_options_set_max_open_files(mdb->options, DEFAULT_MAX_OPEN_FILES);
-    leveldb_options_set_block_size(mdb->options, 4096);
+    leveldb_options_set_block_size(mdb->options, 1024*64);
     leveldb_options_set_compression(mdb->options, leveldb_no_compression);
-
     /*
     leveldb_options_set_filter_policy(mdb->options,
-                        leveldb_filterpolicy_create_bloom(12));
+                        leveldb_filterpolicy_create_bloom(14));
     */
-
     mdb->lookup_options = leveldb_readoptions_create();
     leveldb_readoptions_set_fill_cache(mdb->lookup_options, 1);
 

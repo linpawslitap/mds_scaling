@@ -150,7 +150,7 @@ void GIGAdestroy(void * unused)
 
 int recursive_lookup(const char* path, char* file, char* dir) {
     parse_path_components(path, file, dir);
-    dir_id = fuse_cache_lookup(dir);
+    int dir_id = fuse_cache_lookup(dir);
     if (dir > 0) {
       return dir_id;
     }

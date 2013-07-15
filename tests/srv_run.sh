@@ -11,8 +11,8 @@ then
     exit
 fi
 
-killall -9 giga_server
-ulimit -c unlimited
+killall giga_server
+#ulimit -c unlimited
 . ~/.bashrc
 
 case $1 in
@@ -26,11 +26,11 @@ sudo chmod 777 /l0
 mkdir $GIGA
 mkdir $LDB
 #ps -ef | grep "giga_server" | grep -v grep | cut -c 9-15 |sudo xargs kill -9
-#rm -rf /panfs/test_vol$2/giga/
-#mkdir /panfs/test_vol$2/giga/
-#mkdir /panfs/test_vol$2/giga/splits/
-#mkdir /panfs/test_vol$2/giga/files/
-#mkdir /tmp/giga_srv
+rm -rf /panfs/test_vol$2/giga/
+mkdir /panfs/test_vol$2/giga/
+mkdir /panfs/test_vol$2/giga/splits/
+mkdir /panfs/test_vol$2/giga/files/
+mkdir /tmp/giga_srv
 exit
 ;;
 
@@ -54,6 +54,10 @@ n) # normal server execution
 echo "lauch giga_server $PWD"
 export LD_LIBRARY_PATH="/usr/lib64/openmpi/lib/:/usr/libexec/dropbox/"
 ../giga_server &
+;;
+
+u)
+echo "umount giga_server"
 ;;
 
 *) echo "Invalid option: <$1>"

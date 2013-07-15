@@ -1,4 +1,5 @@
 ACM=acm
+TECH=techreport
 TEXPARTS= *.tex
 BIBPARTS= *.bib
 FIGPARTS= figs
@@ -19,8 +20,17 @@ $(ACM).pdf: $(ACM).tex $(TEXFILE) reference.bib
 	pdflatex $(ACM).tex
 	pdflatex $(ACM).tex
 
+$(TECH).pdf: $(TECH).tex $(TEXFILE) reference.bib
+	pdflatex $(TECH).tex
+	bibtex $(TECH)
+	pdflatex $(TECH).tex
+	pdflatex $(TECH).tex
+
 paper: acm.pdf
 	open acm.pdf &
+
+techreport: techreport.pdf
+	open techreport.pdf &
 
 clean:
 	\rm -f *.dvi *.bbl *.aux *.log *.blg *.toc *.synctex.gz *.pdf

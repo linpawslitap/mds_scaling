@@ -15,21 +15,24 @@
 /* Open files info */
 typedef struct {
     int fd; //Key for hashmap
-    int offset;
+    size_t offset;
     struct fuse_file_info fi;
     char path[PATH_MAX];
     UT_hash_handle hh;
 } giga_file_info_t;
 
 giga_file_info_t *_open_files;
+static int fd_count;
 
-void add_giga_fi(const struct fuse_file_info *fi, const char* path) {
+int add_giga_fi(const struct fuse_file_info *fi, const char* path) {
     giga_file_info_t *gi = (giga_file_info_t *) malloc(sizeof(giga_file_info_t));
     memset(gi, 0, sizeof(giga_file_info_t));
-    gi->fd = fi->fh;
+    fd_count += 1;
+    gi->fd = fd_count;
     gi->fi = *fi;
     strncpy(gi->path, path, strlen(path));
     HASH_ADD_INT(_open_files, fd, gi);
+    return fd_count;
 }
 
 giga_file_info_t* get_giga_fi(int fd)
@@ -71,6 +74,7 @@ int gigaInit()
   memset(&giga_options_t, 0, sizeof(struct giga_options));
   initGIGAsetting(GIGA_CLIENT, DEFAULT_MNT, CONFIG_FILE);
   GIGAinit(NULL);
+  fd_count = 0;
 
   return ret;
 }
@@ -103,10 +107,11 @@ int gigaOpen(const char *path, int flags)
     fi.flags = flags;
     GIGAopen(path, &fi);
 
-    if (fi.fh != 0)
-        add_giga_fi(&fi, path);
-
-    return fi.fh;
+    if (fi.fh != 0) {
+        return add_giga_fi(&fi, path);
+    } else {
+        return -1;
+    }
 }
 
 int gigaCreat(const char *path, mode_t mode)
@@ -149,10 +154,27 @@ int gigaPwrite(int fd, const void *buf, size_t size, size_t offset)
     return written;
 }
 
-int gigaStat(const char *path, struct statvfs *buf)
+int gigaGetattr(const char *path, struct stat *buf)
 {
-    return GIGAstatfs(path, buf);
+    return GIGAgetattr(path, buf);
 }
+
+int gigaGetinfo(const char *path, struct info *buf)
+{
+    struct stat statbuf;
+    int ret = GIGAgetattr(path, &statbuf);
+    if (ret == 0) {
+      buf->mode = statbuf.st_mode;
+      buf->size = statbuf.st_size;
+      buf->uid = statbuf.st_uid;
+      buf->gid = statbuf.st_gid;
+      buf->atime = statbuf.st_atime;
+      buf->mtime = statbuf.st_mtime;
+      buf->ctime = statbuf.st_ctime;
+    }
+    return ret;
+}
+
 
 int gigaFsync(int fd)
 {

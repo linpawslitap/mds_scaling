@@ -7,7 +7,7 @@ LIBS =../backends/$(LEVELDBLIBRARY) ../common.a
 BACKENDOBJ = ../backends/local_fs.o ../backends/rpc_fs.o ../backends/metadb_fs.o
 OBJS += $(BACKENDOBJ)
 LIBCLIENTOBJ = FUSE_operations.o libclient.o
-TARGETS = ../giga_client ../libgiga_client.a
+TARGETS = ../giga_client ../libgiga_client.a ../libgiga_client.so
 
 all: $(TARGETS)
 
@@ -19,6 +19,9 @@ $(OBJS) : $(HDRS)
 ../libgiga_client.a : $(BACKENDOBJ) $(LIBCLIENTOBJ)
 	ar rv ../libgiga_client.a $?
 	ranlib ../libgiga_client.a
+
+../libgiga_client.so : $(BACKENDOBJ) $(LIBCLIENTOBJ) $(LIBS)
+#	$(CC) -shared -o ../libgiga_client.so $?
 
 clean :
 	rm -f $(TARGETS) $(OBJS)

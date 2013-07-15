@@ -148,6 +148,24 @@ void GIGAdestroy(void * unused)
     //rpc_disconnect();
 }
 
+int recursive_lookup(const char* path, char* file, char* dir) {
+    parse_path_components(path, file, dir);
+    int dir_id = fuse_cache_lookup(dir);
+    if (dir > 0) {
+      return dir_id;
+    }
+    char pdir[PATH_MAX] = {0};
+    char pfile[PATH_MAX] = {0};
+    int pdir_id = recursive_lookup(dir, pfile, pdir);
+    struct stat statbuf;
+    int ret = rpc_getattr(dir_id, file, &statbuf);
+    if (ret < 0) {
+      return -1;
+    }
+    if (S_ISDIR(statbuf.st_mode))
+      fuse_cache_insert((char*)dir, statbuf.st_ino);
+    return statbuf.st_ino;
+}
 
 int GIGAgetattr(const char *path, struct stat *statbuf)
 {
@@ -173,9 +191,7 @@ int GIGAgetattr(const char *path, struct stat *statbuf)
             ret = FUSE_ERROR(ret);
             break;
         case BACKEND_RPC_LEVELDB:
-            parse_path_components(path, file, dir);
-            //TODO: convert "dir" to "dir_id"
-            dir_id = fuse_cache_lookup(dir);
+            dir_id = recursive_lookup(path, file, dir);
             ret = rpc_getattr(dir_id, file, statbuf);
             if (S_ISDIR(statbuf->st_mode))
                 fuse_cache_insert((char*)path, statbuf->st_ino);
@@ -222,8 +238,7 @@ int GIGAmkdir(const char *path, mode_t mode)
             break;
         */
         case BACKEND_RPC_LEVELDB:
-            parse_path_components(path, file, dir);
-            dir_id = fuse_cache_lookup(dir);
+            dir_id = recursive_lookup(path, file, dir);
             ret = rpc_mkdir(dir_id, file, mode);
             ret = FUSE_ERROR(ret);
             break;
@@ -269,8 +284,7 @@ int GIGAmknod(const char *path, mode_t mode, dev_t dev)
         case BACKEND_RPC_LOCALFS:
             ;
         case BACKEND_RPC_LEVELDB:
-            parse_path_components(path, file, dir);
-            dir_id = fuse_cache_lookup(dir);
+            dir_id = recursive_lookup(path, file, dir);
             ret = rpc_mknod(dir_id, file, mode, dev);
             ret = FUSE_ERROR(ret);
             break;
@@ -288,8 +302,8 @@ int GIGAopendir(const char *path, struct fuse_file_info *fi)
 
     int ret = 0;
     char fpath[PATH_MAX] = {0};
-    char dir[PATH_MAX] = {0};
     char file[PATH_MAX] = {0};
+    char dir[PATH_MAX] = {0};
     int dir_id = 0;
     DIR *dp;
 
@@ -301,8 +315,7 @@ int GIGAopendir(const char *path, struct fuse_file_info *fi)
             fi->fh = (intptr_t) dp;
             break;
         case BACKEND_RPC_LEVELDB:
-            parse_path_components(path, file, dir);
-            dir_id = fuse_cache_lookup((char*)path);
+            dir_id = recursive_lookup((char*)path, file, dir);
             ret = rpc_opendir(dir_id, dir);
             break;
         default:
@@ -341,8 +354,7 @@ int GIGAreaddir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offse
             } while ((de = readdir(dp)) != NULL);
             break;
         case BACKEND_RPC_LEVELDB:
-            parse_path_components(path, file, dir);
-            dir_id = fuse_cache_lookup((char*)path);
+            dir_id = recursive_lookup(path, file, dir);
             ret_ls = (scan_list_t)rpc_readdir(dir_id, dir);
             for (ls = ret_ls; ls != NULL; ls = ls->next) {
                 if (filler(buf, ls->entry_name, NULL, 0) != 0) {
@@ -376,8 +388,7 @@ int GIGAreleasedir(const char *path, struct fuse_file_info *fi)
             closedir((DIR*)(uintptr_t)fi->fh);
             break;
         case BACKEND_RPC_LEVELDB:
-            parse_path_components(path, file, dir);
-            dir_id = fuse_cache_lookup((char*)path);
+            dir_id = recursive_lookup(path, file, dir);
             ret = rpc_releasedir(dir_id, dir);
             break;
         default:
@@ -622,8 +633,7 @@ int GIGAopen(const char *path, struct fuse_file_info *fi)
             break;
         case BACKEND_RPC_LEVELDB:
             fh = (rpc_leveldb_fh_t *) malloc(sizeof(rpc_leveldb_fh_t));
-            parse_path_components(path, fh->file, dir);
-            fh->dir_id = fuse_cache_lookup(dir);
+            fh->dir_id = recursive_lookup(path, fh->file, dir);
             fh->flags = fi->flags;
             ret = rpc_open(fh->dir_id, fh->file, fi->flags,
                            &fh->state, fpath);

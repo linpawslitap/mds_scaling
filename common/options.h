@@ -41,6 +41,7 @@ typedef enum backends {
 #define DEFAULT_SRV_BACKEND     "/l0/giga_srv/"
 #define DEFAULT_LEVELDB_DIR     "/l0/giga_ldb/"
 #define DEFAULT_SPLIT_DIR       "/users/kair/_splits/"
+#define DEFAULT_FILE_VOL        "/users/kair/_store/"
 #endif
 
 #ifdef  PANFS         /* LevelDB splits through NFS, everything else is local */

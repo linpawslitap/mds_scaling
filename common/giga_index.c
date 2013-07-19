@@ -402,7 +402,7 @@ index_t giga_get_bucket_num_for_server(struct giga_mapping_t *mapping, index_t i
 int giga_file_migration_status(const char* filename, index_t new_index) 
 {
     int ret = 0;
-    logMessage(GIGA_LOG, __func__, "checking if file(%s) moves?", filename);
+    //logMessage(GIGA_LOG, __func__, "checking if file(%s) moves?", filename);
     
     char hash[HASH_LEN] = {0};
     giga_hash_name(filename, hash);
@@ -411,7 +411,7 @@ int giga_file_migration_status(const char* filename, index_t new_index)
     if (compute_index(hash, radix) == new_index)
         ret = 1;
 
-    logMessage(GIGA_LOG, __func__, "file(%s) move status: %d", filename, ret);
+    //logMessage(GIGA_LOG, __func__, "file(%s) move status: %d", filename, ret);
     
     return ret;
 }
@@ -419,13 +419,13 @@ int giga_file_migration_status(const char* filename, index_t new_index)
 int giga_file_migration_status_with_hash(char* hash, index_t new_index) 
 {
     int ret = 0;
-    logMessage(GIGA_LOG, __func__, "checking if hash(%s) moves?", hash);
+    //logMessage(GIGA_LOG, __func__, "checking if hash(%s) moves?", hash);
 
     int radix = get_radix_from_index(new_index);
     if (compute_index(hash, radix) == new_index)
         ret = 1;
 
-    logMessage(GIGA_LOG, __func__, "hash(%s) move status: %d", hash, ret);
+    //logMessage(GIGA_LOG, __func__, "hash(%s) move status: %d", hash, ret);
     return ret;
 }
 

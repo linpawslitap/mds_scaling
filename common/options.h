@@ -13,7 +13,7 @@ typedef enum backends {
     BACKEND_RPC_LEVELDB         // LevelDB mounted on networked config
 } backend_t;
 
-#define PANFS
+#define NFS
 
 #ifdef  LOCAL_FS    /* LocalFS */
 #define DEFAULT_BACKEND_TYPE    BACKEND_LOCAL_FS
@@ -65,7 +65,7 @@ typedef enum backends {
 
 #define MAX_SERVERS     128             // MAX number of GIGA+ servers
 #define DEFAULT_PORT    45678           // Default port used by GIGA+ servers
-#define SPLIT_THRESH    10000           // Default directory split theshold
+#define SPLIT_THRESH    100             // Default directory split theshold
 #define CONFIG_FILE     "/tmp/.giga"    // Default config file location
 
 #define ROOT_DIR_ID     0
@@ -74,7 +74,7 @@ typedef enum backends {
 #define PARTITION_OF_ROOT   0
 #define DEFAULT_DIR_CACHE_SIZE  4096
 
-#define FILE_THRESHOLD 4096 
+#define FILE_THRESHOLD 4096
 #define MAX_PARALLEL_VOLS 500
 #define MAX_PARALLEL_VOL_NAME 256
 

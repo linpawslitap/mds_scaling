@@ -398,15 +398,20 @@ void init_root_partition()
                             ldb_name);
                     exit(1);
                 }
-
                 char path_name[PATH_MAX] = {0};
+#ifdef PANFS
                 int vol_i;
                 for (vol_i=0; vol_i < giga_options_t.num_pfs_volumes; ++vol_i) {
                     sprintf(path_name, "%s/files/%d",
                             giga_options_t.pfs_volumes[vol_i], ROOT_DIR_ID);
                     local_mkdir(path_name, DEFAULT_MODE);
                 }
-
+#endif
+#ifdef NFS
+                sprintf(path_name, "%s/files/%d",
+                        DEFAULT_FILE_VOL, ROOT_DIR_ID);
+                local_mkdir(path_name, DEFAULT_MODE);
+#endif
                 cache_release(dir);
 
             }

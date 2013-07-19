@@ -897,6 +897,7 @@ start:
                             rpc_reply->result.errnum = errno;
                             LOG_ERR("Fail to write migrated file: %d, %s, %s, %d, %s",
                                 dir_id, path, fpath, errno, strerror(errno));
+                            close(fd);
                         } else {
                             close(fd);
                             struct stat stbuf;

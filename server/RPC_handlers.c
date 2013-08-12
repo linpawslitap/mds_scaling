@@ -583,6 +583,23 @@ bool_t giga_rpc_readdir_1_svc(giga_dir_id dir_id, int partition_id,
 }
 */
 
+void create_dir_in_storage(int object_id) {
+    char path_name[PATH_MAX];
+#ifdef PANFS
+    int vol_i;
+    for (vol_i=0; vol_i < giga_options_t.num_pfs_volumes; ++vol_i) {
+        sprintf(path_name, "%s/files/%d",
+                giga_options_t.pfs_volumes[vol_i], object_id);
+        local_mkdir(path_name, DEFAULT_MODE);
+    }
+#endif
+#ifdef NFS
+    sprintf(path_name, "%s/files/%d",
+            DEFAULT_FILE_VOL, object_id);
+    local_mkdir(path_name, DEFAULT_MODE);
+#endif
+}
+
 bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id,
                             giga_pathname path, mode_t mode,
                             giga_result_t *rpc_reply,
@@ -700,12 +717,7 @@ start:
                 if (rpc_reply->errnum < 0)
                     LOG_ERR("ERR_mdb_create(%s): partition entry, d%d", path, object_id);
 
-                int vol_i;
-                for (vol_i=0; vol_i < giga_options_t.num_pfs_volumes; ++vol_i) {
-                    sprintf(path_name, "%s/files/%d",
-                            giga_options_t.pfs_volumes[vol_i], object_id);
-                    local_mkdir(path_name, DEFAULT_MODE);
-                }
+                create_dir_in_storage(object_id);
             }
 
             cache_release(new_dir);
@@ -799,9 +811,15 @@ bool_t giga_rpc_read_1_svc(giga_dir_id dir_id, giga_pathname path,
 
 }
 
-char* get_random_pfs_volume() {
+const char* get_storage_location() {
+#ifdef PANFS
     int id = rand() % giga_options_t.num_pfs_volumes;
     return giga_options_t.pfs_volumes[id];
+#endif
+#ifdef NFS
+    return DEFAULT_FILE_VOL;
+#endif
+    return NULL;
 }
 
 bool_t giga_rpc_write_1_svc(giga_dir_id dir_id, giga_pathname path,
@@ -870,7 +888,7 @@ start:
                     rpc_reply->state = RPC_LEVELDB_FILE_IN_FS;
 
                     sprintf(fpath, "%s/files/%d/%s",
-                            get_random_pfs_volume(), dir_id, path);
+                            get_storage_location(), dir_id, path);
                     rpc_reply->link = strdup(fpath);
 
                     fd = open(fpath, O_RDWR | O_CREAT, 0777);
@@ -879,6 +897,7 @@ start:
                             rpc_reply->result.errnum = errno;
                             LOG_ERR("Fail to write migrated file: %d, %s, %s, %d, %s",
                                 dir_id, path, fpath, errno, strerror(errno));
+                            close(fd);
                         } else {
                             close(fd);
                             struct stat stbuf;

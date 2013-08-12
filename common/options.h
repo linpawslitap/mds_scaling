@@ -41,6 +41,7 @@ typedef enum backends {
 #define DEFAULT_SRV_BACKEND     "/l0/giga_srv/"
 #define DEFAULT_LEVELDB_DIR     "/l0/giga_ldb/"
 #define DEFAULT_SPLIT_DIR       "/users/kair/_splits/"
+#define DEFAULT_FILE_VOL        "/users/kair/_store/"
 #endif
 
 #ifdef  PANFS         /* LevelDB splits through NFS, everything else is local */
@@ -64,7 +65,7 @@ typedef enum backends {
 
 #define MAX_SERVERS     128             // MAX number of GIGA+ servers
 #define DEFAULT_PORT    45678           // Default port used by GIGA+ servers
-#define SPLIT_THRESH    20              // Default directory split theshold
+#define SPLIT_THRESH    100             // Default directory split theshold
 #define CONFIG_FILE     "/tmp/.giga"    // Default config file location
 
 #define ROOT_DIR_ID     0
@@ -73,7 +74,7 @@ typedef enum backends {
 #define PARTITION_OF_ROOT   0
 #define DEFAULT_DIR_CACHE_SIZE  4096
 
-#define FILE_THRESHOLD 4096 
+#define FILE_THRESHOLD 4096
 #define MAX_PARALLEL_VOLS 500
 #define MAX_PARALLEL_VOL_NAME 256
 

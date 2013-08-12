@@ -1,5 +1,6 @@
 OPT ?= -O2 -DNDEBUG
-CFLAGS	= -g -Wall -fPIC -Wextra `pkg-config fuse --cflags` -Werror -D_GNU_SOURCE $(OPT)
+#OPT ?= -g2 -DDEBUG
+CFLAGS	= -g -Wall -Wextra `pkg-config fuse --cflags` -Werror -D_GNU_SOURCE $(OPT)
 LDFLAGS = -lm -lpthread -lstdc++
 SRCS = $(wildcard *.c)
 HDRS = $(wildcard *.h) $(RPC_H)

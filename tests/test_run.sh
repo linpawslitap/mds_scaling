@@ -45,15 +45,8 @@ do
         then
             dir=${MNT}/${i}
         fi
-        ./mknod_test ${dir} $files > ~/_perf/$host.$i.$j 2>&1 &
+        ./smallfile_lib_test / 1 $files > ~/_perf/$host.$i.$j 2>&1 &
         #( time ./mknod_test ${dir} $files ) > ~/_perf/$host.$i.$j 2>&1 &
 
     done
 done
-#else
-#    echo "single test instance ..."
-#    ( time ./mknod_test ${MNT} $1 ) > ~/_perf/$host 2>&1 &
-#fi
-
-
-

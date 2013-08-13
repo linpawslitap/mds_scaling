@@ -11,7 +11,7 @@
 #include <stddef.h>
 #include "common/uthash.h"
 
-//TODO: fd may not be unique
+//TODO: fd might be used up
 /* Open files info */
 typedef struct {
     int fd; //Key for hashmap

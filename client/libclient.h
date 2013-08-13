@@ -11,10 +11,6 @@
 int gigaInit();
 void gigaDestroy();
 
-int gigaMknod(const char *path, mode_t mode, dev_t dev);
-int gigaMkdir(const char *path, mode_t mode);
-int gigaRmdir(const char *path);
-
 struct info {
     int mode;
     int uid, gid;
@@ -22,6 +18,9 @@ struct info {
     int atime, mtime, ctime;
 };
 
+int gigaMknod(const char *path, mode_t mode, dev_t dev);
+int gigaMkdir(const char *path, mode_t mode);
+int gigaRmdir(const char *path);
 //TODO: gigaOpen with mode not implemented
 int gigaOpen(const char *path, int flags);
 int gigaRead(int fd, void *buf, size_t size);

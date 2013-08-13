@@ -65,4 +65,4 @@ metadb_fs_check : metadb_fs_check.o metadb_fs.o
 	$(CC) -o $@ $^ $(LIBS) $(LDFLAGS)
 
 clean :
-	rm -f *.o metadb_fs_test metadb_insert_test metadb_fs_readdir_test
+	rm -f *.o metadb_fs_test metadb_insert_test metadb_fs_readdir_test metadb_split_test

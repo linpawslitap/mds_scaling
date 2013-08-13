@@ -51,7 +51,7 @@ public class GTFSImpl {
     public interface GIGALib extends Library {
         public int gigaInit();
         public void gigaDestroy();
-        public int gigaMknod(String path, int mode, int dev);
+        public int gigaMknod(String path, int mode);
         public int gigaMkdir(String path, int mode);
         public int gigaRmdir(String path);
         public int gigaGetAttr(String path, Stat stat);
@@ -69,7 +69,7 @@ public class GTFSImpl {
 
     public GTFSImpl() {
        gigaclient =
-         (GIGAlib) Native.loadLibrary("libgiga_client.so", CTest.class);
+         (GIGALib) Native.loadLibrary("libgiga_client.so", GIGALib.class);
        gigaclient.gigaInit();
     }
 
@@ -77,8 +77,8 @@ public class GTFSImpl {
         gigaclient.gigaDestroy();
     }
 
-    public int mkNod(String path, int mode, int dev) {
-        return gigaclient.gigaMknod(path, mode, dev);
+    public int mkNod(String path, int mode) {
+        return gigaclient.gigaMknod(path, mode);
     }
 
     public int mkDir(String path, int mode) {

@@ -13,7 +13,7 @@ metadb_fs.o : metadb_fs.c operations.h
 	$(CC) $(CFLAGS) -c metadb_fs.c
 
 rpc_fs.o : rpc_fs.c operations.h
-	$(CC) $(CFLAGS) -c local_fs.c
+	$(CC) $(CFLAGS) -c rpc_fs.c
 						
 local_fs.o : local_fs.c operations.h
 	$(CC) $(CFLAGS) -c local_fs.c

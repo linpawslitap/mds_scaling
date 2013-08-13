@@ -100,19 +100,14 @@ public class GTFileSystem extends FileSystem {
         return mkdir_recursive(absolute, permission);
     }
 
+    public boolean mknod(Path path, FsPermission permission) {
+        Path absolute = makeAbsolute(path);
+        return gtfs_impl.mkNod(absolute.toString(), permission.toShort()) == 0;
+    }
+
     @Override
     public FileStatus[] listStatus(Path path) throws IOException {
         Path absolute = makeAbsolute(path);
-        String srep = absolute.toUri().getPath();
-        /*
-        if(!kfsImpl.exists(srep))
-          throw new FileNotFoundException("File " + path + " does not exist.");
-
-        if (kfsImpl.isFile(srep))
-                return new FileStatus[] { getFileStatus(path) } ;
-
-        return kfsImpl.readdirplus(absolute);
-        */
         return null;
     }
 
@@ -184,7 +179,8 @@ public class GTFileSystem extends FileSystem {
     @Override
     public FSDataOutputStream create(Path file, FsPermission permission,
                                      boolean overwrite, int bufferSize,
-				     short replication, long blockSize, Progressable progress)
+				                     short replication,
+                                     long blockSize, Progressable progress)
 	throws IOException {
 
         return null;
@@ -252,5 +248,21 @@ public class GTFileSystem extends FileSystem {
             return null;
         }
         return null;
+    }
+
+    static int main(String[] args) {
+        try {
+            GTFileSystem fs = new GTFileSystem();
+            fs.initialize(new URI("gtfs://"), new Configuration());
+
+            Path root = new Path("/");
+            for (int i = 0; i < 100; ++i) {
+                Path path = new Path(root, Integer.toString(i));
+                fs.mknod(path, FsPermission.getFileDefault());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return 0;
     }
 }

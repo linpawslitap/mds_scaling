@@ -9,7 +9,7 @@ typedef enum backends {
     BACKEND_LOCAL_LEVELDB,      // Local levelDB
 
     // Networked, RPC-based backends
-    BACKEND_RPC_LOCALFS,        // ship ops via RPC to server 
+    BACKEND_RPC_LOCALFS,        // ship ops via RPC to server
     BACKEND_RPC_LEVELDB         // LevelDB mounted on networked config
 } backend_t;
 

@@ -21,7 +21,7 @@ $(OBJS) : $(HDRS)
 	ranlib ../libgiga_client.a
 
 ../libgiga_client.so : $(BACKENDOBJ) $(LIBCLIENTOBJ) $(LIBS)
-#	$(CC) -shared -o ../libgiga_client.so $?
+	$(CC) -shared -o ../libgiga_client.so $?
 
 clean :
 	rm -f $(TARGETS) $(OBJS)

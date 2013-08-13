@@ -85,9 +85,9 @@ void gigaDestroy()
   GIGAdestroy(unused);
 }
 
-int gigaMknod(const char *path, mode_t mode, dev_t dev)
+int gigaMknod(const char *path, mode_t mode)
 {
-  return GIGAmknod(path, mode, dev);
+  return GIGAmknod(path, mode, 0);
 }
 
 int gigaMkdir(const char *path, mode_t mode)
@@ -170,7 +170,6 @@ int gigaGetInfo(const char *path, struct info *buf)
       buf->uid = statbuf.st_uid;
       buf->gid = statbuf.st_gid;
       buf->atime = statbuf.st_atime;
-      buf->mtime = statbuf.st_mtime;
       buf->ctime = statbuf.st_ctime;
     }
     return ret;

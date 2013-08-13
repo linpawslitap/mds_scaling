@@ -154,17 +154,18 @@ int gigaPwrite(int fd, const void *buf, size_t size, size_t offset)
     return written;
 }
 
-int gigaGetattr(const char *path, struct stat *buf)
+int gigaGetAttr(const char *path, struct stat *buf)
 {
     return GIGAgetattr(path, buf);
 }
 
-int gigaGetinfo(const char *path, struct info *buf)
+int gigaGetInfo(const char *path, struct info *buf)
 {
     struct stat statbuf;
     int ret = GIGAgetattr(path, &statbuf);
     if (ret == 0) {
-      buf->mode = statbuf.st_mode;
+      buf->permission = statbuf.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO);
+      buf->is_dir = S_ISDIR(statbuf.st_mode);
       buf->size = statbuf.st_size;
       buf->uid = statbuf.st_uid;
       buf->gid = statbuf.st_gid;

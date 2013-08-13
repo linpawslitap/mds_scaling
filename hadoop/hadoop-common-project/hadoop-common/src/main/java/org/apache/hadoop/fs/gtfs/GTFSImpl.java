@@ -38,12 +38,13 @@ public class GTFSImpl {
     }
 
     public static class Info extends Structure {
-        public int mode;  /* File mode.  */
+        public short permission;  /* File permission.  */
+        public boolean is_dir; /* File type */
+        public boolean __unused;
         public int uid;   /* User ID of the file's owner.  */
         public int gid;   /* Group ID of the file's group. */
         public int size;  /* Size of file, in bytes.  */
         public int atime; /* Time of last access.  */
-        public int mtime; /* Time of last modification.  */
         public int ctime; /* Time of last status change.  */
     }
 
@@ -53,12 +54,12 @@ public class GTFSImpl {
         public int gigaMknod(String path, int mode, int dev);
         public int gigaMkdir(String path, int mode);
         public int gigaRmdir(String path);
-        public int gigaGetattr(String path, Stat stat);
-        public int gigaGetinfo(String path, Info info);
+        public int gigaGetAttr(String path, Stat stat);
+        public int gigaGetInfo(String path, Info info);
 
         public int gigaOpen(String path, int flags);
-        public int gigaRead(int fd, void* buf, int size);
-        public int gigaWrite(int fd, void* buf, int size);
+        public int gigaRead(int fd, String buf, int size);
+        public int gigaWrite(int fd, String buf, int size);
         public int gigaClose(int fd);
         public int gigaUnlink(String path);
 //        public int gigaRename(String src, String dst);
@@ -89,11 +90,11 @@ public class GTFSImpl {
     }
 
     public int getAttr(String path, Stat stat) {
-        return gigaclient.gigaGetattr(path, stat);
+        return gigaclient.gigaGetAttr(path, stat);
     }
 
     public int getInfo(String path, Info info) {
-        return gigaclient.gigaGetinfo(path, info);
+        return gigaclient.gigaGetInfo(path, info);
     }
 
     public int open(String path, int flags) {
@@ -113,6 +114,6 @@ public class GTFSImpl {
     }
 
     public int unlink(String path) {
-        return gigaclient.unlink(String path);
+        return gigaclient.gigaUnlink(path);
     }
 }

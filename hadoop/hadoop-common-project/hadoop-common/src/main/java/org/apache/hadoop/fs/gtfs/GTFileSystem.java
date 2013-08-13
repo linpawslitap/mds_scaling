@@ -25,10 +25,11 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.util.Progressable;
-
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URI;
+
+import org.apache.hadoop.fs.gtfs.GTFSImpl;
 
 /**
  * A FileSystem backed by GIGA+TableFS FileSystem.
@@ -40,13 +41,14 @@ public class GTFileSystem extends FileSystem {
 
     private URI uri;
     private Path workingDir = new Path("/");
+    private GTFSImpl gtfs_impl;
 
     public GTFileSystem() {
     }
 
     @Override
     public URI getUri() {
-	return uri;
+    	return uri;
     }
 
     @Override
@@ -54,8 +56,8 @@ public class GTFileSystem extends FileSystem {
       super.initialize(uri, conf);
       try {
         this.uri = URI.create(uri.getScheme() + "://" + uri.getAuthority());
-        this.workingDir = new Path("/user", System.getProperty("user.name")
-                                   ).makeQualified(this);
+        this.workingDir = new Path("/");
+        this.gtfs_impl = new GTFSImpl();
         setConf(conf);
 
       } catch (Exception e) {
@@ -76,18 +78,26 @@ public class GTFileSystem extends FileSystem {
     }
 
     private Path makeAbsolute(Path path) {
-	if (path.isAbsolute()) {
-	    return path;
-	}
-	return new Path(workingDir, path);
+        if (path.isAbsolute()) {
+            return path;
+        }
+        return new Path(workingDir, path);
+    }
+
+    public boolean mkdir_recursive(Path path, FsPermission permission) {
+        Path parent_path = path.getParent();
+        if (parent_path != null) {
+            mkdir_recursive(parent_path, permission);
+        }
+        int res = gtfs_impl.mkDir(path.toString(), permission.toShort());
+        return res == 0;
     }
 
     @Override
     public boolean mkdirs(Path path, FsPermission permission
         ) throws IOException {
 	    Path absolute = makeAbsolute(path);
-    	int res = 0;
-    	return res == 0;
+        return mkdir_recursive(absolute, permission);
     }
 
     @Override
@@ -106,29 +116,29 @@ public class GTFileSystem extends FileSystem {
         return null;
     }
 
+    public String getUser(int uid) {
+        return Integer.toString(uid);
+    }
+
+    public String getGroup(int gid) {
+        return Integer.toString(gid);
+    }
+
     @Override
     public FileStatus getFileStatus(Path path) throws IOException {
-	Path absolute = makeAbsolute(path);
-        String srep = absolute.toUri().getPath();
-        /*
-        if (!kfsImpl.exists(srep)) {
-          throw new FileNotFoundException("File " + path + " does not exist.");
-        }
-        if (kfsImpl.isDirectory(srep)) {
-            // System.out.println("Status of path: " + path + " is dir");
-            return new FileStatus(0, true, 1, 0, kfsImpl.getModificationTime(srep), 
-                                  path.makeQualified(this));
+    	Path absolute = makeAbsolute(path);
+        GTFSImpl.Info info = new GTFSImpl.Info();
+        if (gtfs_impl.getInfo(absolute.toString(), info) == 0) {
+            return new FileStatus(info.size, info.is_dir, 3, getDefaultBlockSize(),
+                                  info.ctime, info.atime,
+                                  new FsPermission((short) (info.permission)),
+                                  getUser(info.uid), getGroup(info.gid),
+                                  path.makeQualified(this.uri, path));
         } else {
-            // System.out.println("Status of path: " + path + " is file");
-            return new FileStatus(kfsImpl.filesize(srep), false, 
-                                  kfsImpl.getReplication(srep),
-                                  getDefaultBlockSize(),
-                                  kfsImpl.getModificationTime(srep),
-                                  path.makeQualified(this));
+            return null;
         }
-        */
-        return null;
     }
+
     /**
      * Set permission of a path.
      * @param p
@@ -195,6 +205,10 @@ public class GTFileSystem extends FileSystem {
     // recursively delete the directory and its contents
     @Override
     public boolean delete(Path path, boolean recursive) throws IOException {
+        Path absolute = makeAbsolute(path);
+        if (!recursive) {
+            gtfs_impl.unlink(absolute.toString());
+        }
         return true;
     }
     
@@ -209,7 +223,7 @@ public class GTFileSystem extends FileSystem {
         return true;
     }
 
-    // 64MB is the KFS block size
+    // 64MB is the GTFS block size
 
     @Override
     public long getDefaultBlockSize() {

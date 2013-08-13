@@ -12,10 +12,13 @@ int gigaInit();
 void gigaDestroy();
 
 struct info {
-    int mode;
+    short permission;
+    char is_dir;
+    char unused;
     int uid, gid;
     int size;
-    int atime, mtime, ctime;
+    int atime;
+    int ctime;
 };
 
 int gigaMknod(const char *path, mode_t mode, dev_t dev);

@@ -42,39 +42,40 @@ public class GTFileSystem extends FileSystem {
     private URI uri;
     private Path workingDir = new Path("/");
     private GTFSImpl gtfs_impl;
+    private FileSystem hdfs;
 
     public GTFileSystem() {
     }
 
     @Override
     public URI getUri() {
-    	return uri;
+        return uri;
     }
 
     @Override
     public void initialize(URI uri, Configuration conf) throws IOException {
-      super.initialize(uri, conf);
-      try {
-        this.uri = URI.create(uri.getScheme() + "://" + uri.getAuthority());
-        this.workingDir = new Path("/");
-        this.gtfs_impl = new GTFSImpl();
-        setConf(conf);
-
-      } catch (Exception e) {
-        e.printStackTrace();
-        System.out.println("Unable to initialize GTFS");
-        System.exit(-1);
-      }
+        super.initialize(uri, conf);
+        try {
+            this.uri = URI.create(uri.getScheme() + "://" + uri.getAuthority());
+            this.hdfs = FileSystem.get(uri, conf);
+            this.workingDir = new Path("/");
+            this.gtfs_impl = new GTFSImpl();
+            setConf(conf);
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("Unable to initialize GTFS");
+            System.exit(-1);
+        }
     }
 
     @Override
     public Path getWorkingDirectory() {
-    	return workingDir;
+        return workingDir;
     }
 
     @Override
     public void setWorkingDirectory(Path dir) {
-    	workingDir = makeAbsolute(dir);
+        workingDir = makeAbsolute(dir);
     }
 
     private Path makeAbsolute(Path path) {
@@ -96,7 +97,7 @@ public class GTFileSystem extends FileSystem {
     @Override
     public boolean mkdirs(Path path, FsPermission permission
         ) throws IOException {
-	    Path absolute = makeAbsolute(path);
+        Path absolute = makeAbsolute(path);
         return mkdir_recursive(absolute, permission);
     }
 
@@ -121,10 +122,10 @@ public class GTFileSystem extends FileSystem {
 
     @Override
     public FileStatus getFileStatus(Path path) throws IOException {
-    	Path absolute = makeAbsolute(path);
+        Path absolute = makeAbsolute(path);
         GTFSImpl.Info info = new GTFSImpl.Info();
         if (gtfs_impl.getInfo(absolute.toString(), info) == 0) {
-            return new FileStatus(info.size, info.is_dir, 3, getDefaultBlockSize(),
+            return new FileStatus(info.size, info.is_dir > 0, 3, getDefaultBlockSize(),
                                   info.ctime, info.atime,
                                   new FsPermission((short) (info.permission)),
                                   getUser(info.uid), getGroup(info.gid),
@@ -179,9 +180,9 @@ public class GTFileSystem extends FileSystem {
     @Override
     public FSDataOutputStream create(Path file, FsPermission permission,
                                      boolean overwrite, int bufferSize,
-				                     short replication,
+                                      short replication,
                                      long blockSize, Progressable progress)
-	throws IOException {
+                                    throws IOException {
 
         return null;
     }
@@ -207,15 +208,15 @@ public class GTFileSystem extends FileSystem {
         }
         return true;
     }
-    
+
     @Override
     public short getDefaultReplication() {
-    	return 3;
+        return 3;
     }
 
     @Override
     public boolean setReplication(Path path, short replication)
-	throws IOException {
+              throws IOException {
         return true;
     }
 
@@ -223,15 +224,15 @@ public class GTFileSystem extends FileSystem {
 
     @Override
     public long getDefaultBlockSize() {
-    	return 1 << 26;
+        return 1 << 26;
     }
 
-    @Deprecated            
+    @Deprecated
     public void lock(Path path, boolean shared) throws IOException {
 
     }
 
-    @Deprecated            
+    @Deprecated
     public void release(Path path) throws IOException {
 
     }
@@ -250,19 +251,25 @@ public class GTFileSystem extends FileSystem {
         return null;
     }
 
-    static int main(String[] args) {
+    static void testServerConnection() {
         try {
             GTFileSystem fs = new GTFileSystem();
-            fs.initialize(new URI("gtfs://"), new Configuration());
+            fs.initialize(new URI("gtfs://localhost/"), new Configuration());
 
             Path root = new Path("/");
-            for (int i = 0; i < 100; ++i) {
+            for (int i = 0; i < 10; ++i) {
                 Path path = new Path(root, Integer.toString(i));
                 fs.mknod(path, FsPermission.getFileDefault());
+                FileStatus status = fs.getFileStatus(path);
+                System.out.println(status.isDir());
+                System.out.println(status.getLen());
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return 0;
+    }
+
+    public static void main(String[] args) {
+        testServerConnection();
     }
 }

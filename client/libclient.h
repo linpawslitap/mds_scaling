@@ -12,9 +12,9 @@ int gigaInit();
 void gigaDestroy();
 
 struct info {
-    short permission;
-    char is_dir;
-    char unused;
+    int permission;
+    int is_dir;
+    int unused;
     int uid, gid;
     int size;
     int atime;

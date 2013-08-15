@@ -16,61 +16,85 @@ import org.apache.hadoop.fs.FSInputStream;
 
 public class GTFSInputStream extends FSInputStream {
 
+    private byte[] buf;
+    private long buf_len;
+    private long pos;
+    private FSInputStream dfs_in;
 
-    public long getPos() throws IOException {
-        return 0;
+    public GTFSInputStream(byte[] buf, long buf_len) {
+        this.buf = buf;
+        this.buf_len = buf_len;
+        this.pos = 0;
+        this.dfs_in = null;
     }
 
-    public synchronized int available() throws IOException {
-        return 2;
+    public GTFSInputStream(FSInputStream dfs_in) {
+        this.dfs_in = dfs_in;
+        this.buf = null;
+        this.pos = 0;
+        this.buf_len = 0;
+    }
+    public long getPos() throws IOException {
+        if (dfs_in != null) {
+            return dfs_in.getPos();
+        }
+        return pos;
     }
 
     public synchronized void seek(long targetPos) throws IOException {
-
+        if (dfs_in != null) {
+            dfs_in.seek(pos);
+        }
+        pos = targetPos;
     }
 
     public synchronized boolean seekToNewSource(long targetPos) throws IOException {
         return false;
     }
 
+    public int available() throws IOException {
+        if (dfs_in != null) {
+            return dfs_in.available();
+        } else {
+            if (buf_len > pos) {
+                return (int) (buf_len - pos);
+            } else {
+                return 0;
+            }
+        }
+    }
+
     public synchronized int read() throws IOException {
-        /*
-        if (kfsChannel == null) {
-            throw new IOException("File closed");
+        if (dfs_in != null) {
+            return dfs_in.read();
         }
-        byte b[] = new byte[1];
-        int res = read(b, 0, 1);
-        if (res == 1) {
-          if (statistics != null) {
-            statistics.incrementBytesRead(1);
-          }
-          return b[0] & 0xff;
+        if (pos >= buf_len) {
+            throw new IOException("End of File");
         }
-        */
-        return -1;
+        pos = pos + 1;
+        return buf[(int)pos - 1];
     }
 
     public synchronized int read(byte b[], int off, int len) throws IOException {
-        /*
-        if (kfsChannel == null) {
-            throw new IOException("File closed");
+        if (dfs_in != null) {
+            return dfs_in.read(b, off, len);
         }
-        int res;
-
-        res = kfsChannel.read(ByteBuffer.wrap(b, off, len));
-        // Use -1 to signify EOF
-        if (res == 0)
+        if (pos >= buf_len) {
             return -1;
-        if (statistics != null) {
-          statistics.incrementBytesRead(res);
         }
+        int res = Math.min(len, (int) (buf_len-pos));
+        System.arraycopy(buf, (int) pos, b, off, res);
+        pos += res;
         return res;
-        */
-        return -1;
     }
 
     public synchronized void close() throws IOException {
-
+        if (dfs_in != null) {
+            dfs_in.close();
+        } else {
+            buf_len = 0;
+            buf = null;
+        }
     }
 
     public boolean markSupported() {

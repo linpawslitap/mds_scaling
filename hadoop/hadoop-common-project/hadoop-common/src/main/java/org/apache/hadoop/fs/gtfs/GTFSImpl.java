@@ -11,6 +11,7 @@ package org.apache.hadoop.fs.gtfs;
 import com.sun.jna.Library;
 import com.sun.jna.Native;
 import com.sun.jna.Structure;
+import com.sun.jna.ptr.IntByReference;
 
 public class GTFSImpl {
 
@@ -48,6 +49,11 @@ public class GTFSImpl {
         public int ctime; /* Time of last status change.  */
     }
 
+    public static class FetchReply extends Structure {
+        public int state;
+        public int buf_len;
+    }
+
     public interface GIGALib extends Library {
         public int gigaInit();
         public void gigaDestroy();
@@ -56,10 +62,10 @@ public class GTFSImpl {
         public int gigaRmdir(String path);
         public int gigaGetAttr(String path, Stat stat);
         public int gigaGetInfo(String path, Info info);
-
         public int gigaOpen(String path, int flags);
-        public int gigaRead(int fd, String buf, int size);
-        public int gigaWrite(int fd, String buf, int size);
+        public int gigaFetch(String path, byte[] buf, FetchReply reply);
+        public int gigaRead(int fd, byte[] buf, int size);
+        public int gigaWrite(int fd, byte[] buf, int size);
         public int gigaClose(int fd);
         public int gigaUnlink(String path);
 //        public int gigaRename(String src, String dst);
@@ -101,11 +107,15 @@ public class GTFSImpl {
         return gigaclient.gigaOpen(path, flags);
     }
 
-    public int read(int fd, String buf, int size) {
+    public int fetch(String path, byte[] buf, FetchReply reply) {
+        return gigaclient.gigaFetch(path, buf, reply);
+    }
+
+    public int read(int fd, byte[] buf, int size) {
         return gigaclient.gigaRead(fd, buf, size);
     }
 
-    public int write(int fd, String buf, int size) {
+    public int write(int fd, byte[] buf, int size) {
         return gigaclient.gigaWrite(fd, buf, size);
     }
 

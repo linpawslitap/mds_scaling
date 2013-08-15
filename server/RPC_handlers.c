@@ -754,8 +754,10 @@ bool_t giga_rpc_read_1_svc(giga_dir_id dir_id, giga_pathname path,
     // check for giga specific addressing checks.
     //
     int index = check_giga_addressing(dir, path, &(rpc_reply->result), NULL);
-    if (index < 0)
+    if (index < 0) {
+        rpc_reply->result.errnum = 1;
         return true;
+    }
 
     int state;
     int buf_len;
@@ -930,6 +932,79 @@ start:
     return true;
 }
 
+bool_t giga_rpc_fetch_1_svc(giga_dir_id dir_id, giga_pathname path, int mode,
+                            giga_fetch_reply_t *rpc_reply,
+                            struct svc_req *rqstp)
+{
+
+    (void)rqstp;
+    (void)mode;
+    assert(rpc_reply);
+    assert(path);
+
+    LOG_MSG(">>> RPC_fetch(d=%d,p=%s)", dir_id, path);
+
+    bzero(rpc_reply, sizeof(giga_fetch_reply_t));
+
+    struct giga_directory *dir = fetch_dir_mapping(dir_id);
+    // check for giga specific addressing checks.
+    //
+    int index = check_giga_addressing(dir, path, &(rpc_reply->result), NULL);
+    if (index < 0) {
+        rpc_reply->result.errnum = 1;
+        return true;
+    }
+
+    int state;
+    char buf[FILE_THRESHOLD];
+    int buf_len;
+
+    switch (giga_options_t.backend_type) {
+        case BACKEND_RPC_LEVELDB:
+            rpc_reply->result.errnum =
+                  metadb_get_file(ldb_mds,
+                                  dir_id, index, path,
+                                  &state, buf, &buf_len);
+            if (rpc_reply->result.errnum == 0) {
+                rpc_reply->data.state = state;
+                switch (state) {
+                  case RPC_LEVELDB_FILE_IN_DB:
+                      if (buf_len > 0) {
+                          rpc_reply->data.giga_read_t_u.buf.giga_file_data_val
+                              = (char*) malloc(buf_len);
+                          rpc_reply->data.giga_read_t_u.buf.giga_file_data_len
+                              = buf_len;
+                          memcpy(
+                            rpc_reply->data.giga_read_t_u.buf.giga_file_data_val
+                            , buf, buf_len);
+                      } else {
+                          rpc_reply->data.giga_read_t_u.buf.giga_file_data_val
+                              = NULL;
+                          rpc_reply->data.giga_read_t_u.buf.giga_file_data_len
+                              = 0;
+                      }
+                      break;
+                  case RPC_LEVELDB_FILE_IN_FS:
+                      rpc_reply->data.giga_read_t_u.link = strdup(buf);
+                      break;
+                  default:
+                    break;
+                }
+
+            }
+            break;
+        default:
+            break;
+    }
+
+    release_dir_mapping(dir);
+
+    LOG_MSG("<<< RPC_fetch(d=%d,p=%s): state=[%d], status=[%d]",
+            dir_id, path, rpc_reply->data.state,
+            rpc_reply->result.errnum);
+    return true;
+}
+
 bool_t giga_rpc_open_1_svc(giga_dir_id dir_id, giga_pathname path, int mode,
                            giga_open_reply_t *rpc_reply,
                            struct svc_req *rqstp)
@@ -942,14 +1017,6 @@ bool_t giga_rpc_open_1_svc(giga_dir_id dir_id, giga_pathname path, int mode,
     LOG_MSG(">>> RPC_open(d=%d,p=%s)", dir_id, path);
 
     bzero(rpc_reply, sizeof(giga_open_reply_t));
-
-    /*
-    rpc_reply->result.errnum = 0;
-    rpc_reply->state = RPC_LEVELDB_FILE_IN_DB;
-    rpc_reply->link = strdup("");
-
-    return true;
-    */
 
     struct giga_directory *dir = fetch_dir_mapping(dir_id);
     // check for giga specific addressing checks.

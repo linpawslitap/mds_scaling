@@ -105,6 +105,7 @@ void rpc_disconnect()
 {
     rpcDisconnect();
 }
+
 int rpc_getattr(int dir_id, const char *path, struct stat *stbuf)
 {
     int ret = 0;
@@ -672,6 +673,60 @@ retry:
     return ret;
 }
 
+
+int rpc_fetch(int dir_id, const char *path, int mode,
+             int* state, char *buf, int* buf_len)
+{
+    int ret = 0;
+
+    LOG_MSG(">>> RPC_open(%s, d%d)", path, dir_id);
+
+    struct giga_directory *dir = cache_lookup(&dir_id);
+    if (dir == NULL) {
+        LOG_MSG("rpc_open: ERR_cache: dir(%d) missing!", dir_id);
+        exit(1);
+    }
+
+    int server_id = 0;
+    static giga_fetch_reply_t rpc_reply;
+    memset(&rpc_reply, 0, sizeof(rpc_reply));
+
+retry:
+    server_id = get_server_for_file(dir, path);
+    CLIENT *rpc_clnt = getConnection(server_id);
+
+    LOG_MSG(">>> RPC_open(%s): to s%d]", path, server_id);
+
+    if (giga_rpc_fetch_1(dir_id, (char*)path, mode, &rpc_reply, rpc_clnt)
+        != RPC_SUCCESS) {
+        LOG_ERR("ERR_rpc_fetch(%s)", clnt_spcreateerror(path));
+        exit(1);
+    }
+
+    // check return condition
+    //
+    ret = rpc_reply.result.errnum;
+    if (ret == -EAGAIN) {
+        update_client_mapping(dir, &rpc_reply.result.giga_result_t_u.bitmap);
+        LOG_MSG("rpc_open: bitmap update from s%d -- RETRY ...", server_id);
+        goto retry;
+    } else if (ret == 0){
+        *state = rpc_reply.data.state;
+        if (rpc_reply.data.state == RPC_LEVELDB_FILE_IN_FS) {
+          strncpy(buf, rpc_reply.data.giga_read_t_u.link, PATH_MAX);
+          *buf_len = strlen(buf);
+        } else {
+          *buf_len = rpc_reply.data.giga_read_t_u.buf.giga_file_data_len;
+          memcpy(buf, rpc_reply.data.giga_read_t_u.buf.giga_file_data_val,
+                *buf_len);
+        }
+    }
+    cache_release(dir);
+
+    LOG_MSG("RPC_open(%s): status=[%d]%s", path, ret, strerror(ret));
+    return ret;
+}
+
 int rpc_open(int dir_id, const char *path, int mode,
              int* state, char *link)
 {
@@ -706,7 +761,7 @@ retry:
     ret = rpc_reply.result.errnum;
     if (ret == -EAGAIN) {
         update_client_mapping(dir, &rpc_reply.result.giga_result_t_u.bitmap);
-        LOG_MSG("rpc_open: Kartik: bitmap update from s%d -- RETRY ...", server_id);
+        LOG_MSG("rpc_open: bitmap update from s%d -- RETRY ...", server_id);
         goto retry;
     } else if (ret == 0){
         *state = rpc_reply.state;

@@ -3,13 +3,14 @@
 #include "FUSE_operations.h"
 #include "common/debugging.h"
 #include "common/options.h"
+#include "common/uthash.h"
+
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
-#include "common/uthash.h"
 
 //TODO: fd might be used up
 /* Open files info */
@@ -112,6 +113,10 @@ int gigaOpen(const char *path, int flags)
     } else {
         return -1;
     }
+}
+
+int gigaFetch(const char *path, char* buf, fetch_reply* reply) {
+    GIGAfetch(path, &(reply->state), buf, &(reply->buf_len));
 }
 
 int gigaCreat(const char *path, mode_t mode)

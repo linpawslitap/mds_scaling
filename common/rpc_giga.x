@@ -111,6 +111,12 @@ struct giga_open_reply_t {
     /**int fn_retval;*/
 };
 
+struct giga_fetch_reply_t {
+    giga_read_t data;
+    giga_result_t result;
+    /**int fn_retval;*/
+};
+
 struct giga_write_reply_t {
     giga_result_t result;
     int state;
@@ -153,12 +159,16 @@ version GIGA_RPC_VERSION {          /* version number */
                                      uint64_t, uint64_t, int) = 401;
 
         giga_write_reply_t GIGA_RPC_WRITE(giga_dir_id, giga_pathname,
-                                          giga_file_data data, int offset) = 601;
+                                         giga_file_data data, int offset) = 601;
 
         giga_read_reply_t GIGA_RPC_READ(giga_dir_id, giga_pathname,
                                         int size, int offset) = 701;
 
-        giga_open_reply_t GIGA_RPC_OPEN(giga_dir_id, giga_pathname, int mode ) = 801;
+        giga_open_reply_t GIGA_RPC_OPEN(giga_dir_id, giga_pathname,
+                                        int mode ) = 801;
+
+        giga_fetch_reply_t GIGA_RPC_FETCH(giga_dir_id, giga_pathname,
+                                          int mode ) = 802;
 
         giga_result_t GIGA_RPC_CLOSE(giga_dir_id, giga_pathname) = 901;
 

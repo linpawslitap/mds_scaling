@@ -63,6 +63,7 @@ public class GTFSImpl {
         public int gigaGetAttr(String path, Stat stat);
         public int gigaGetInfo(String path, Info info);
         public int gigaOpen(String path, int flags);
+        public int gigaUpdatelink(String path, String link);
         public int gigaFetch(String path, byte[] buf, FetchReply reply);
         public int gigaRead(int fd, byte[] buf, int size);
         public int gigaWrite(int fd, byte[] buf, int size);
@@ -111,6 +112,9 @@ public class GTFSImpl {
         return gigaclient.gigaFetch(path, buf, reply);
     }
 
+    public int updatelink(String path, String link) {
+        return gigaclient.gigaUpdatelink(path, link);
+    }
     public int read(int fd, byte[] buf, int size) {
         return gigaclient.gigaRead(fd, buf, size);
     }

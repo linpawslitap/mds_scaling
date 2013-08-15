@@ -878,7 +878,7 @@ start:
                 break;
             }
             if (state == RPC_LEVELDB_FILE_IN_DB) {
-                if (size + offset < FILE_THRESHOLD) {
+                if (size + offset <= FILE_THRESHOLD) {
                   rpc_reply->state = state;
                   rpc_reply->result.errnum =
                       metadb_write_file(ldb_mds,
@@ -902,8 +902,6 @@ start:
                             close(fd);
                         } else {
                             close(fd);
-                            struct stat stbuf;
-                            stat(fpath, &stbuf);
                             metadb_write_link(ldb_mds, dir_id, index, path, fpath);
                             rpc_reply->result.errnum = 0;
                         }
@@ -1002,6 +1000,53 @@ bool_t giga_rpc_fetch_1_svc(giga_dir_id dir_id, giga_pathname path, int mode,
     LOG_MSG("<<< RPC_fetch(d=%d,p=%s): state=[%d], status=[%d]",
             dir_id, path, rpc_reply->data.state,
             rpc_reply->result.errnum);
+    return true;
+}
+
+bool_t giga_rpc_updatelink_1_svc(giga_dir_id dir_id, giga_pathname path,
+                                 giga_pathname link,
+                                 giga_result_t *rpc_reply,
+                                 struct svc_req *rqstp)
+{
+    (void)rqstp;
+
+    assert(rpc_reply);
+    assert(path);
+
+    int size = data.giga_file_data_len;
+
+    LOG_MSG(">>> RPC_updatelink(d=%d,p=%s,link=%s)",
+            dir_id, path, link);
+
+    bzero(rpc_reply, sizeof(giga_result_t));
+    struct giga_directory *dir = fetch_dir_mapping(dir_id);
+    int index;
+
+start:
+    // check for giga specific addressing checks.
+    //
+    if ((index=check_giga_addressing(dir, path, &(rpc_reply->result), NULL))<0)
+    {
+        return true;
+    }
+
+    ACQUIRE_MUTEX(&dir->partition_mtx[index], "updatelink(%s)", path);
+
+    if (check_giga_addressing(dir, path, &(rpc_reply->result), NULL) != index) {
+        RELEASE_MUTEX(&dir->partition_mtx[index], "updatelink(%s)", path);
+        LOG_MSG("RECOMPUTE_INDEX: updatelink(%s) for p(%d) changed.", path, index);
+        goto start;
+    }
+
+    rpc_reply->errnum = metadb_write_link(ldb_mds, dir_id, index, path, fpath);
+                            rpc_reply->result.errnum = 0;
+
+    RELEASE_MUTEX(&dir->partition_mtx[index], "updatelink(%s)", path);
+
+    release_dir_mapping(dir);
+
+    LOG_MSG("<<< RPC_updatelink(d=%d,p=%s): status=[%d]",
+            dir_id, path, rpc_reply->errnum);
     return true;
 }
 

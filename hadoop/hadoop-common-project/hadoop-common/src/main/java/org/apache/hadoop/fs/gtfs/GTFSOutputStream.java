@@ -19,35 +19,44 @@
 
 package org.apache.hadoop.fs.gtfs;
 
-import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.util.Progressable;
-
+import org.apache.hadoop.fs.*;
+import org.apache.hadoop.fs.permission.FsPermission;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
-@InterfaceAudience.Private
-@InterfaceStability.Unstable
 class GTFSOutputStream extends OutputStream {
 
-    private String path;
-    private GTFSImpl gtfs_impl;
+    private FileSystem hdfs;
+    private Path f;
+    private FsPermission permission;
+    private boolean overwrite;
+    private int bufferSize;
+    private short replication;
+    private long blockSize;
+    private boolean append;
     private Progressable progressReporter;
-    private long pos;
 
-    public GTFSOutputStream(GTFSImpl gtfs_impl, String path, short replication,
-                            boolean append, Progressable prog) {
-        this.path = path;
+    static private int threshold;
 
-        /*
-        if ((append) && (kfsAccess.kfs_isFile(path)))
-                this.kfsChannel = kfsAccess.kfs_append(path);
-        else
-                this.kfsChannel = kfsAccess.kfs_create(path, replication);
-        */
-
-        this.progressReporter = prog;
+    public GTFSOutputStream(Path f,
+                            FsPermission permission,
+                            boolean overwrite,
+                            int bufferSize,
+                            short replication,
+                            long blockSize,
+                            boolean append,
+                            FileSystem fs,
+                            Progressable progress) {
+        this.f = f;
+        this.permission = permission;
+        this.overwrite = overwrite;
+        this.bufferSize = bufferSize;
+        this.replication = replication;
+        this.blockSize = blockSize;
+        this.append = append;
+        this.progressReporter = progress;
     }
 
     public long getPos() throws IOException {
@@ -56,7 +65,6 @@ class GTFSOutputStream extends OutputStream {
             throw new IOException("File closed");
         }
         */
-        return pos;
     }
 
     public void write(int v) throws IOException {
@@ -80,24 +88,11 @@ class GTFSOutputStream extends OutputStream {
     }
 
     public void flush() throws IOException {
-        /*
-        if (kfsChannel == null) {
-            throw new IOException("File closed");
-        }
-        */
-        // touch the progress before going into KFS since the call can block
+
         progressReporter.progress();
-        //kfsChannel.sync();
     }
 
     public synchronized void close() throws IOException {
-        /*
-        if (kfsChannel == null) {
-            return;
-        }
-        flush();
-        kfsChannel.close();
-        kfsChannel = null;
-        */
+
     }
 }

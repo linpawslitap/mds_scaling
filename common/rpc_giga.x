@@ -161,8 +161,8 @@ version GIGA_RPC_VERSION {          /* version number */
         giga_write_reply_t GIGA_RPC_WRITE(giga_dir_id, giga_pathname,
                                          giga_file_data data, int offset) = 601;
 
-        giga_reply_t GIGA_RPC_UPDATELINK(giga_dir_id, giga_pathname,
-                                         giga_pathname, int offset) = 602;
+        giga_result_t GIGA_RPC_UPDATELINK(giga_dir_id, giga_pathname,
+                                          giga_pathname) = 602;
 
         giga_read_reply_t GIGA_RPC_READ(giga_dir_id, giga_pathname,
                                         int size, int offset) = 701;

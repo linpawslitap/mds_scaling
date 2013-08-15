@@ -25,8 +25,9 @@ int GIGAchown(const char *path, uid_t uid, gid_t gid);
 int GIGAtruncate(const char *path, off_t newsize);
 int GIGAutime(const char *path, struct utimbuf *ubuf);
 
-int GIGAfetch(const char *path,
-             int state, char* buf, int* buf_len);
+int GIGAupdatelink(const char *path, const char* link);
+int GIGAfetch(const char *path, mode_t mode,
+              int* state, char* buf, int* buf_len);
 int GIGAread(const char *path, char *buf, size_t size, off_t offset,
              struct fuse_file_info *fi);
 int GIGAwrite(const char *path, const char *buf, size_t size, off_t offset,

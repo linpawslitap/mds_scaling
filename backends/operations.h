@@ -48,6 +48,8 @@ int rpc_opendir(int dir_id, const char *path);
 int rpc_releasedir(int dir_id, const char *path);
 int rpc_fetch(int dir_id, const char *path, int mode,
               int* state, char* buf, int* buf_len);
+int rpc_updatelink(int dir_id, const char *path,
+                   const char* link);
 int rpc_open(int dir_id, const char *path, int mode,
              int* state, char* link);
 int rpc_close(int dir_id, const char *path);

@@ -115,8 +115,13 @@ int gigaOpen(const char *path, int flags)
     }
 }
 
-int gigaFetch(const char *path, char* buf, fetch_reply* reply) {
-    GIGAfetch(path, &(reply->state), buf, &(reply->buf_len));
+int gigaFetch(const char *path, mode_t mode,
+              char* buf, struct fetch_reply* reply) {
+    return GIGAfetch(path, mode, &(reply->state), buf, &(reply->buf_len));
+}
+
+int gigaUpdatelink(const char *path, const char *link) {
+    return GIGAupdatelink(path, link);
 }
 
 int gigaCreat(const char *path, mode_t mode)

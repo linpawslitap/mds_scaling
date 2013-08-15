@@ -31,7 +31,9 @@ int gigaMkdir(const char *path, mode_t mode);
 int gigaRmdir(const char *path);
 //TODO: gigaOpen with mode not implemented
 int gigaOpen(const char *path, int flags);
-int gigaFetch(const char *path, char* buf, fetch_reply* reply);
+int gigaUpdatelink(const char *path, const char *updatelink);
+int gigaFetch(const char *path, mode_t mode, char* buf,
+              struct fetch_reply* reply);
 int gigaRead(int fd, void *buf, size_t size);
 int gigaWrite(int fd, const void *buf, size_t size);
 int gigaPread(int fd, void *buf, size_t size, size_t offset);

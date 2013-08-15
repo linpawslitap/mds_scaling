@@ -1003,7 +1003,8 @@ bool_t giga_rpc_fetch_1_svc(giga_dir_id dir_id, giga_pathname path, int mode,
     return true;
 }
 
-bool_t giga_rpc_updatelink_1_svc(giga_dir_id dir_id, giga_pathname path,
+bool_t giga_rpc_updatelink_1_svc(giga_dir_id dir_id,
+                                 giga_pathname path,
                                  giga_pathname link,
                                  giga_result_t *rpc_reply,
                                  struct svc_req *rqstp)
@@ -1012,8 +1013,6 @@ bool_t giga_rpc_updatelink_1_svc(giga_dir_id dir_id, giga_pathname path,
 
     assert(rpc_reply);
     assert(path);
-
-    int size = data.giga_file_data_len;
 
     LOG_MSG(">>> RPC_updatelink(d=%d,p=%s,link=%s)",
             dir_id, path, link);
@@ -1025,21 +1024,20 @@ bool_t giga_rpc_updatelink_1_svc(giga_dir_id dir_id, giga_pathname path,
 start:
     // check for giga specific addressing checks.
     //
-    if ((index=check_giga_addressing(dir, path, &(rpc_reply->result), NULL))<0)
+    if ((index=check_giga_addressing(dir, path, rpc_reply, NULL))<0)
     {
         return true;
     }
 
     ACQUIRE_MUTEX(&dir->partition_mtx[index], "updatelink(%s)", path);
 
-    if (check_giga_addressing(dir, path, &(rpc_reply->result), NULL) != index) {
+    if (check_giga_addressing(dir, path, rpc_reply, NULL) != index) {
         RELEASE_MUTEX(&dir->partition_mtx[index], "updatelink(%s)", path);
         LOG_MSG("RECOMPUTE_INDEX: updatelink(%s) for p(%d) changed.", path, index);
         goto start;
     }
 
-    rpc_reply->errnum = metadb_write_link(ldb_mds, dir_id, index, path, fpath);
-                            rpc_reply->result.errnum = 0;
+    rpc_reply->errnum = metadb_write_link(ldb_mds, dir_id, index, path, link);
 
     RELEASE_MUTEX(&dir->partition_mtx[index], "updatelink(%s)", path);
 

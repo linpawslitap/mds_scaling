@@ -199,6 +199,8 @@ extern void leveldb_writebatch_iterate(
 /* Options */
 
 extern leveldb_options_t* leveldb_options_create();
+extern leveldb_options_t* leveldb_options_create_with_hdfs_env(
+                const char* ip, int port);
 extern void leveldb_options_destroy(leveldb_options_t*);
 extern void leveldb_options_set_comparator(
     leveldb_options_t*,

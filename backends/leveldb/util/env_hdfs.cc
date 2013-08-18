@@ -24,169 +24,73 @@
 #include "port/port.h"
 #include "util/logging.h"
 #include "util/posix_logger.h"
-
-//#define PLATFORM_HDFS
-#ifdef PLATFORM_HDFS
+#include "util/network.h"
 #include "hdfs.h"
-#endif
-
 #include <map>
-#include <arpa/inet.h>
-#include <sys/types.h> 
-#include <sys/socket.h> 
-#include <netdb.h> 
-//TODO: Duplicate Code ! Copied from common/connection.c
-static std::string getHostIPAddress()
-{
-		char ip_addr[HOST_NAME_MAX];
 
-    char hostname[HOST_NAME_MAX] = {0};
-    hostname[HOST_NAME_MAX-1] = '\0';
-    gethostname(hostname, HOST_NAME_MAX-1);
-
-    int gai_result;
-    struct addrinfo hints, *info;
-
-    memset(&hints, 0, sizeof(struct addrinfo));
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = AI_CANONNAME;
-    hints.ai_protocol = 0;
-
-    if ((gai_result = getaddrinfo(hostname, NULL, &hints, &info)) != 0) {
-        fprintf(stdout, "[%s] getaddrinfo(%s) failed. [%s]\n",
-                __func__, hostname, gai_strerror(gai_result));
-        exit(1);
-    }
-
-    void *ptr = NULL;
-    struct addrinfo *p;
-    for (p = info; p != NULL; p = p->ai_next) {
-        inet_ntop (p->ai_family, p->ai_addr->sa_data, ip_addr, HOST_NAME_MAX);
-        switch (p->ai_family) {
-            case AF_INET:
-                ptr = &((struct sockaddr_in *) p->ai_addr)->sin_addr;
-                break;
-            case AF_INET6:
-                ptr = &((struct sockaddr_in6 *) p->ai_addr)->sin6_addr;
-                break;
-        }
-
-        inet_ntop (p->ai_family, ptr, ip_addr, HOST_NAME_MAX);
-    }
-
-		std::string host_ip(ip_addr);
-    return host_ip;
-}
 
 namespace leveldb {
 
 namespace {
 
+static const std::string hdfs_prefix = "hdfs://";
+
 static Status IOError(const std::string& context, int err_number) {
   return Status::IOError(context, strerror(err_number));
 }
 
-/* Begin: HDFS Env */
-//static const char *primaryNamenode = "10.1.1.74";
-
 #define HDFS_VERBOSITY 1
-
 void hdfsDebugLog(short verbosity, const char* format, ... ) {
-    if(verbosity <= HDFS_VERBOSITY) {
-			va_list args;
-    	va_start( args, format );
-    	vfprintf( stdout, format, args );
-    	va_end( args );
-		}
-}
-
-//Check if the file should be accessed from HDFS
-static bool onHDFS(const std::string &fname) {
-  bool on_hdfs = false;
-#ifdef PLATFORM_HDFS
-  static const std::string ext_sst = ".sst";
-  static const std::string ext_log = ".log";
-  if (fname.length() >= ext_sst.length()) {
-    on_hdfs =  (!fname.compare(fname.length() - ext_sst.length(), ext_sst.length(), ext_sst))
-      || (!fname.compare(fname.length() - ext_log.length(), ext_log.length(), ext_log));
+  if(verbosity <= HDFS_VERBOSITY) {
+    va_list args;
+    va_start( args, format );
+    vfprintf( stdout, format, args );
+    va_end( args );
   }
-#endif
-  return on_hdfs;
 }
 
-#ifdef PLATFORM_HDFS
-static hdfsFS hdfs_primary_fs_;
-static std::map<std::string, hdfsFS> hdfs_connections_;
+bool stringEndsWith(const std::string &src, const std::string &suffix) {
+  return src.compare(src.length()-suffix.length(),
+                     suffix.length(),
+                     suffix) == 0;
+}
 
-static const std::string hdfs_prefix = "hdfs://";
 static bool isRemote(const std::string& fname) {
-	return fname.compare(0, hdfs_prefix.length(), hdfs_prefix) == 0;
+  return fname.compare(0, hdfs_prefix.length(), hdfs_prefix) == 0;
 }
 
 std::string getHost(const std::string &fname) {
-	int end;
-	for(end = hdfs_prefix.length(); end < fname.length(); ++end) {
-		if(fname.at(end) == '/') {
-			break;
-		}	
-	}	
-	std::string host = fname.substr(hdfs_prefix.length(), end - hdfs_prefix.length());	
-	hdfsDebugLog(1, "HDFS: Resolving host from remote path[%s] host[%s] \n", 
-		fname.c_str(), host.c_str());
-	return host;
+  size_t next_slash = fname.find('/', hdfs_prefix.length());
+  std::string host = fname.substr(hdfs_prefix.length(),
+                                  next_slash - hdfs_prefix.length());
+  return host;
 }
 
 std::string getPath(const std::string &fname) {
-	std::string new_path(fname);
-	if(isRemote(fname)) {
-		std::string host = getHost(fname);	
-		new_path = fname.substr(hdfs_prefix.length() + host.length(), 
-			fname.length() - hdfs_prefix.length() - host.length());	
-		hdfsDebugLog(1, "HDFS: Resolving path from remote path[%s] path[%s] \n", 
-			fname.c_str(), new_path.c_str());
-	}
-	return new_path;
-}
-
-static hdfsFS connectFS(const std::string &fname) {
-	hdfsFS hdfs_fs;
-	if(!isRemote(fname) || !getHost(fname).compare(getHostIPAddress())) {
-		hdfsDebugLog(1, "HDFS: Resolved host from remote path[%s] to primary\n", 
-			fname.c_str());
-		hdfs_fs = hdfs_primary_fs_;
-	} else {
-		std::string secondary_host = getHost(fname); 
-		if(hdfs_connections_.find(secondary_host) == hdfs_connections_.end()) {
-			hdfsDebugLog(0, "HDFS: Connecting to secondary host %s\n", secondary_host.c_str());
-  		hdfs_fs = hdfsConnect(secondary_host.c_str(), 8020);
-		} else {
-			hdfsDebugLog(1, "HDFS: Found in secondary host map %s\n", secondary_host.c_str());
-			hdfs_fs = hdfs_connections_[secondary_host];
-		}
-	}
-	return hdfs_fs;
-}
-
-static void hdfsDisconnect_all() {
-	//TODO:
+  std::string new_path(fname);
+  if(isRemote(fname)) {
+    std::string host = getHost(fname);
+    new_path = fname.substr(hdfs_prefix.length() + host.length(),
+                     fname.length() - hdfs_prefix.length() - host.length());
+  }
+  return new_path;
 }
 
 class HDFSSequentialFile: public SequentialFile {
  private:
   std::string filename_;
   hdfsFile file_;
-	hdfsFS hdfs_fs_;
+  hdfsFS hdfs_fs_;
 
  public:
-  HDFSSequentialFile(const std::string& fname, hdfsFile f)
-      : filename_(fname), file_(f){
-		hdfs_fs_ = connectFS(fname);
-		filename_ = getPath(fname);
-	}
-  virtual ~HDFSSequentialFile() { 
-		hdfsCloseFile(hdfs_fs_,file_);
-	}
+  HDFSSequentialFile(const std::string& filename,
+                     hdfsFS hdfs_fs,
+                     hdfsFile file)
+      : filename_(filename), hdfs_fs_(hdfs_fs), file_(file) {
+  }
+  virtual ~HDFSSequentialFile() {
+    hdfsCloseFile(hdfs_fs_, file_);
+  }
 
   virtual Status Read(size_t n, Slice* result, char* scratch) {
     Status s;
@@ -204,12 +108,12 @@ class HDFSSequentialFile: public SequentialFile {
   }
 
   virtual Status Skip(uint64_t n) {
-   	tOffset cur = hdfsTell(hdfs_fs_, file_);
-		if(cur == -1) {
+    tOffset cur = hdfsTell(hdfs_fs_, file_);
+    if(cur == -1) {
       return IOError(filename_, errno);
-		}
+    }
 
-		int r = hdfsSeek(hdfs_fs_, file_, cur + static_cast<tOffset>(n)); 
+    int r = hdfsSeek(hdfs_fs_, file_, cur + static_cast<tOffset>(n));
     if (r != 0) {
       return IOError(filename_, errno);
     }
@@ -221,26 +125,25 @@ class HDFSRandomAccessFile: public RandomAccessFile {
  private:
   std::string filename_;
   hdfsFile file_;
-	hdfsFS hdfs_fs_;
+  hdfsFS hdfs_fs_;
 
  public:
-  HDFSRandomAccessFile(const std::string& fname, hdfsFile file)
-      : filename_(fname), file_(file) { 
-		hdfs_fs_ = connectFS(fname);
-		filename_ = getPath(fname);
-	}
-  virtual ~HDFSRandomAccessFile() { 
-		hdfsCloseFile(hdfs_fs_, file_);
-	}
+  HDFSRandomAccessFile(const std::string& filename,
+                       hdfsFS hdfs_fs, hdfsFile file)
+      : filename_(filename), hdfs_fs_(hdfs_fs), file_(file) {
+  }
+  virtual ~HDFSRandomAccessFile() {
+    hdfsCloseFile(hdfs_fs_, file_);
+  }
+
   virtual Status Read(uint64_t offset, size_t n, Slice* result,
                       char* scratch) const {
-    hdfsDebugLog(2, "Read path %s\n", filename_.c_str());
-
     Status s;
-    ssize_t r = hdfsPread(hdfs_fs_, file_, static_cast<tOffset>(offset), scratch, static_cast<tSize>(n));
+    ssize_t r = hdfsPread(hdfs_fs_, file_,
+                          static_cast<tOffset>(offset),
+                          scratch, static_cast<tSize>(n));
     *result = Slice(scratch, (r < 0) ? 0 : r);
     if (r < 0) {
-      hdfsDebugLog(0, "Error in Read path %s\n", filename_.c_str());
       // An error: return a non-ok status
       s = IOError(filename_, errno);
     }
@@ -252,14 +155,14 @@ class HDFSWritableFile : public WritableFile {
  private:
   std::string filename_;
   hdfsFile file_;
-	hdfsFS hdfs_fs_;
+  hdfsFS hdfs_fs_;
 
  public:
-  HDFSWritableFile(const std::string& fname, hdfsFile file)
-      : filename_(fname),
+  HDFSWritableFile(const std::string& filename,
+                   hdfsFS hdfs_fs, hdfsFile file)
+      : filename_(filename),
+        hdfs_fs_(hdfs_fs),
         file_(file){
-		hdfs_fs_ = connectFS(fname);
-		filename_ = getPath(fname);
   }
 
   ~HDFSWritableFile() {
@@ -269,12 +172,9 @@ class HDFSWritableFile : public WritableFile {
   }
 
   virtual Status Append(const Slice& data) {
-    hdfsDebugLog(2, "Append path %s\n", filename_.c_str());
-
     const char* src = data.data();
     size_t data_size = data.size();
     if (hdfsWrite(hdfs_fs_, file_, src, data_size) < 0) {
-      hdfsDebugLog(0, "Error in append path %s\n", filename_.c_str());
       return IOError(filename_, errno);
     }
 
@@ -282,15 +182,9 @@ class HDFSWritableFile : public WritableFile {
   }
 
   virtual Status Close() {
-    hdfsDebugLog(1, "Close path %s\n", filename_.c_str());
-
     Status s;
     if (hdfsCloseFile(hdfs_fs_, file_) < 0) {
-      hdfsDebugLog(0, "Error in close path %s\n", filename_.c_str());
-
-      if (s.ok()) {
-        s = IOError(filename_, errno);
-      }
+      s = IOError(filename_, errno);
     }
     file_ = NULL;
     return s;
@@ -301,20 +195,13 @@ class HDFSWritableFile : public WritableFile {
   }
 
   virtual Status Sync() {
-    hdfsDebugLog(2, "Sync path %s\n", filename_.c_str());
-
     Status s;
-
     if(hdfsFlush(hdfs_fs_, file_) < 0) {
-      hdfsDebugLog(0, "Error in sync path %s\n", filename_.c_str());
-
       s = IOError(filename_, errno);
     }
     return s;
   }
 };
-#endif
-/* End: HDFS Env */
 
 class PosixSequentialFile: public SequentialFile {
  private:
@@ -386,7 +273,6 @@ class PosixWritableFile : public WritableFile {
         file_offset_(0) {
   }
 
-
   ~PosixWritableFile() {
     if (fd_ >= 0) {
       PosixWritableFile::Close();
@@ -447,114 +333,106 @@ class PosixFileLock : public FileLock {
  public:
   int fd_;
 };
-  
-class PosixEnv : public Env {
- public:
-  PosixEnv();
-  virtual ~PosixEnv() {
+
+class HDFSEnv : public Env {
+
+private:
+  hdfsFS hdfs_primary_fs_;
+
+public:
+  HDFSEnv(const char* host="default", tPort port=8020);
+  virtual ~HDFSEnv() {
     fprintf(stderr, "Destroying Env::Default()\n");
-#ifdef PLATFORM_HDFS    
     hdfsDisconnect(hdfs_primary_fs_);
-		hdfsDisconnect_all();
-#endif
     exit(1);
+  }
+
+  //Check if the file should be accessed from HDFS
+  bool onHDFS(const std::string &fname) {
+    bool on_hdfs = false;
+    const std::string ext_sst = ".sst";
+    const std::string ext_log = ".log";
+    if (fname.length() >= ext_sst.length()) {
+      on_hdfs = stringEndsWith(fname, ext_sst) ||
+                stringEndsWith(fname, ext_log);
+    }
+    return on_hdfs;
   }
 
   virtual Status NewSequentialFile(const std::string& fname,
                                    SequentialFile** result) {
-#ifdef PLATFORM_HDFS    
     if(onHDFS(fname)) {
-			std::string filename = getPath(fname);
-    	hdfsFile f = hdfsOpenFile(connectFS(fname), filename.c_str(), O_RDONLY, 0, 1, 0);
-			if (f == NULL) {
-				*result = NULL;
-				return IOError(fname, errno);
-			} else {
-				*result = new HDFSSequentialFile(fname, f);
-				return Status::OK();
-			}
-		} else {
-#endif
-			FILE* f = fopen(fname.c_str(), "r");
-			if (f == NULL) {
-				*result = NULL;
-				return IOError(fname, errno);
-			} else {
-				*result = new PosixSequentialFile(fname, f);
-				return Status::OK();
-			}
-#ifdef PLATFORM_HDFS    
-		}
-#endif
+      std::string filename = getPath(fname);
+      hdfsFile f = hdfsOpenFile(hdfs_primary_fs_,
+                                filename.c_str(), O_RDONLY, 0, 1, 0);
+      if (f == NULL) {
+        *result = NULL;
+        return IOError(fname, errno);
+      } else {
+        *result = new HDFSSequentialFile(fname, hdfs_primary_fs_, f);
+        return Status::OK();
+      }
+    } else {
+      FILE* f = fopen(fname.c_str(), "r");
+      if (f == NULL) {
+        *result = NULL;
+        return IOError(fname, errno);
+      } else {
+        *result = new PosixSequentialFile(fname, f);
+        return Status::OK();
+      }
+    }
   }
 
   virtual Status NewRandomAccessFile(const std::string& fname,
                                      RandomAccessFile** result) {
     *result = NULL;
     Status s;
-    
-#ifdef PLATFORM_HDFS    
-    if(onHDFS(fname)) {
-			std::string filename = getPath(fname);
-      hdfsFile new_file = NULL;
-      int tries = 0;
-      while(tries++ < 3 && new_file == NULL) {
-        new_file = hdfsOpenFile(connectFS(fname), filename.c_str(), O_RDONLY, 0, 1, 0);
-      }
 
-      if(new_file == NULL) {
-        //hdfsFile create_file = hdfsOpenFile(hdfs_fs_, fname.c_str(), O_WRONLY|O_CREAT, 0, 1, 0);
-        //if(create_file != NULL) {
-        //  hdfsCloseFile(hdfs_fs_, create_file);
-        //}
-        new_file = hdfsOpenFile(connectFS(fname), filename.c_str(), O_RDONLY, 0, 1, 0);
+    if(onHDFS(fname)) {
+      std::string filename = getPath(fname);
+      hdfsFile new_file = NULL;
+      for (int tries = 0; tries < 3; ++tries) {
+        new_file = hdfsOpenFile(hdfs_primary_fs_, filename.c_str(),
+                                O_RDONLY, 0, 1, 0);
+        if (new_file != NULL) {
+          break;
+        }
       }
 
       if (new_file == NULL) {
-        hdfsDebugLog(0, "Error on open random access file path %s\n", fname.c_str());
-
         s = IOError(fname, errno);
       } else {
-        *result = new HDFSRandomAccessFile(fname, new_file);
+        *result = new HDFSRandomAccessFile(fname, hdfs_primary_fs_, new_file);
       }
     } else {
-#endif
       int fd = open(fname.c_str(), O_RDONLY);
       if (fd < 0) {
         s = IOError(fname, errno);
       } else {
         *result = new PosixRandomAccessFile(fname, fd);
       }
-#ifdef PLATFORM_HDFS    
     }
-#endif
     return s;
   }
 
   virtual Status NewWritableFile(const std::string& fname,
                                  WritableFile** result) {
     Status s;
-    
-#ifdef PLATFORM_HDFS    
-    if(onHDFS(fname)) {
-			std::string filename = getPath(fname);
-      int exists = hdfsExists(connectFS(fname), filename.c_str());
-      hdfsFile new_file;
-      //if (exists > -1) {
-      //  new_file = hdfsOpenFile(hdfs_fs_, fname.c_str(), O_WRONLY|O_APPEND, 0, 1, 0);
-      //} else{
-        new_file = hdfsOpenFile(connectFS(fname), filename.c_str(), O_WRONLY|O_CREAT, 0, 1, 0);
-      //}
-      if (new_file == NULL) {
-        hdfsDebugLog(0, "Error on writable path %s\n", fname.c_str());
 
+    if(onHDFS(fname)) {
+      std::string filename = getPath(fname);
+      int exists = hdfsExists(hdfs_primary_fs_, filename.c_str());
+      hdfsFile new_file;
+      new_file = hdfsOpenFile(hdfs_primary_fs_,
+                              filename.c_str(), O_WRONLY|O_CREAT, 0, 1, 0);
+      if (new_file == NULL) {
         *result = NULL;
         s = IOError(fname, errno);
       } else {
-        *result = new HDFSWritableFile(fname, new_file);
-      }    
-    } else {  
-#endif
+        *result = new HDFSWritableFile(fname, hdfs_primary_fs_, new_file);
+      }
+    } else {
       const int fd = open(fname.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0644);
       if (fd < 0) {
         *result = NULL;
@@ -562,45 +440,35 @@ class PosixEnv : public Env {
       } else {
         *result = new PosixWritableFile(fname, fd);
       }
-#ifdef PLATFORM_HDFS    
     }
-#endif
     return s;
   }
 
   virtual bool FileExists(const std::string& fname) {
-#ifdef PLATFORM_HDFS    
     if(onHDFS(fname)) {
-			std::string filename = getPath(fname);
-      hdfsDebugLog(1, "Check file exists path %s\n", fname.c_str());
-
-      return (hdfsExists(connectFS(fname), filename.c_str()) == 0);
+      std::string filename = getPath(fname);
+      return (hdfsExists(hdfs_primary_fs_, filename.c_str()) == 0);
     }
-#endif
     return access(fname.c_str(), F_OK) == 0;
   }
 
+  //TODO: Differentiate diretories
   virtual Status GetChildren(const std::string& dir,
                              std::vector<std::string>* result) {
     result->clear();
 
-#ifdef PLATFORM_HDFS    
-    hdfsDebugLog(1, "Get children path %s\n", dir.c_str());
-    //TODO: Directory read from both HDFS and local FS 
+    //TODO: Directory read from both HDFS and local FS
     int num_entries = 0;
-    hdfsFileInfo* entries = hdfsListDirectory(hdfs_primary_fs_, dir.c_str(), &num_entries);
+    hdfsFileInfo* entries = hdfsListDirectory(hdfs_primary_fs_,
+                                              dir.c_str(), &num_entries);
     if(entries == NULL) {
-      hdfsDebugLog(0, "Error in get children path %s. Num entries=%d\n", dir.c_str(), num_entries);
-
-      //TODO:
-      //return IOError(dir, errno);
-    } else {  
+      //return IOError(dir, "Not found entries");
+    } else {
       for (int i = 0; i < num_entries; ++i) {
         result->push_back(entries[i].mName);
       }
-      hdfsFreeFileInfo(entries, num_entries);   
+      hdfsFreeFileInfo(entries, num_entries);
     }
-#endif
 
     DIR* d = opendir(dir.c_str());
     if (d == NULL) {
@@ -611,63 +479,45 @@ class PosixEnv : public Env {
       result->push_back(entry->d_name);
     }
     closedir(d);
-    
     return Status::OK();
   }
 
   virtual Status DeleteFile(const std::string& fname) {
     Status result;
-#ifdef PLATFORM_HDFS    
     if(onHDFS(fname)) {
-			std::string filename = getPath(fname);
-      hdfsDebugLog(1, "Delete file path %s\n", fname.c_str());
-
-      if (hdfsDelete(connectFS(fname), filename.c_str(), 0) != 0) {
-      	hdfsDebugLog(0, "Error delete file path %s\n", fname.c_str());
-
+      std::string filename = getPath(fname);
+      if (hdfsDelete(hdfs_primary_fs_, filename.c_str(), 0) != 0) {
         result = IOError(fname, errno);
       }
     } else {
-#endif
-				if (unlink(fname.c_str()) != 0) {
-      		result = IOError(fname, errno);
-    	}
-#ifdef PLATFORM_HDFS    
-		}
-#endif
+      if (unlink(fname.c_str()) != 0) {
+        result = IOError(fname, errno);
+      }
+    }
     return result;
   };
 
+  //TODO: Create diretories
   virtual Status CreateDir(const std::string& name) {
 
     Status result;
-#ifdef PLATFORM_HDFS    
-    hdfsDebugLog(1, "Create dir %s\n", name.c_str());
     if (hdfsCreateDirectory(hdfs_primary_fs_, name.c_str()) != 0) {
-      hdfsDebugLog(0, "Error in create dir %s\n", name.c_str());
-
       result = IOError(name, errno);
     } else {
       hdfsChmod(hdfs_primary_fs_, name.c_str(), 0755);
     }
-#endif
     if (mkdir(name.c_str(), 0755) != 0) {
       result = IOError(name, errno);
     }
     return result;
   };
 
+  //TODO: Delete diretories
   virtual Status DeleteDir(const std::string& name) {
-
     Status result;
-#ifdef PLATFORM_HDFS    
-    hdfsDebugLog(1, "Delete dir %s\n", name.c_str());
     if (hdfsDelete(hdfs_primary_fs_, name.c_str(), 1) != 0) {
-      hdfsDebugLog(0, "Error in delete dir %s\n", name.c_str());
-
       result = IOError(name, errno);
     }
-#endif
     if (rmdir(name.c_str()) != 0) {
       result = IOError(name, errno);
     }
@@ -675,27 +525,33 @@ class PosixEnv : public Env {
   };
 
   virtual Status GetFileSize(const std::string& fname, uint64_t* size) {
-#ifdef PLATFORM_HDFS    
-    if(onHDFS(fname)) {
-      fprintf(stdout, "HDFS: Get File Size %s not implemented\n", fname.c_str());
-      exit(0);
-    }
-#endif
     Status s;
-    struct stat sbuf;
-    if (stat(fname.c_str(), &sbuf) != 0) {
-      *size = 0;
-      s = IOError(fname, errno);
+    if(onHDFS(fname)) {
+      hdfsFileInfo* fileInfo = hdfsGetPathInfo(hdfs_primary_fs_,
+                                               fname.c_str());
+      if (fileInfo != NULL) {
+        *size = fileInfo->mSize;
+        hdfsFreeFileInfo(fileInfo, 1);
+      } else {
+        s = IOError(fname, errno);
+      }
     } else {
-      *size = sbuf.st_size;
+      struct stat sbuf;
+      if (stat(fname.c_str(), &sbuf) != 0) {
+        *size = 0;
+        s = IOError(fname, errno);
+      } else {
+        *size = sbuf.st_size;
+      }
     }
     return s;
   }
 
   virtual Status CopyFile(const std::string& src, const std::string& target) {
-#ifdef PLATFORM_HDFS    
+#ifdef PLATFORM_HDFS
     if(onHDFS(src) || onHDFS(target)) {
-      fprintf(stdout, "HDFS: Copy File src:%s target:%s not implemented\n", src.c_str(), target.c_str());
+      fprintf(stdout, "HDFS: Copy File src:%s target:%s not implemented\n",
+              src.c_str(), target.c_str());
       exit(0);
     }
 #endif
@@ -721,43 +577,41 @@ class PosixEnv : public Env {
     return result;
   }
 
-  virtual Status SymlinkFile(const std::string& src, const std::string& target) {
-#ifdef PLATFORM_HDFS    
-    if(onHDFS(src) || onHDFS(target)) {
-      fprintf(stdout, "HDFS: Symlink File src:%s target:%s. Not supported\n", src.c_str(), target.c_str());
-      exit(0);
+  virtual Status SymlinkFile(const std::string& src, const std::string& target)
+  {
+    if (!onHDFS(src) && !onHDFS(target)) {
+      Status s;
+      if (symlink(src.c_str(), target.c_str()) != 0) {
+        s = IOError(src, errno);
+      }
+      return s;
+    } else {
+      return Status::IOError(src, "Cannot symlink across file systems");
     }
-#endif    
-    Status result;
-
-    if (symlink(src.c_str(), target.c_str()) != 0) {
-      result = IOError(src, errno);
-    }
-    return result;
   }
 
   virtual Status RenameFile(const std::string& src, const std::string& target) {
-#ifdef PLATFORM_HDFS    
-    if(onHDFS(src) || onHDFS(target)) {
-      fprintf(stdout, "HDFS: Rename File src:%s target:%s not implemented\n", src.c_str(), target.c_str());
-      exit(0);
+    Status s;
+    if(onHDFS(src) && onHDFS(target)) {
+      if (hdfsRename(hdfs_primary_fs_, src.c_str(), target.c_str()) < 0) {
+        s = IOError(src, errno);
+      }
+    } if (!onHDFS(src) && !onHDFS(target)) {
+      if (rename(src.c_str(), target.c_str()) != 0) {
+        s = IOError(src, errno);
+      }
+    } else {
+      s = Status::IOError(src, "Cannot rename across file systems");
     }
-#endif
-
-    Status result;
-    if (rename(src.c_str(), target.c_str()) != 0) {
-      result = IOError(src, errno);
-    }
-    return result;
+    return s;
   }
 
   virtual Status LinkFile(const std::string& src, const std::string& target) {
-#ifdef PLATFORM_HDFS    
     if(onHDFS(src) || onHDFS(target)) {
-      fprintf(stdout, "HDFS: Link File src:%s target:%s. Not supported\n", src.c_str(), target.c_str());
+      fprintf(stdout, "HDFS: Link File src:%s target:%s. Not supported\n",
+              src.c_str(), target.c_str());
       exit(0);
     }
-#endif    
     Status result;
     if (link(src.c_str(), target.c_str()) != 0) {
       result = IOError(src, errno);
@@ -766,12 +620,10 @@ class PosixEnv : public Env {
   }
 
   virtual Status LockFile(const std::string& fname, FileLock** lock) {
-#ifdef PLATFORM_HDFS    
     if(onHDFS(fname)) {
       fprintf(stdout, "HDFS: Lock File %s. Not supported\n", fname.c_str());
       exit(0);
     }
-#endif    
     *lock = NULL;
     Status result;
     int fd = open(fname.c_str(), O_RDWR | O_CREAT, 0644);
@@ -830,7 +682,7 @@ class PosixEnv : public Env {
       *result = NULL;
       return IOError(fname, errno);
     } else {
-      *result = new PosixLogger(f, &PosixEnv::gettid);
+      *result = new PosixLogger(f, &HDFSEnv::gettid);
       return Status::OK();
     }
   }
@@ -856,7 +708,7 @@ class PosixEnv : public Env {
   // BGThread() is the body of the background thread
   void BGThread();
   static void* BGThreadWrapper(void* arg) {
-    reinterpret_cast<PosixEnv*>(arg)->BGThread();
+    reinterpret_cast<HDFSEnv*>(arg)->BGThread();
     return NULL;
   }
 
@@ -872,19 +724,15 @@ class PosixEnv : public Env {
   BGQueue queue_;
 };
 
-PosixEnv::PosixEnv() : page_size_(getpagesize()),
-                       started_bgthread_(false) {
+HDFSEnv::HDFSEnv(const char* host, tPort port) : page_size_(getpagesize()),
+                                                 started_bgthread_(false) {
   PthreadCall("mutex_init", pthread_mutex_init(&mu_, NULL));
   PthreadCall("cvar_init", pthread_cond_init(&bgsignal_, NULL));
 
-#ifdef PLATFORM_HDFS
-	std::string ip_addr = getHostIPAddress();
-  fprintf(stdout, "HDFS: Connecting to %s...\n", ip_addr.c_str());
-  hdfs_primary_fs_ = hdfsConnect(ip_addr.c_str(), 8020);
-#endif
+  hdfs_primary_fs_ = hdfsConnect(host, port);
 }
 
-void PosixEnv::Schedule(void (*function)(void*), void* arg) {
+void HDFSEnv::Schedule(void (*function)(void*), void* arg) {
   PthreadCall("lock", pthread_mutex_lock(&mu_));
 
   // Start background thread if necessary
@@ -892,7 +740,7 @@ void PosixEnv::Schedule(void (*function)(void*), void* arg) {
     started_bgthread_ = true;
     PthreadCall(
         "create thread",
-        pthread_create(&bgthread_, NULL,  &PosixEnv::BGThreadWrapper, this));
+        pthread_create(&bgthread_, NULL,  &HDFSEnv::BGThreadWrapper, this));
   }
 
   // If the queue is currently empty, the background thread may currently be
@@ -909,7 +757,7 @@ void PosixEnv::Schedule(void (*function)(void*), void* arg) {
   PthreadCall("unlock", pthread_mutex_unlock(&mu_));
 }
 
-void PosixEnv::BGThread() {
+void HDFSEnv::BGThread() {
   while (true) {
     // Wait until there is an item that is ready to run
     PthreadCall("lock", pthread_mutex_lock(&mu_));
@@ -939,7 +787,7 @@ static void* StartThreadWrapper(void* arg) {
   return NULL;
 }
 
-void PosixEnv::StartThread(void (*function)(void* arg), void* arg) {
+void HDFSEnv::StartThread(void (*function)(void* arg), void* arg) {
   pthread_t t;
   StartThreadState* state = new StartThreadState;
   state->user_function = function;
@@ -951,12 +799,19 @@ void PosixEnv::StartThread(void (*function)(void* arg), void* arg) {
 }  // namespace
 
 static pthread_once_t once = PTHREAD_ONCE_INIT;
-static Env* default_env;
-static void InitDefaultEnv() { default_env = new PosixEnv; }
 
-Env* Env::Default() {
-  pthread_once(&once, InitDefaultEnv);
-  return default_env;
+static const char* server_ip;
+static tPort server_port;
+static Env* hdfs_env;
+static void InitHDFSEnv() {
+  hdfs_env = new HDFSEnv(server_ip, server_port);
+}
+
+Env* Env::HDFSEnv(const char* ip, int port) {
+  server_ip = ip;
+  server_port = (tPort) port;
+  pthread_once(&once, InitHDFSEnv);
+  return hdfs_env;
 }
 
 }  // namespace leveldb

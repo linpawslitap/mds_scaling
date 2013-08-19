@@ -24,13 +24,17 @@ include build_config.mk
 HADOOP_INCLUDE = -I../../hadoop/include/ \
   -I/usr/lib/jvm/java-1.7.0-sun-amd64/include/ \
   -I/usr/lib/jvm/java-1.7.0-sun-amd64/include/linux
+HADOOP_LDFLAGS= -L/usr/lib/jvm/java-1.7.0-sun-amd64/jre/lib/amd64/ \
+	-L/usr/lib/jvm/java-1.7.0-sun-amd64/jre/lib/amd64/server \
+	-ljvm
+HADOOP_LIB = ../../hadoop/lib/native/libhdfs.a
 
 CFLAGS += -I. -I./include $(HADOOP_INCLUDE) $(PLATFORM_CCFLAGS) $(OPT)
 CXXFLAGS += -I. -I./include $(HADOOP_INCLUDE) $(PLATFORM_CXXFLAGS) $(OPT)
 
-LDFLAGS += $(PLATFORM_LDFLAGS)
+LDFLAGS += $(PLATFORM_LDFLAGS) $(HADOOP_LDFLAGS)
 
-LIBOBJECTS = $(SOURCES:.cc=.o)
+LIBOBJECTS = $(SOURCES:.cc=.o) $(HADOOP_LIB)
 MEMENVOBJECTS = $(MEMENV_SOURCES:.cc=.o)
 
 TESTUTIL = ./util/testutil.o

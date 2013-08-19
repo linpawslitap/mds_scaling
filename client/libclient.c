@@ -164,7 +164,7 @@ int gigaPwrite(int fd, const void *buf, size_t size, size_t offset)
     return written;
 }
 
-int gigaGetAttr(const char *path, struct stat *buf)
+int gigaGetattr(const char *path, struct stat *buf)
 {
     return GIGAgetattr(path, buf);
 }

@@ -7,7 +7,7 @@ LIBS =../backends/$(LEVELDBLIBRARY) ../common.a
 BACKENDOBJ = ../backends/local_fs.o ../backends/rpc_fs.o ../backends/metadb_fs.o
 OBJS += $(BACKENDOBJ)
 LIBCLIENTOBJ = FUSE_operations.o libclient.o
-TARGETS = ../giga_client ../libgiga_client.a ../libgiga_client.so
+TARGETS = ../libgiga_client.a ../libgiga_client.so ../giga_client 
 
 all: $(TARGETS)
 

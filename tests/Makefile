@@ -1,8 +1,14 @@
 include ../Makefile.inc
 include ../backends/build_config.mk
 
+HADOOP_LDFLAGS= -L/usr/lib/jvm/java-1.7.0-sun-amd64/jre/lib/amd64/ \
+	-L/usr/lib/jvm/java-1.7.0-sun-amd64/jre/lib/amd64/server \
+	-ljvm
+HADOOP_LIB = ../hadoop/lib/native/libhdfs.a
+
 CFLAGS += -iquote ..
-LIBS =../backends/$(LEVELDBLIBRARY) ../common.a
+LDFLAGS += $(HADOOP_LDFLAGS)
+LIBS =../backends/$(LEVELDBLIBRARY) $(HADOOP_LIB) ../common.a
 
 all:
 	gcc $(OPT) -o ./mknod_test ./mknod_test.c -lpthread
@@ -11,7 +17,7 @@ all:
 	gcc $(OPT) -o ./smallfile_test ./smallfile_test.c -lpthread
 	gcc $(OPT) -o ./mknod_lib_test ./mknod_lib_test.c -I.. ../libgiga_client.a $(LIBS) $(LDFLAGS) -I..
 	gcc $(OPT) -o ./smallfile_lib_test ./smallfile_lib_test.c -I.. ../libgiga_client.a $(LIBS) $(LDFLAGS) -I..
-
+	gcc $(OPT) -o ./ldb_hdfs_test ./ldb_hdfs_test.c  $(LIBS) $(LDFLAGS) $(HADOOP_LDFLAGS)
 
 clean:
-	rm mknod_test stat_test smallfile_test mknod_lib_test smallfile_lib_test
+	rm mknod_test stat_test smallfile_test mknod_lib_test smallfile_lib_test ldb_hdfs_test

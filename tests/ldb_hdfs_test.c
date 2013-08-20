@@ -24,20 +24,19 @@ struct LDB {
 };
 
 
-void init(struct LDB *ldb,
-          const char* ip, int port,
-          const char* dbname) {
+void init_db(struct LDB *ldb,
+             const char* ip, int port,
+             const char* dbname) {
     char* err = NULL;
 
     ldb->options = leveldb_options_create_with_hdfs_env(ip, port);
-    leveldb_options_set_create_if_missing(ldb->options, 0);
+//    ldb->options = leveldb_options_create();
+
+    leveldb_options_set_create_if_missing(ldb->options, 1);
     leveldb_options_set_info_log(ldb->options, NULL);
     leveldb_options_set_block_size(ldb->options, 1024*64);
     leveldb_options_set_compression(ldb->options, leveldb_no_compression);
-    /*
-    leveldb_options_set_filter_policy(ldb->options,
-                        leveldb_filterpolicy_create_bloom(14));
-    */
+
     ldb->lookup_options = leveldb_readoptions_create();
     leveldb_readoptions_set_fill_cache(ldb->lookup_options, 1);
 
@@ -62,9 +61,77 @@ void init(struct LDB *ldb,
     }
 }
 
+void close_db(struct LDB *ldb) {
+  leveldb_close(ldb->db);
+  leveldb_options_destroy(ldb->options);
+  leveldb_readoptions_destroy(ldb->lookup_options);
+  leveldb_readoptions_destroy(ldb->scan_options);
+  leveldb_writeoptions_destroy(ldb->insert_options);
+  leveldb_writeoptions_destroy(ldb->ext_insert_options);
+}
+
 void test() {
   struct LDB ldb;
-  init(&ldb, "localhost", 8020, "/l0/giga_ldb/l0/");
+  init_db(&ldb, "localhost", 8020, "/l0/giga_ldb/l0/");
+
+  char key[20];
+  char value[20];
+  sprintf(value, "hello world");
+  char* err = NULL;
+  int i;
+  int n = 1000;
+
+  int err_cnt = 0;
+  for (i = 0; i < n; ++i) {
+    sprintf(key, "%010d", i);
+    size_t vallen;
+    char* return_value = leveldb_get(ldb.db,
+                                     ldb.lookup_options,
+                                     key, 20,
+                                     &vallen,
+                                     &err);
+    if (err != NULL) {
+      err_cnt ++;
+    } else
+    if (strncmp(return_value, value, vallen) != 0 ||
+        vallen == 0) {
+      printf("key=%s\n", key);
+      err_cnt ++;
+    }
+  }
+  printf("Error count = %d\n", err_cnt);
+
+  for (i = 0; i < n; ++i) {
+    sprintf(key, "%010d", i);
+    leveldb_put(ldb.db, ldb.insert_options,
+                key, 20,
+                value, 20,
+                &err);
+    if (err != NULL) {
+      printf("Error: %s\n", err);
+    }
+  }
+
+  err_cnt = 0;
+  for (i = 0; i < n; ++i) {
+    sprintf(key, "%010d", i);
+    size_t vallen;
+    char* return_value = leveldb_get(ldb.db,
+                                     ldb.lookup_options,
+                                     key, 20,
+                                     &vallen,
+                                     &err);
+    if (err != NULL) {
+      err_cnt ++;
+    } else
+    if (strncmp(return_value, value, vallen) != 0 ||
+        vallen == 0) {
+      err_cnt ++;
+    }
+  }
+  printf("Error count = %d\n", err_cnt);
+
+  close_db(&ldb);
 }
 
 int main() {

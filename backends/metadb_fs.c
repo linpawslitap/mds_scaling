@@ -15,7 +15,7 @@
 #define METADB_LOG LOG_DEBUG
 
 #define DEFAULT_LEVELDB_CACHE_SIZE (16 << 20)
-#define DEFAULT_WRITE_BUFFER_SIZE  (128 << 20)
+#define DEFAULT_WRITE_BUFFER_SIZE  (64 << 20)
 #define DEFAULT_MAX_OPEN_FILES     1000
 #define DEFAULT_MAX_BATCH_SIZE     1024
 #define DEFAULT_SSTABLE_SIZE       (2 << 20)
@@ -62,21 +62,6 @@ void init_meta_obj_seek_key(metadb_key_t *mkey,
     }
 }
 
-/*
-static
-size_t metadb_header_valsize(const metadb_val_header_t* mobj) {
-    size_t mobj_size = sizeof(metadb_val_header_t) +
-                       (mobj->objname_len)  +
-                       (mobj->realpath_len) + 2;
-    if (((mobj->statbuf.st_mode) & S_IFDIR) > 0) {
-        mobj_size += sizeof(metadb_val_dir_t);
-    } else {
-        mobj_size += mobj->statbuf.st_size;
-    }
-    return mobj_size;
-}
-*/
-
 static
 size_t metadb_header_size(metadb_val_t* mobj_val) {
     metadb_val_header_t* mobj = (metadb_val_header_t*) (mobj_val->value);
@@ -108,7 +93,8 @@ metadb_val_t init_meta_val(const metadb_inode_t inode_id,
     mobj->objname[objname_len] = '\0';
 
     mobj->realpath_len = realpath_len;
-    mobj->realpath = (char*) mobj + sizeof(metadb_val_header_t) + objname_len + 1;
+    mobj->realpath = (char*) mobj + sizeof(metadb_val_header_t)
+                   + objname_len + 1;
     strncpy(mobj->realpath, realpath, realpath_len);
     mobj->realpath[realpath_len] = '\0';
 
@@ -280,8 +266,8 @@ void metadb_log_destroy() {
 
 volatile int stop_sync_thread;
 volatile int flag_sync_thread_finish;
-pthread_mutex_t     mtx_sync;
-pthread_cond_t      cv_sync;
+static pthread_mutex_t  mtx_sync;
+static pthread_cond_t   cv_sync;
 
 void* sync_thread(void *v) {
     struct MetaDB* mdb = (struct MetaDB*) v;
@@ -353,11 +339,18 @@ char* metadb_get_metric(struct MetaDB mdb) {
 
 // Returns "0" if a new LDB is created successfully, "1" if an existing LDB is
 // opened successfully, and "-1" on error.
-int metadb_init(struct MetaDB *mdb, const char *mdb_name)
+int metadb_init(struct MetaDB *mdb, const char *mdb_name,
+                const char* hdfsServerIP, int hdfsServerPort)
 {
     char* err = NULL;
 
-    mdb->env = leveldb_create_default_env();
+    if (hdfsServerIP != NULL) {
+      mdb->env = leveldb_create_hdfs_env(hdfsServerIP, hdfsServerPort);
+      mdb->use_hdfs = 1;
+    } else {
+      mdb->env = leveldb_create_default_env();
+      mdb->use_hdfs = 0;
+    }
     mdb->cache = leveldb_cache_create_lru(DEFAULT_LEVELDB_CACHE_SIZE);
     mdb->cmp = leveldb_comparator_create(NULL, CmpDestroy, CmpCompare, CmpName);
 
@@ -424,14 +417,14 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name)
     }
 
 //    metadb_log_init(mdb);
-    metadb_sync_init(mdb);
+//    metadb_sync_init(mdb);
 
     return ret;
 }
 
 int metadb_close(struct MetaDB mdb) {
 //    metadb_log_destroy();
-    metadb_sync_destroy();
+//    metadb_sync_destroy();
 
     leveldb_close(mdb.db);
     mdb.db = NULL;
@@ -1392,35 +1385,28 @@ int metadb_extract_clean(struct MetaDB mdb) {
     //Close extractdb
     //Remove extractdb
 
-
-    // char* err = NULL;
-    //mdb.extraction->in_extraction = 0;
-    //leveldb_destroy_db(mdb.options,
-    //                   mdb.extraction->dir_with_new_partition,
-    //                   &err);
-
-    if (rmdir(mdb.extraction->dir_with_new_partition) < 0) {
-        if (errno == ENOTEMPTY) {
-            DIR* dp = opendir(mdb.extraction->dir_with_new_partition);
-            char fullpath[MAX_FILENAME_LEN];
-            snprintf(fullpath, MAX_FILENAME_LEN, "%s/",
-                     mdb.extraction->dir_with_new_partition);
-            size_t prefix_len = strlen(mdb.extraction->dir_with_new_partition);
-            if (dp != NULL) {
-                struct dirent *de;
-                while ((de = readdir(dp)) != NULL) {
-                  if (strcmp(de->d_name,".")!=0 && strcmp(de->d_name,"..")!=0) {
-                    sprintf(fullpath+prefix_len+1, "%s", de->d_name);
-                    unlink(fullpath);
+    if (!mdb.use_hdfs) {
+      if (rmdir(mdb.extraction->dir_with_new_partition) < 0) {
+          if (errno == ENOTEMPTY) {
+              DIR* dp = opendir(mdb.extraction->dir_with_new_partition);
+              char fullpath[MAX_FILENAME_LEN];
+              snprintf(fullpath, MAX_FILENAME_LEN, "%s/",
+                       mdb.extraction->dir_with_new_partition);
+              size_t prefix_len = strlen(mdb.extraction->dir_with_new_partition);
+              if (dp != NULL) {
+                  struct dirent *de;
+                  while ((de = readdir(dp)) != NULL) {
+                    if (strcmp(de->d_name,".")!=0 && strcmp(de->d_name,"..")!=0) {
+                      sprintf(fullpath+prefix_len+1, "%s", de->d_name);
+                      unlink(fullpath);
+                    }
                   }
-                }
-                closedir(dp);
-            }
-          ret = rmdir(mdb.extraction->dir_with_new_partition);
-        }
+                  closedir(dp);
+              }
+            ret = rmdir(mdb.extraction->dir_with_new_partition);
+          }
+      }
     }
-
-    //RELEASE_RWLOCK(&(mdb.rwlock_extract), "metadb_extract(ret=%d)", ret);
 
     RELEASE_MUTEX(&(mdb.mtx_leveldb), "metadb_extract_clean", "");
 

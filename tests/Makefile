@@ -20,4 +20,4 @@ all:
 	gcc $(OPT) -o ./ldb_hdfs_test ./ldb_hdfs_test.c  $(LIBS) $(LDFLAGS) $(HADOOP_LDFLAGS)
 
 clean:
-	rm mknod_test stat_test smallfile_test mknod_lib_test smallfile_lib_test ldb_hdfs_test
+	rm mknod_test stat_test smallfile_test mknod_lib_test smallfile_lib_test ldb_hdfs_test crash_test mix_test

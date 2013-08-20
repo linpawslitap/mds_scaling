@@ -1570,8 +1570,8 @@ Status DBImpl::MigrateLevel0Table(const std::string& fname,
       (unsigned long long) meta.number);
   Status s;
   std::string new_fname = TableFileName(dbname_, meta.number);
-  //s = env_->RenameFile(fname, new_fname);
-  s = env_->CopyFile(fname, new_fname);
+  s = env_->RenameFile(fname, new_fname);
+  //s = env_->CopyFile(fname, new_fname);
   //s = env_->SymlinkFile(fname, new_fname);
   Log(options_.info_log, "Level-0 table #%llu: %lld migrate bytes by rename file %s to file %s: %s",
       (unsigned long long) meta.number,
@@ -1619,7 +1619,7 @@ Status DBImpl::MigrateLevel0Table(const std::string& fname,
 
 
 Status DBImpl::BulkInsert(const WriteOptions& write_opt,
-                          const std::string& fname,
+                          const std::string& dirname,
                           uint64_t min_sequence_number,
                           uint64_t max_sequence_number) {
   FileMetaData meta;

@@ -287,8 +287,18 @@ void run_test(int nargs, char* args[]) {
     char* dbname = args[1];
     char* dbname2 = args[2];
     extname = args[3];
-    printf("metadb_init return value %d\n", metadb_init(&mdb, dbname));
-    printf("metadb_init return value %d\n", metadb_init(&mdb2, dbname2));
+
+    char* serverIP = NULL;
+    int serverPort = 0;
+    if (nargs > 4) {
+      serverIP = args[4];
+      serverPort = atoi(args[5]);
+    }
+
+    printf("metadb_init return value %d\n",
+            metadb_init(&mdb, dbname, serverIP, serverPort));
+    printf("metadb_init return value %d\n",
+           metadb_init(&mdb2, dbname2, serverIP, serverPort));
 
     test_bitmap();
     test_create_and_check_files();

@@ -145,6 +145,7 @@ struct MetaDB {
     pthread_mutex_t     mtx_leveldb;
 
     FILE* logfile;
+    int use_hdfs;
 };
 
 typedef int (*update_func_t)(metadb_val_t* mval, void* arg1);
@@ -166,7 +167,8 @@ char* metadb_get_metric(struct MetaDB mdb);
 
 // Returns "0" if a new LDB is created successfully, "1" if an existing LDB is
 // opened successfully, and "-1" on error.
-int metadb_init(struct MetaDB *mdb, const char *mdb_name);
+int metadb_init(struct MetaDB *mdb, const char *mdb_name,
+                const char* serverIP, int serverPort);
 
 int metadb_close(struct MetaDB mdb);
 

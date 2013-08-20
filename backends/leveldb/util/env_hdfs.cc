@@ -24,7 +24,6 @@
 #include "port/port.h"
 #include "util/logging.h"
 #include "util/posix_logger.h"
-#include "util/network.h"
 #include "hdfs.h"
 #include <map>
 
@@ -50,9 +49,34 @@ void hdfsDebugLog(short verbosity, const char* format, ... ) {
 }
 
 bool stringEndsWith(const std::string &src, const std::string &suffix) {
-  return src.compare(src.length()-suffix.length(),
-                     suffix.length(),
-                     suffix) == 0;
+  if (src.length() >= suffix.length()) {
+    return src.compare(src.length()-suffix.length(),
+                       suffix.length(),
+                       suffix) == 0;
+  } else {
+    return false;
+  }
+}
+
+bool stringStartsWith(const std::string &src, const std::string &prefix) {
+  if (src.length() >= prefix.length()) {
+    return src.compare(0,
+                       prefix.length(),
+                       prefix) == 0;
+  } else {
+    return false;
+  }
+}
+
+bool lastComponentStartsWith(const std::string &src, const std::string &prefix) {
+  if (src.length() >= prefix.length()) {
+    size_t pos = src.find_last_of('/') + 1;
+    return src.compare(pos,
+                       prefix.length(),
+                       prefix) == 0;
+  } else {
+    return false;
+  }
 }
 
 static bool isRemote(const std::string& fname) {
@@ -352,10 +376,11 @@ public:
     bool on_hdfs = false;
     const std::string ext_sst = ".sst";
     const std::string ext_log = ".log";
-    if (fname.length() >= ext_sst.length()) {
-      on_hdfs = stringEndsWith(fname, ext_sst) ||
-                stringEndsWith(fname, ext_log);
-    }
+    const std::string prefix_des = "MANIFEST";
+
+    on_hdfs = stringEndsWith(fname, ext_sst) ||
+              stringEndsWith(fname, ext_log) ||
+              lastComponentStartsWith(fname, prefix_des);
     return on_hdfs;
   }
 
@@ -452,12 +477,10 @@ public:
     return access(fname.c_str(), F_OK) == 0;
   }
 
-  //TODO: Differentiate diretories
   virtual Status GetChildren(const std::string& dir,
                              std::vector<std::string>* result) {
     result->clear();
 
-    //TODO: Directory read from both HDFS and local FS
     int num_entries = 0;
     hdfsFileInfo* entries = hdfsListDirectory(hdfs_primary_fs_,
                                               dir.c_str(), &num_entries);
@@ -465,7 +488,9 @@ public:
       //return IOError(dir, "Not found entries");
     } else {
       for (int i = 0; i < num_entries; ++i) {
-        result->push_back(entries[i].mName);
+        char* last_component = strrchr(entries[i].mName, '/');
+        if (last_component != NULL)
+          result->push_back(last_component+1);
       }
       hdfsFreeFileInfo(entries, num_entries);
     }
@@ -497,7 +522,6 @@ public:
     return result;
   };
 
-  //TODO: Create diretories
   virtual Status CreateDir(const std::string& name) {
 
     Status result;
@@ -512,7 +536,6 @@ public:
     return result;
   };
 
-  //TODO: Delete diretories
   virtual Status DeleteDir(const std::string& name) {
     Status result;
     if (hdfsDelete(hdfs_primary_fs_, name.c_str(), 1) != 0) {

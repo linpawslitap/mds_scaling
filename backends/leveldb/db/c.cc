@@ -624,6 +624,13 @@ leveldb_env_t* leveldb_create_default_env() {
   return result;
 }
 
+leveldb_env_t* leveldb_create_hdfs_env(const char* serverIP,
+                                       int serverPort) {
+  leveldb_env_t* result = new leveldb_env_t;
+  result->rep = Env::HDFSEnv(serverIP, serverPort);
+  result->is_default = false;
+  return result;
+}
 void leveldb_env_destroy(leveldb_env_t* env) {
   if (!env->is_default) delete env->rep;
   delete env;

@@ -373,7 +373,7 @@ void run_test(int nargs, char* args[]) {
     load_trace(&loader, args[2], atoi(args[3]));
 
     struct MetaDB mdb;
-    metadb_init(&mdb, dbname);
+    metadb_init(&mdb, dbname, NULL, 0);
 
     enable_monitor_thread(&mdb);
     clock_gettime(CLOCK_MONOTONIC, &start);

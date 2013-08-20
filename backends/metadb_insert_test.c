@@ -155,7 +155,7 @@ void run_test_mix(int nargs, char* args[], int num_small, int num_big, int small
     drop_buffer_cache();
 
     struct MetaDB mdb;
-    metadb_init(&mdb, dbname);
+    metadb_init(&mdb, dbname, NULL, 0);
 
     clock_gettime(CLOCK_MONOTONIC, &start);
     int i;
@@ -174,7 +174,7 @@ void run_test_mix(int nargs, char* args[], int num_small, int num_big, int small
     metadb_close(mdb);
     drop_buffer_cache();
 
-    metadb_init(&mdb, dbname);
+    metadb_init(&mdb, dbname, NULL, 0);
     clock_gettime(CLOCK_MONOTONIC, &start);
     get_metric(mdb);
     myreaddir(mdb, 0 + num_big);

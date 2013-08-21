@@ -13,7 +13,7 @@ typedef enum backends {
     BACKEND_RPC_LEVELDB         // LevelDB mounted on networked config
 } backend_t;
 
-#define NFS
+#define HDFS
 
 #ifdef  LOCAL_FS    /* LocalFS */
 #define DEFAULT_BACKEND_TYPE    BACKEND_LOCAL_FS
@@ -44,12 +44,20 @@ typedef enum backends {
 #define DEFAULT_FILE_VOL        "/users/kair/_store/"
 #endif
 
-#ifdef  PANFS         /* LevelDB splits through NFS, everything else is local */
+#ifdef  PANFS         /* PANFS mounted backends (for everything) */
 #define DEFAULT_BACKEND_TYPE    BACKEND_RPC_LEVELDB
 #define DEFAULT_SPLIT_DIR       "splits"
 #define DEFAULT_SRV_BACKEND     "/tmp/giga_srv/"
 #define DEFAULT_LEVELDB_DIR     "giga_ldb"
 #define PARALLEL_VOL_LIST_FILE  "/tmp/giga_vols"
+#endif
+
+#ifdef  HDFS          /* HDFS mounted backends (for everything) */
+#define DEFAULT_BACKEND_TYPE    BACKEND_RPC_LEVELDB
+#define DEFAULT_SRV_BACKEND     "/l0/hdfs/giga_srv/"
+#define DEFAULT_LEVELDB_DIR     "/l0/giga_ldb/"
+#define DEFAULT_SPLIT_DIR       "/l0/splits/"
+#define HDFS_SERVER_CONF        "/tmp/hdfs_conf"
 #endif
 
 // client-side and server side defaults
@@ -98,6 +106,9 @@ struct giga_options {
     int num_pfs_volumes;        // num of parallel FS's volume
     char **pfs_volumes;         // list of the mount points
 
+    int hdfsPort;
+    char *hdfsIP;
+
     backend_t backend_type;     // string to specify type of backend
 
     // Server specific parameters.
@@ -107,7 +118,6 @@ struct giga_options {
 
     // Client-specific parameters.
     //
-
 };
 
 extern struct giga_options giga_options_t;

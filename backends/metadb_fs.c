@@ -1437,27 +1437,6 @@ int metadb_bulkinsert(struct MetaDB mdb,
     ACQUIRE_MUTEX(&(mdb.mtx_leveldb), "metadb_bulkinsert(%s)",
                     dir_with_new_partition);
 
-    /*
-    DIR* dp = opendir(dir_with_new_partition);
-    if (dp != NULL) {
-        struct dirent *de;
-        while ((de = readdir(dp)) != NULL) {
-          if (strcmp(de->d_name, ".") != 0 && strcmp(de->d_name, "..") != 0 &&
-              strendswith(de->d_name, ".sst")) {
-            snprintf(sstable_filename, MAX_FILENAME_LEN,
-                     "%s/%s", dir_with_new_partition, de->d_name);
-            leveldb_bulkinsert(mdb.db, mdb.insert_options,
-                               sstable_filename,
-                               min_sequence_number,
-                               max_sequence_number,
-                               &err);
-            metadb_error("bulkinsert", err);
-          }
-        }
-        closedir(dp);
-    }
-    */
-
     leveldb_bulkinsert(mdb.db, mdb.insert_options,
                        dir_with_new_partition,
                        min_sequence_number,

@@ -597,6 +597,9 @@ void create_dir_in_storage(int object_id) {
     sprintf(path_name, "%s/files/%d",
             DEFAULT_FILE_VOL, object_id);
     local_mkdir(path_name, DEFAULT_MODE);
+#else
+    (void) path_name;
+    (void) object_id;
 #endif
 }
 

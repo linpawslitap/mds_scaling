@@ -362,9 +362,12 @@ void init_root_partition()
             break;
         case BACKEND_RPC_LEVELDB:
             snprintf(ldb_name, sizeof(ldb_name),
-                     "%s/l%d", giga_options_t.leveldb_dir, giga_options_t.serverID);
-            // FIXME: use new semantics of metadb_init.
-            mdb_setup = metadb_init(&ldb_mds, ldb_name);
+                     "%s/l%d", giga_options_t.leveldb_dir,
+                     giga_options_t.serverID);
+
+            mdb_setup = metadb_init(&ldb_mds, ldb_name,
+                                    giga_options_t.hdfsIP,
+                                    giga_options_t.hdfsPort);
             if (mdb_setup == -1) {
                 LOG_ERR("mdb_init(%s): init error", ldb_name);
                 exit(1);
@@ -373,15 +376,7 @@ void init_root_partition()
                 LOG_MSG("creating new file system in %s", ldb_name);
                 object_id = INIT_OBJECT_ID;
 
-#if 0
-                int dir_id = ROOT_DIR_ID; //FIXME: dir_id for "root"
-                struct giga_directory *dir = cache_fetch(&dir_id);
-                if (dir == NULL) {
-                    LOG_MSG("Dir (id=%d) not in cache!", dir_id);
-                    exit(1);
-                }
-#endif
-                // special case for ROOT
+               // special case for ROOT
                 //
                 int dir_id = ROOT_DIR_ID;
                 struct giga_directory *dir = cache_lookup(&dir_id);
@@ -411,21 +406,14 @@ void init_root_partition()
                 sprintf(path_name, "%s/files/%d",
                         DEFAULT_FILE_VOL, ROOT_DIR_ID);
                 local_mkdir(path_name, DEFAULT_MODE);
+#else
+                (void) path_name;
 #endif
                 cache_release(dir);
 
             }
             else if (mdb_setup == 0) {
                 LOG_MSG("reading old file system from %s", ldb_name);
-
-#if 0
-                int dir_id = ROOT_DIR_ID; //FIXME: dir_id for "root"
-                struct giga_directory *dir = cache_fetch(&dir_id);
-                if (dir == NULL) {
-                    LOG_MSG("Dir (id=%d) not in cache!", dir_id);
-                    exit(1);
-                }
-#endif
 
                 int dir_id = ROOT_DIR_ID;
                 struct giga_directory *dir = cache_lookup(&dir_id);

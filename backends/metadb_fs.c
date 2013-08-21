@@ -1430,7 +1430,6 @@ int metadb_bulkinsert(struct MetaDB mdb,
                       uint64_t max_sequence_number) {
 
     int ret = 0;
-    char sstable_filename[MAX_FILENAME_LEN];
     char* err = NULL;
 
     //ACQUIRE_RWLOCK_WRITE(&(mdb.rwlock_extract), "metadb_bulkinsert(%s)", dir_with_new_partition);
@@ -1438,6 +1437,7 @@ int metadb_bulkinsert(struct MetaDB mdb,
     ACQUIRE_MUTEX(&(mdb.mtx_leveldb), "metadb_bulkinsert(%s)",
                     dir_with_new_partition);
 
+    /*
     DIR* dp = opendir(dir_with_new_partition);
     if (dp != NULL) {
         struct dirent *de;
@@ -1456,6 +1456,14 @@ int metadb_bulkinsert(struct MetaDB mdb,
         }
         closedir(dp);
     }
+    */
+
+    leveldb_bulkinsert(mdb.db, mdb.insert_options,
+                       dir_with_new_partition,
+                       min_sequence_number,
+                       max_sequence_number,
+                       &err);
+    metadb_error("bulkinsert", err);
 
     //RELEASE_RWLOCK(&(mdb.rwlock_extract), "metadb_bulkinsert(%s)", dir_with_new_partition);
 

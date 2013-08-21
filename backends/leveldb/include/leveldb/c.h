@@ -147,7 +147,7 @@ extern void leveldb_bulksplit(
 extern void leveldb_bulkinsert(
     leveldb_t* db,
     const leveldb_writeoptions_t* options,
-    const char* filename,
+    const char* dirname,
     uint64_t min_sequence_number,
     uint64_t max_sequence_number,
     char** errptr);

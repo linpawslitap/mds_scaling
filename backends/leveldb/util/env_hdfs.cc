@@ -571,13 +571,11 @@ public:
   }
 
   virtual Status CopyFile(const std::string& src, const std::string& target) {
-#ifdef PLATFORM_HDFS
     if(onHDFS(src) || onHDFS(target)) {
       fprintf(stdout, "HDFS: Copy File src:%s target:%s not implemented\n",
               src.c_str(), target.c_str());
       exit(0);
     }
-#endif
     Status result;
     int r_fd, w_fd;
     if ((r_fd = open(src.c_str(), O_RDONLY)) < 0) {
@@ -619,7 +617,7 @@ public:
       if (hdfsRename(hdfs_primary_fs_, src.c_str(), target.c_str()) < 0) {
         s = IOError(src, errno);
       }
-    } if (!onHDFS(src) && !onHDFS(target)) {
+    } else if (!onHDFS(src) && !onHDFS(target)) {
       if (rename(src.c_str(), target.c_str()) != 0) {
         s = IOError(src, errno);
       }

@@ -1618,12 +1618,30 @@ Status DBImpl::MigrateLevel0Table(const std::string& fname,
 }
 
 
+bool StringEndsWith(const std::string& src, const std::string& suffix) {
+  if (src.length() >= suffix.length()) {
+    return src.compare(src.length()-suffix.length(),
+                       suffix.length(),
+                       suffix) == 0;
+  } else {
+    return false;
+  }
+}
+
 Status DBImpl::BulkInsert(const WriteOptions& write_opt,
                           const std::string& dirname,
                           uint64_t min_sequence_number,
                           uint64_t max_sequence_number) {
-  FileMetaData meta;
-  env_->GetFileSize(fname, &meta.file_size);
+
+  Status s;
+
+  std::vector<std::string> filenames;
+  s = env_->GetChildren(dirname, &filenames);
+  if (!s.ok()) {
+    s = Status::IOError("Cannot list split parition");
+    return s;
+  }
+
 
   Writer w(&mutex_);
   w.batch = NULL;
@@ -1636,44 +1654,49 @@ Status DBImpl::BulkInsert(const WriteOptions& write_opt,
     w.cv.Wait();
   }
 
-  Status s;
   if (w.done) {
       s = Status::IOError("Fail to grep writer lock for bulkinsert");
   }
 
   MutexLock l(&mutex_);
-  if (s.ok()) {
-      if (!shutting_down_.Acquire_Load()) {
-        VersionEdit edit;
-        Version* base = versions_->current();
-        base->Ref();
-        s = MigrateLevel0Table(fname, meta, &edit, base);
-        base->Unref();
-
-        if (s.ok() && shutting_down_.Acquire_Load()) {
-          s = Status::IOError("Deleting DB during sstable bulk-insertion");
+  if (!shutting_down_.Acquire_Load()) {
+    VersionEdit edit;
+    Version* base = versions_->current();
+    base->Ref();
+    uint64_t number;
+    FileType type;
+    for (size_t i = 0; i < filenames.size(); i++)
+        if (StringEndsWith(filenames[i], std::string("sst"))) {
+            std::string full_path = dirname + "/" + filenames[i];
+            FileMetaData meta;
+            env_->GetFileSize(full_path, &meta.file_size);
+            s = MigrateLevel0Table(full_path, meta, &edit, base);
         }
+    base->Unref();
 
-        // Replace immutable memtable with the generated Table
-        if (s.ok()) {
-          //TODO: simply update last_sequence by
-          //      max(max_sequence_number, old_seq)
-          //      Not consider snapshot
+    if (s.ok() && shutting_down_.Acquire_Load()) {
+      s = Status::IOError("Deleting DB during sstable bulk-insertion");
+    }
 
-          edit.SetPrevLogNumber(0);
-          edit.SetLogNumber(logfile_number_);  // Earlier logs no longer needed
-          s = versions_->LogAndApply(&edit, &mutex_);
-          if (s.ok()) {
-              DeleteObsoleteFiles();
-          }
+    // Replace immutable memtable with the generated Table
+    if (s.ok()) {
+      //TODO: simply update last_sequence by
+      //      max(max_sequence_number, old_seq)
+      //      Not consider snapshot
 
-          if (w.new_sequence > versions_->LastSequence())
-            versions_->SetLastSequence(w.new_sequence);
-
-        }
-      } else {
-        s = Status::IOError("Deleting DB during sstable bulk-insertion");
+      edit.SetPrevLogNumber(0);
+      edit.SetLogNumber(logfile_number_);  // Earlier logs no longer needed
+      s = versions_->LogAndApply(&edit, &mutex_);
+      if (s.ok()) {
+          DeleteObsoleteFiles();
       }
+
+      if (w.new_sequence > versions_->LastSequence())
+        versions_->SetLastSequence(w.new_sequence);
+
+    }
+  } else {
+    s = Status::IOError("Deleting DB during sstable bulk-insertion");
   }
 
   writers_.pop_front();

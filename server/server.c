@@ -34,8 +34,6 @@
 #define LOG_MSG(format, ...) \
     logMessage(SRV_LOG, __func__, format, __VA_ARGS__);
 
-#define INIT_OBJECT_ID  ((int)(giga_options_t.serverID*1000))
-
 // RPC specific functions
 //
 extern SVCXPRT *svcfd_create (int __sock, u_int __sendsize, u_int __recvsize);
@@ -126,6 +124,7 @@ void sig_handler(const int sig)
 {
     (void)sig;
     metadb_close(ldb_mds);
+    free(ldb_mds);
     LOG_ERR("SIGINT=%d handled.\n", sig);
     exit(1);
 }
@@ -364,19 +363,19 @@ void init_root_partition()
             snprintf(ldb_name, sizeof(ldb_name),
                      "%s/l%d", giga_options_t.leveldb_dir,
                      giga_options_t.serverID);
-
-            mdb_setup = metadb_init(&ldb_mds, ldb_name,
+            ldb_mds = (struct MetaDB *) malloc(sizeof(struct MetaDB));
+            mdb_setup = metadb_init(ldb_mds, ldb_name,
                                     giga_options_t.hdfsIP,
-                                    giga_options_t.hdfsPort);
+                                    giga_options_t.hdfsPort,
+                                    giga_options_t.serverID);
             if (mdb_setup == -1) {
                 LOG_ERR("mdb_init(%s): init error", ldb_name);
                 exit(1);
             }
             else if (mdb_setup == 1) {
                 LOG_MSG("creating new file system in %s", ldb_name);
-                object_id = INIT_OBJECT_ID;
 
-               // special case for ROOT
+                // special case for ROOT
                 //
                 int dir_id = ROOT_DIR_ID;
                 struct giga_directory *dir = cache_lookup(&dir_id);

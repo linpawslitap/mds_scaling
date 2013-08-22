@@ -28,6 +28,10 @@ int GIGAutime(const char *path, struct utimbuf *ubuf);
 int GIGAupdatelink(const char *path, const char* link);
 int GIGAfetch(const char *path, mode_t mode,
               int* state, char* buf, int* buf_len);
+int GIGAreadall(struct fuse_file_info *fi,
+                 char* buf, int* buf_len);
+int GIGAwritelink(struct fuse_file_info *fi,
+                 const char* link);
 int GIGAread(const char *path, char *buf, size_t size, off_t offset,
              struct fuse_file_info *fi);
 int GIGAwrite(const char *path, const char *buf, size_t size, off_t offset,

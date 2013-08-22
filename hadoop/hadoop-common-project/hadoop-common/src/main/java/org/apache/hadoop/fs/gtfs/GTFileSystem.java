@@ -183,8 +183,11 @@ public class GTFileSystem extends FileSystem {
                                       short replication,
                                      long blockSize, Progressable progress)
                                     throws IOException {
-
-        return null;
+        int ret = gtfs_impl.mkNod(file.toString(), permission.toShort());
+        if (ret < 0) {
+            throw new IOException("Cannot create the file:" + file);
+        }
+        int fd = gtfs_impl.open(file.toString(), 0);
     }
 
     @Override
@@ -251,15 +254,25 @@ public class GTFileSystem extends FileSystem {
         return null;
     }
 
+
+
     static void testServerConnection() {
         try {
             GTFileSystem fs = new GTFileSystem();
-            fs.initialize(new URI("gtfs://localhost/"), new Configuration());
+            fs.initialize(new URI("hdfs://localhost/"), new Configuration());
 
             Path root = new Path("/");
             for (int i = 0; i < 10; ++i) {
                 Path path = new Path(root, Integer.toString(i));
-                fs.mknod(path, FsPermission.getFileDefault());
+                GTFSOutputStream outs = fs.create(path, FsPermission.getFileDefault(), true,
+                                                4096, (short) 3, fs.getDefaultBlockSize(), new GTFSProgress() );
+                FileStatus status = fs.getFileStatus(path);
+                System.out.println(status.isDir());
+                System.out.println(status.getLen());
+            }
+            for (int i = 0; i < 10; ++i) {
+                Path path = new Path(root, "dir"+i);
+                fs.mkdirs(path, FsPermission.getFileDefault());
                 FileStatus status = fs.getFileStatus(path);
                 System.out.println(status.isDir());
                 System.out.println(status.getLen());
@@ -271,5 +284,12 @@ public class GTFileSystem extends FileSystem {
 
     public static void main(String[] args) {
         testServerConnection();
+    }
+}
+
+
+class GTFSProgress implements Progressable {
+    public void progress() {
+
     }
 }

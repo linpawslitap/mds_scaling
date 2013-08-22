@@ -29,13 +29,17 @@ struct fetch_reply {
 int gigaMknod(const char *path, mode_t mode);
 int gigaMkdir(const char *path, mode_t mode);
 int gigaRmdir(const char *path);
-//TODO: gigaOpen with mode not implemented
+
 int gigaOpen(const char *path, int flags);
+int gigaCreate(const char *path, mode_t mode);
+
 int gigaUpdatelink(const char *path, const char *updatelink);
 int gigaFetch(const char *path, mode_t mode, char* buf,
               struct fetch_reply* reply);
-int gigaRead(int fd, void *buf, size_t size);
-int gigaWrite(int fd, const void *buf, size_t size);
+int gigaReadall(int fd, char* buf, int* buf_len);
+int gigaWritelink(int fd, const char *updatelink);
+int gigaRead(int fd, char *buf, size_t size);
+int gigaWrite(int fd, const char *buf, size_t size);
 int gigaPread(int fd, void *buf, size_t size, size_t offset);
 int gigaPwrite(int fd, const void *buf, size_t size, size_t offset);
 int gigaGetattr(const char *path, struct stat *buf);

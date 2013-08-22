@@ -699,7 +699,7 @@ start:
             // create object entry (metadata) in levelDB
             // and create partition entry for this object
 
-            object_id += 1;
+            int object_id = metadb_get_next_inode_count(ldb_mds);
             int zeroth_server = giga_options_t.serverID;  //FIXME: randomize please!
             struct giga_directory *new_dir = new_cache_entry(&object_id, zeroth_server);
             cache_insert(&object_id, new_dir);

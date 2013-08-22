@@ -31,7 +31,6 @@ class GTFSOutputStream extends OutputStream {
     private FileSystem dfs;
     private GTFSImpl gtfs_impl;
     private FSDataOutputStream dfs_out;
-    private Path path;
     private Path dfs_path;
     private FsPermission permission;
     private boolean overwrite;
@@ -48,7 +47,6 @@ class GTFSOutputStream extends OutputStream {
     private int fd;
 
     public GTFSOutputStream(int fd,
-                            Path path,
                             Path dfs_path,
                             FsPermission permission,
                             boolean overwrite,
@@ -61,7 +59,6 @@ class GTFSOutputStream extends OutputStream {
                             GTFSImpl gtfs_impl,
                             Progressable progress) throws IOException {
         this.fd = fd;
-        this.path = path;
         this.dfs_path = dfs_path;
         this.permission = permission;
         this.overwrite = overwrite;
@@ -100,11 +97,11 @@ class GTFSOutputStream extends OutputStream {
     public void migrate() throws IOException {
         GTFSImpl.FetchReply reply = new GTFSImpl.FetchReply();
         byte[] tmpbuf = new byte[threshold];
-        gtfs_impl.fetch(path.toString(), tmpbuf, reply);
+        gtfs_impl.readall(fd, tmpbuf, reply);
 
         dfs_out = dfs.create(dfs_path, permission, false, bufferSize, replication, blockSize, progressReporter);
         dfs_out.write(tmpbuf, 0, reply.buf_len);
-        gtfs_impl.updatelink(path.toString(), dfs_path.toString());
+        gtfs_impl.writelink(fd, dfs_path.toString());
     }
 
     public void send_data_to_mds() {

@@ -36,7 +36,7 @@ void init_meta_obj_key(metadb_key_t *mkey,
     giga_hash_name(path, mkey->name_hash);
 }
 static
-void myreaddir(struct MetaDB mdb,
+void myreaddir(struct MetaDB* mdb,
                metadb_inode_t dir_id,
                int partition_id) {
     char* buf = (char *) malloc(MAX_BUF_SIZE);
@@ -70,8 +70,11 @@ void myreaddir(struct MetaDB mdb,
     free(buf);
 }
 
-struct MetaDB mdb;
-struct MetaDB mdb2;
+struct MetaDB rmdb;
+struct MetaDB rmdb2;
+
+struct MetaDB *mdb;
+struct MetaDB *mdb2;
 char* extname;
 int ret;
 int dir_id = 0;
@@ -295,10 +298,13 @@ void run_test(int nargs, char* args[]) {
       serverPort = atoi(args[5]);
     }
 
+    mdb = &rmdb;
+    mdb2 = &rmdb2;
+
     printf("metadb_init return value %d\n",
-            metadb_init(&mdb, dbname, serverIP, serverPort));
+            metadb_init(mdb, dbname, serverIP, serverPort, 0));
     printf("metadb_init return value %d\n",
-           metadb_init(&mdb2, dbname2, serverIP, serverPort));
+           metadb_init(mdb2, dbname2, serverIP, serverPort, 0));
 
     test_bitmap();
     test_create_and_check_files();

@@ -6,8 +6,6 @@
 #include "common/giga_index.h"
 #include "common/rpc_giga.h"
 
-#include "operations.h"
-
 #include <errno.h>
 #include <fcntl.h>
 #include <rpc/rpc.h>

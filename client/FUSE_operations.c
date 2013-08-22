@@ -22,9 +22,6 @@
 #define LOG_MSG(format, ...) \
     logMessage(_LEVEL_, __func__, format, __VA_ARGS__);
 
-static struct MetaDB ldb_mds;
-//static uint64_t object_id = 0;
-
 static int  parse_path_components(const char *path, char *file, char *dir);
 static void get_full_path(char fpath[], const char *path);
 
@@ -107,19 +104,6 @@ void* GIGAinit(struct fuse_conn_info *conn)
     (void)conn;
 
     switch (giga_options_t.backend_type) {
-        /*
-        case BACKEND_LOCAL_LEVELDB:
-            metadb_init(&ldb_mds, DEFAULT_LEVELDB_DIR);
-            object_id = 0;
-            if (metadb_create(ldb_mds,
-                              ROOT_DIR_ID, 0,
-                              OBJ_DIR,
-                              object_id, "/", giga_options_t.mountpoint) < 0) {
-                LOG_ERR("root entry creation error(%s)", ROOT_DIR_ID);
-                exit(1);
-            }
-            break;
-        */
         case BACKEND_RPC_LOCALFS:
             break;
         case BACKEND_RPC_LEVELDB:
@@ -190,11 +174,6 @@ int GIGAgetattr(const char *path, struct stat *statbuf)
             //if ((ret = lstat(fpath, statbuf)) < 0)
             //    ret = FUSE_ERROR(ret);
             break;
-        case BACKEND_LOCAL_LEVELDB:
-            parse_path_components(path, file, dir);
-            ret  = metadb_lookup(ldb_mds, 0, 0, file, statbuf);
-            ret = FUSE_ERROR(ret);
-            break;
         case BACKEND_RPC_LEVELDB:
             dir_id = lookup_parent_dir(path, file, dir);
             ret = rpc_getattr(dir_id, file, statbuf);
@@ -234,14 +213,6 @@ int GIGAmkdir(const char *path, mode_t mode)
             ret = local_mkdir(fpath, mode);
             ret = FUSE_ERROR(ret);
             break;
-        /*
-        case BACKEND_LOCAL_LEVELDB:
-            parse_path_components(path, file, dir);
-            object_id += 1;
-            ret = metadb_create(ldb_mds, 0, 0, OBJ_DIR, object_id, file, path);
-            ret = FUSE_ERROR(ret);
-            break;
-        */
         case BACKEND_RPC_LEVELDB:
             dir_id = lookup_parent_dir(path, file, dir);
             ret = rpc_mkdir(dir_id, file, mode);
@@ -278,14 +249,6 @@ int GIGAmknod(const char *path, mode_t mode, dev_t dev)
             ret = local_mknod(fpath, mode, dev);
             ret = FUSE_ERROR(ret);
             break;
-        /*
-        case BACKEND_LOCAL_LEVELDB:
-            parse_path_components(path, file, dir);
-            object_id += 1;
-            ret = metadb_create(ldb_mds, 0, 0, OBJ_MKNOD, object_id, file, path);
-            ret = FUSE_ERROR(ret);
-            break;
-        */
         case BACKEND_RPC_LOCALFS:
             ;
         case BACKEND_RPC_LEVELDB:
@@ -934,14 +897,6 @@ int GIGAcreate(const char *path, mode_t mode, struct fuse_file_info *fi)
             fi->fh = fd;
             ret = FUSE_ERROR(ret);
             break;
-        /*
-        case BACKEND_LOCAL_LEVELDB:
-            parse_path_components(path, file, dir);
-            object_id += 1;
-            ret = metadb_create(ldb_mds, 0, 0, OBJ_MKNOD, object_id, file, path);
-            ret = FUSE_ERROR(ret);
-            break;
-        */
         default:
             ret = ENOTSUP;
             ret = FUSE_ERROR(ret);
@@ -1024,26 +979,3 @@ int GIGAreadlink(const char *path, char *link, size_t size)
 
     return FUSE_ERROR(ret);
 }
-
-/*
-{
-    LOG_MSG(">>> FUSE_XXX(%s): ", path);
-
-    int ret = 0;
-    char fpath[PATH_MAX] = {0};
-
-    switch (giga_options_t.backend_type) {
-        case BACKEND_LOCAL_FS:
-            get_full_path(fpath, path);
-            ret = local_XXX();
-            break;
-        default:
-            ret = ENOTSUP;
-            break;
-    }
-
-    LOG_MSG("<<< FUSE_XXX(%s): ret=[%d:%s]", path, ret, strerror(ret));
-
-    return FUSE_ERROR(ret);
-}
-*/

@@ -4,9 +4,9 @@ include ../backends/build_config.mk
 HADOOP_LIB = ../hadoop/lib/native/libhdfs.a
 
 CFLAGS += -iquote ..
-LDFLAGS +=  `pkg-config fuse --libs` $(HADOOP_LDFLAGS)
-LIBS = ../common.a ../backends/$(LEVELDBLIBRARY) $(HADOOP_LIB)
-BACKENDOBJ = ../backends/local_fs.o ../backends/rpc_fs.o ../backends/metadb_fs.o
+LDFLAGS +=  `pkg-config fuse --libs`
+LIBS = ../common.a
+BACKENDOBJ = ../backends/local_fs.o ../backends/rpc_fs.o
 OBJS += $(BACKENDOBJ)
 LIBCLIENTOBJ = FUSE_operations.o libclient.o
 TARGETS = ../libgiga_client.a ../libgiga_client.so ../giga_client

@@ -142,7 +142,7 @@ int main(int argc, char **argv)
 {
     if (argc != 4) {
         fprintf(stdout, "*** ERROR: insufficient parameters ... \n\n");
-        fprintf(stdout, "USAGE: %s <dir_name> <num_bytes> <num_files>\n", argv[0]);
+        fprintf(stdout, "USAGE: %s <dir_name> <num_kilobytes> <num_files>\n", argv[0]);
         fprintf(stdout, "\n");
         return -1;
     }

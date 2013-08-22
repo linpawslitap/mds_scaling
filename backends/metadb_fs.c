@@ -417,14 +417,14 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name,
     }
 
 //    metadb_log_init(mdb);
-//    metadb_sync_init(mdb);
+    metadb_sync_init(mdb);
 
     return ret;
 }
 
 int metadb_close(struct MetaDB mdb) {
 //    metadb_log_destroy();
-//    metadb_sync_destroy();
+    metadb_sync_destroy();
 
     leveldb_close(mdb.db);
     mdb.db = NULL;

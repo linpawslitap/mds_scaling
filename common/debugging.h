@@ -40,7 +40,7 @@ typedef enum log_level {
     LOG_TRACE,
 } log_level_t;
 
-#define DEFAULT_LOG_LEVEL       LOG_DEBUG
+#define DEFAULT_LOG_LEVEL       LOG_WARN
 
 #define DEFAULT_LOG_FILE_PATH   "/tmp/dbg.log"
 

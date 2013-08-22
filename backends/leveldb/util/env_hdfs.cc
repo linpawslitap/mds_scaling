@@ -496,14 +496,13 @@ public:
     }
 
     DIR* d = opendir(dir.c_str());
-    if (d == NULL) {
-      return IOError(dir, errno);
+    if (d != NULL) {
+      struct dirent* entry;
+      while ((entry = readdir(d)) != NULL) {
+        result->push_back(entry->d_name);
+      }
+      closedir(d);
     }
-    struct dirent* entry;
-    while ((entry = readdir(d)) != NULL) {
-      result->push_back(entry->d_name);
-    }
-    closedir(d);
     return Status::OK();
   }
 

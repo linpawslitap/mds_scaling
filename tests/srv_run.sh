@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source ../hdfs.sh
+
 MNT="/l0"
 GIGA="${MNT}/giga_srv/"
 LDB="${MNT}/giga_ldb/"
@@ -52,7 +54,7 @@ f) # foreground server execution
 n) # normal server execution
    #
 echo "lauch giga_server $PWD"
-export LD_LIBRARY_PATH="/usr/lib64/openmpi/lib/:/usr/libexec/dropbox/"
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/lib64/openmpi/lib/:/usr/libexec/dropbox/
 ../giga_server &
 ;;
 

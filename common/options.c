@@ -243,8 +243,14 @@ void init_hdfs()
     }
 
     giga_options_t.hdfsIP = (char *) malloc(sizeof(char) * 128);
-    fscanf(hdfsConfFile, "%s", giga_options_t.hdfsIP);
-    fscanf(hdfsConfFile, "%d", &(giga_options_t.hdfsPort));
+    if (fscanf(hdfsConfFile, "%s", giga_options_t.hdfsIP) < 1) {
+        LOG_MSG("ERR_read(%s): %s",  HDFS_SERVER_CONF, strerror(errno));
+        exit(1);
+    }
+    if (fscanf(hdfsConfFile, "%d", &(giga_options_t.hdfsPort)) < 1) {
+        LOG_MSG("ERR_read(%s): %s",  HDFS_SERVER_CONF, strerror(errno));
+        exit(1);
+    }
 
     fclose(hdfsConfFile);
 }

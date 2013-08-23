@@ -118,10 +118,11 @@ int gigaFetch(const char *path, mode_t mode,
     return GIGAfetch(path, mode, &(reply->state), buf, &(reply->buf_len));
 }
 
-int gigaReadall(int fd, char *buf, int* buf_len)
+int gigaReadall(int fd, char *buf,
+                struct fetch_reply* reply)
 {
     giga_file_info_t *gi = get_giga_fi(fd);
-    return GIGAreadall(&(gi->fi), buf, buf_len);
+    return GIGAreadall(&(gi->fi), buf, &(reply->buf_len));
 }
 
 int gigaWritelink(int fd, const char* link)

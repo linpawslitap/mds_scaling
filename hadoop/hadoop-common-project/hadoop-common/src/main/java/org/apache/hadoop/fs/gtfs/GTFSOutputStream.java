@@ -152,6 +152,7 @@ class GTFSOutputStream extends OutputStream {
         flush();
         stream_buf = null;
         one_byte = null;
-        this.dfs_out.close();
+        if (dfs_out != null)
+          dfs_out.close();
     }
 }

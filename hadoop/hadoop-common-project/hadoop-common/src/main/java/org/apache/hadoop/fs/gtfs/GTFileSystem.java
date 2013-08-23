@@ -188,7 +188,7 @@ public class GTFileSystem extends FileSystem {
         if (fd < 0) {
             throw new IOException("Cannot create the file:" + file);
         }
-        GTFSOutputStream out = new GTFSOutputStream(fd, new Path(""),
+        GTFSOutputStream out = new GTFSOutputStream(fd, new Path("/"),
                 permission, overwrite, bufferSize, replication, blockSize, 0,
                 threshold, this, this.gtfs_impl, progress);
         return new FSDataOutputStream(out, statistics);

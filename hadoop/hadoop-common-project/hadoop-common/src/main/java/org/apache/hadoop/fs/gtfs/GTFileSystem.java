@@ -43,6 +43,7 @@ public class GTFileSystem extends FileSystem {
     private Path workingDir = new Path("/");
     private GTFSImpl gtfs_impl;
     private FileSystem hdfs;
+    private int threshold = 4096;
 
     public GTFileSystem() {
     }
@@ -183,18 +184,30 @@ public class GTFileSystem extends FileSystem {
                                       short replication,
                                      long blockSize, Progressable progress)
                                     throws IOException {
-        int ret = gtfs_impl.mkNod(file.toString(), permission.toShort());
-        if (ret < 0) {
+        int fd = gtfs_impl.create(file.toString(), permission.toShort());
+        if (fd < 0) {
             throw new IOException("Cannot create the file:" + file);
         }
-        int fd = gtfs_impl.open(file.toString(), 0);
+        GTFSOutputStream out = new GTFSOutputStream(fd, new Path(""),
+                permission, overwrite, bufferSize, replication, blockSize, 0,
+                threshold, this, this.gtfs_impl, progress);
+        return new FSDataOutputStream(out, statistics);
     }
 
     @Override
     public FSDataInputStream open(Path path, int bufferSize) throws IOException {
         if (!exists(path))
             throw new IOException("File does not exist: " + path);
-        return null;
+        byte [] buf = new byte[threshold];
+        GTFSImpl.FetchReply reply = new GTFSImpl.FetchReply();
+        gtfs_impl.fetch(path.toString(), buf, reply);
+        GTFSInputStream in;
+        if (reply.state == 0) {
+            in = new GTFSInputStream(buf, reply.buf_len);
+        } else {
+            in = new GTFSInputStream(hdfs.open(new Path(buf.toString())));
+        }
+        return new FSDataInputStream(in);
     }
 
     @Override
@@ -264,8 +277,10 @@ public class GTFileSystem extends FileSystem {
             Path root = new Path("/");
             for (int i = 0; i < 10; ++i) {
                 Path path = new Path(root, Integer.toString(i));
-                GTFSOutputStream outs = fs.create(path, FsPermission.getFileDefault(), true,
-                                                4096, (short) 3, fs.getDefaultBlockSize(), new GTFSProgress() );
+                FSDataOutputStream outs = fs.create(path,
+                        FsPermission.getFileDefault(), true,
+                        4096, (short) 3, fs.getDefaultBlockSize(),
+                        new GTFSProgress());
                 FileStatus status = fs.getFileStatus(path);
                 System.out.println(status.isDir());
                 System.out.println(status.getLen());

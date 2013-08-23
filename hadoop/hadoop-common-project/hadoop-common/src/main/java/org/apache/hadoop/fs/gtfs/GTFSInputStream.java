@@ -13,13 +13,14 @@ import java.nio.ByteBuffer;
 
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FSInputStream;
+import org.apache.hadoop.fs.FSDataInputStream;
 
 public class GTFSInputStream extends FSInputStream {
 
     private byte[] buf;
     private long buf_len;
     private long pos;
-    private FSInputStream dfs_in;
+    private FSDataInputStream dfs_in;
 
     public GTFSInputStream(byte[] buf, long buf_len) {
         this.buf = buf;
@@ -28,7 +29,7 @@ public class GTFSInputStream extends FSInputStream {
         this.dfs_in = null;
     }
 
-    public GTFSInputStream(FSInputStream dfs_in) {
+    public GTFSInputStream(FSDataInputStream dfs_in) {
         this.dfs_in = dfs_in;
         this.buf = null;
         this.pos = 0;

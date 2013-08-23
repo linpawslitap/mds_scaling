@@ -275,12 +275,15 @@ public class GTFileSystem extends FileSystem {
             fs.initialize(new URI("hdfs://localhost/"), new Configuration());
 
             Path root = new Path("/");
+            byte buf[] = new byte[1024];
             for (int i = 0; i < 10; ++i) {
                 Path path = new Path(root, Integer.toString(i));
                 FSDataOutputStream outs = fs.create(path,
                         FsPermission.getFileDefault(), true,
                         4096, (short) 3, fs.getDefaultBlockSize(),
                         new GTFSProgress());
+                outs.write(buf, 0, 1024);
+                outs.close();
                 FileStatus status = fs.getFileStatus(path);
                 System.out.println(status.isDir());
                 System.out.println(status.getLen());

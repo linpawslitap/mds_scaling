@@ -957,7 +957,7 @@ bool_t giga_rpc_fetch_1_svc(giga_dir_id dir_id, giga_pathname path, int mode,
     }
 
     int state;
-    char buf[FILE_THRESHOLD];
+    char* buf = (char*) malloc(FILE_THRESHOLD * sizeof(char));
     int buf_len;
 
     switch (giga_options_t.backend_type) {
@@ -972,12 +972,9 @@ bool_t giga_rpc_fetch_1_svc(giga_dir_id dir_id, giga_pathname path, int mode,
                   case RPC_LEVELDB_FILE_IN_DB:
                       if (buf_len > 0) {
                           rpc_reply->data.giga_read_t_u.buf.giga_file_data_val
-                              = (char*) malloc(buf_len);
+                              = buf;
                           rpc_reply->data.giga_read_t_u.buf.giga_file_data_len
                               = buf_len;
-                          memcpy(
-                            rpc_reply->data.giga_read_t_u.buf.giga_file_data_val
-                            , buf, buf_len);
                       } else {
                           rpc_reply->data.giga_read_t_u.buf.giga_file_data_val
                               = NULL;
@@ -986,7 +983,7 @@ bool_t giga_rpc_fetch_1_svc(giga_dir_id dir_id, giga_pathname path, int mode,
                       }
                       break;
                   case RPC_LEVELDB_FILE_IN_FS:
-                      rpc_reply->data.giga_read_t_u.link = strdup(buf);
+                      rpc_reply->data.giga_read_t_u.link = buf;
                       break;
                   default:
                     break;

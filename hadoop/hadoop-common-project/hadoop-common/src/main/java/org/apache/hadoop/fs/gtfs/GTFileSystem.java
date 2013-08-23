@@ -195,13 +195,17 @@ public class GTFileSystem extends FileSystem {
     }
 
     @Override
-    public FSDataInputStream open(Path path, int bufferSize) throws IOException {
+    public FSDataInputStream open(Path path, int bufferSize) throws IOException
+    {
         if (!exists(path))
             throw new IOException("File does not exist: " + path);
         byte [] buf = new byte[threshold];
         GTFSImpl.FetchReply reply = new GTFSImpl.FetchReply();
         gtfs_impl.fetch(path.toString(), buf, reply);
         GTFSInputStream in;
+        System.out.println("state:"+reply.state);
+        System.out.println("buf_len:"+reply.buf_len);
+        System.out.println("buf:"+buf);
         if (reply.state == 0) {
             in = new GTFSInputStream(buf, reply.buf_len);
         } else {
@@ -267,8 +271,6 @@ public class GTFileSystem extends FileSystem {
         return null;
     }
 
-
-
     static void testServerConnection() {
         try {
             GTFileSystem fs = new GTFileSystem();
@@ -276,11 +278,11 @@ public class GTFileSystem extends FileSystem {
 
             Path root = new Path("/");
             byte buf[] = new byte[1024];
-            byte inbuf[] = new byte[1024];
+            byte inbuf[] = new byte[4096];
             for (int i = 0; i < 10; ++i) {
                 Path path = new Path(root, Integer.toString(i));
                 for (int j = 0; j < 1024; ++j)
-                    buf[j] = i;
+                    buf[j] = (byte) i;
                 FSDataOutputStream outs = fs.create(path,
                         FsPermission.getFileDefault(), true,
                         4096, (short) 3, fs.getDefaultBlockSize(),
@@ -291,10 +293,13 @@ public class GTFileSystem extends FileSystem {
                 int ins_len = ins.read(inbuf);
                 if (ins_len != 1024) {
                     System.out.println("length is not match.");
+                    System.exit(1);
                 }
                 for (int j = 0; j < 1024; ++j)
-                    if (inbuf[j] != i)
+                    if (inbuf[j] != i) {
                         System.out.println("read data is wrong.");
+                        System.exit(1);
+                    }
                 FileStatus status = fs.getFileStatus(path);
                 System.out.println(status.isDir());
                 System.out.println(status.getLen());

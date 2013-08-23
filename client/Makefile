@@ -15,7 +15,10 @@ all: $(TARGETS)
 
 $(OBJS) : $(HDRS)
 
-../giga_client : $(OBJS)
+libclient_test: $(BACKENDOBJ) $(LIBCLIENTOBJ) libclient_test.o
+	$(CC) -o $@ $^ $(LIBS) $(LDFLAGS)
+
+../giga_client : $(BACKENDOBJ) $(LIBCLIENTOBJ) client.o
 	$(CC) -o $@ $^ $(LIBS) $(LDFLAGS)
 
 ../libgiga_client.a : $(BACKENDOBJ) $(LIBCLIENTOBJ)
@@ -24,6 +27,7 @@ $(OBJS) : $(HDRS)
 
 ../libgiga_client.so : $(BACKENDOBJ) $(LIBCLIENTOBJ) $(LIBS)
 	$(CC) -shared -o ../libgiga_client.so $?
+
 
 clean :
 	rm -f $(TARGETS) $(OBJS)

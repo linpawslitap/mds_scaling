@@ -50,6 +50,7 @@ public class GTFSImpl {
     }
 
     public static class FetchReply extends Structure {
+        public static class ByReference extends FetchReply implements Structure.ByReference {}
         public int state;
         public int buf_len;
     }
@@ -65,9 +66,9 @@ public class GTFSImpl {
         public int gigaGetInfo(String path, Info info);
         public int gigaOpen(String path, int flags);
         public int gigaUpdatelink(String path, String link);
-        public int gigaFetch(String path, byte[] buf, FetchReply reply);
+        public int gigaFetch(String path, byte[] buf, FetchReply.ByReference reply);
         public int gigaWritelink(int fd, String link);
-        public int gigaReadall(int fd, byte[] buf, FetchReply reply);
+        public int gigaReadall(int fd, byte[] buf, FetchReply.ByReference reply);
         public int gigaRead(int fd, byte[] buf, int size);
         public int gigaWrite(int fd, byte[] buf, int size);
         public int gigaClose(int fd);
@@ -115,11 +116,11 @@ public class GTFSImpl {
         return gigaclient.gigaOpen(path, flags);
     }
 
-    public int fetch(String path, byte[] buf, FetchReply reply) {
+    public int fetch(String path, byte[] buf, FetchReply.ByReference reply) {
         return gigaclient.gigaFetch(path, buf, reply);
     }
 
-    public int readall(int fd, byte[] buf, FetchReply reply) {
+    public int readall(int fd, byte[] buf, FetchReply.ByReference reply) {
         return gigaclient.gigaReadall(fd, buf, reply);
     }
     public int updatelink(String path, String link) {

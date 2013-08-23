@@ -95,7 +95,8 @@ class GTFSOutputStream extends OutputStream {
     }
 
     public void migrate() throws IOException {
-        GTFSImpl.FetchReply reply = new GTFSImpl.FetchReply();
+        GTFSImpl.FetchReply.ByReference reply =
+                new GTFSImpl.FetchReply.ByReference();
         byte[] tmpbuf = new byte[threshold];
         gtfs_impl.readall(fd, tmpbuf, reply);
 

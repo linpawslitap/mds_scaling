@@ -200,7 +200,8 @@ public class GTFileSystem extends FileSystem {
         if (!exists(path))
             throw new IOException("File does not exist: " + path);
         byte [] buf = new byte[threshold];
-        GTFSImpl.FetchReply reply = new GTFSImpl.FetchReply();
+        GTFSImpl.FetchReply.ByReference reply =
+                new GTFSImpl.FetchReply.ByReference();
         gtfs_impl.fetch(path.toString(), buf, reply);
         GTFSInputStream in;
         System.out.println("state:"+reply.state);

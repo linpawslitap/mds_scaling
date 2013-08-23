@@ -276,14 +276,25 @@ public class GTFileSystem extends FileSystem {
 
             Path root = new Path("/");
             byte buf[] = new byte[1024];
+            byte inbuf[] = new byte[1024];
             for (int i = 0; i < 10; ++i) {
                 Path path = new Path(root, Integer.toString(i));
+                for (int j = 0; j < 1024; ++j)
+                    buf[j] = i;
                 FSDataOutputStream outs = fs.create(path,
                         FsPermission.getFileDefault(), true,
                         4096, (short) 3, fs.getDefaultBlockSize(),
                         new GTFSProgress());
                 outs.write(buf, 0, 1024);
                 outs.close();
+                FSDataInputStream ins = fs.open(path, 4096);
+                int ins_len = ins.read(inbuf);
+                if (ins_len != 1024) {
+                    System.out.println("length is not match.");
+                }
+                for (int j = 0; j < 1024; ++j)
+                    if (inbuf[j] != i)
+                        System.out.println("read data is wrong.");
                 FileStatus status = fs.getFileStatus(path);
                 System.out.println(status.isDir());
                 System.out.println(status.getLen());

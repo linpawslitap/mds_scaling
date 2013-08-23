@@ -204,9 +204,7 @@ public class GTFileSystem extends FileSystem {
                 new GTFSImpl.FetchReply.ByReference();
         gtfs_impl.fetch(path.toString(), buf, reply);
         GTFSInputStream in;
-        System.out.println("state:"+reply.state);
-        System.out.println("buf_len:"+reply.buf_len);
-        System.out.println("buf:"+buf);
+
         if (reply.state == 1) {
             in = new GTFSInputStream(buf, reply.buf_len);
         } else {

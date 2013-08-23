@@ -871,6 +871,9 @@ start:
 
     switch (giga_options_t.backend_type) {
         case BACKEND_RPC_LEVELDB:
+#ifdef HDFS
+          state = RPC_LEVELDB_FILE_IN_DB;
+#else
             rpc_reply->result.errnum =
                   metadb_get_file(ldb_mds,
                                   dir_id, index, path,
@@ -880,6 +883,7 @@ start:
                 rpc_reply->link = strdup("");
                 break;
             }
+#endif
             if (state == RPC_LEVELDB_FILE_IN_DB) {
                 if (size + offset <= FILE_THRESHOLD) {
                   rpc_reply->state = state;

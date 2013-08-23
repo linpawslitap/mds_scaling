@@ -127,7 +127,7 @@ class GTFSOutputStream extends OutputStream {
         int bufToSend = len;
         while (bufToSend > 0) {
             int pack_len = Math.min(bufferSize - buf_pos, bufToSend);
-            System.arraycopy(stream_buf, buf_pos, b, off, pack_len);
+            System.arraycopy(b, off, stream_buf, buf_pos, pack_len);
             pos += pack_len;
             buf_pos += pack_len;
             off += pack_len;

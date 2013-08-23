@@ -163,6 +163,7 @@ int gigaWrite(int fd, const char *buf, size_t size)
 {
     giga_file_info_t *gi = get_giga_fi(fd);
     int written = GIGAwrite(NULL, buf, size, gi->offset, &(gi->fi));
+
     if (written >= 0)
         gi->offset += size;
     return written;

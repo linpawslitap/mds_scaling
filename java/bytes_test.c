@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include "bytes_test.h"
 
-int getBytes(char buf[]) {
+int getBytes(char* buf) {
   int i;
   for (i = 0; i < 1024; ++i) {
     buf[i] = 'a'+(i%26);

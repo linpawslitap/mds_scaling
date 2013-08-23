@@ -59,12 +59,15 @@ public class GTFSImpl {
         public void gigaDestroy();
         public int gigaMknod(String path, int mode);
         public int gigaMkdir(String path, int mode);
+        public int gigaCreate(String path, int mode);
         public int gigaRmdir(String path);
         public int gigaGetAttr(String path, Stat stat);
         public int gigaGetInfo(String path, Info info);
         public int gigaOpen(String path, int flags);
         public int gigaUpdatelink(String path, String link);
         public int gigaFetch(String path, byte[] buf, FetchReply reply);
+        public int gigaWritelink(int fd, String link);
+        public int gigaReadall(int fd, byte[] buf, FetchReply reply);
         public int gigaRead(int fd, byte[] buf, int size);
         public int gigaWrite(int fd, byte[] buf, int size);
         public int gigaClose(int fd);
@@ -86,6 +89,10 @@ public class GTFSImpl {
 
     public int mkNod(String path, int mode) {
         return gigaclient.gigaMknod(path, mode);
+    }
+
+    public int create(String path, int mode) {
+        return gigaclient.gigaCreate(path, mode);
     }
 
     public int mkDir(String path, int mode) {
@@ -112,9 +119,17 @@ public class GTFSImpl {
         return gigaclient.gigaFetch(path, buf, reply);
     }
 
+    public int readall(int fd, byte[] buf, FetchReply reply) {
+        return gigaclient.gigaReadall(fd, buf, reply);
+    }
     public int updatelink(String path, String link) {
         return gigaclient.gigaUpdatelink(path, link);
     }
+
+    public int writelink(int fd, String link) {
+        return gigaclient.gigaWritelink(fd, link);
+    }
+
     public int read(int fd, byte[] buf, int size) {
         return gigaclient.gigaRead(fd, buf, size);
     }

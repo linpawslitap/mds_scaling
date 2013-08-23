@@ -34,7 +34,7 @@ int gigaOpen(const char *path, int flags);
 int gigaCreate(const char *path, mode_t mode);
 
 int gigaUpdatelink(const char *path, const char *updatelink);
-int gigaFetch(const char *path, mode_t mode, char* buf,
+int gigaFetch(const char *path, char* buf,
               struct fetch_reply* reply);
 int gigaReadall(int fd, char* buf,
               struct fetch_reply* reply);

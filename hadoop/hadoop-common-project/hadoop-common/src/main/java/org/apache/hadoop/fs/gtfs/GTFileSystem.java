@@ -207,7 +207,7 @@ public class GTFileSystem extends FileSystem {
         System.out.println("state:"+reply.state);
         System.out.println("buf_len:"+reply.buf_len);
         System.out.println("buf:"+buf);
-        if (reply.state == 0) {
+        if (reply.state == 1) {
             in = new GTFSInputStream(buf, reply.buf_len);
         } else {
             in = new GTFSInputStream(hdfs.open(new Path(buf.toString())));
@@ -298,7 +298,7 @@ public class GTFileSystem extends FileSystem {
                 }
                 for (int j = 0; j < 1024; ++j)
                     if (inbuf[j] != i) {
-                        System.out.println("read data is wrong.");
+                        System.out.println("read data is wrong:"+inbuf[j]);
                         System.exit(1);
                     }
                 FileStatus status = fs.getFileStatus(path);

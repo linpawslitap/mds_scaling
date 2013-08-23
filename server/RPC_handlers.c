@@ -933,13 +933,12 @@ start:
     return true;
 }
 
-bool_t giga_rpc_fetch_1_svc(giga_dir_id dir_id, giga_pathname path, int mode,
+bool_t giga_rpc_fetch_1_svc(giga_dir_id dir_id, giga_pathname path,
                             giga_fetch_reply_t *rpc_reply,
                             struct svc_req *rqstp)
 {
 
     (void)rqstp;
-    (void)mode;
     assert(rpc_reply);
     assert(path);
 

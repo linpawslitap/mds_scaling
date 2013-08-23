@@ -619,7 +619,7 @@ int GIGAopen(const char *path, struct fuse_file_info *fi)
     return FUSE_ERROR(ret);
 }
 
-int GIGAfetch(const char *path, mode_t mode,
+int GIGAfetch(const char *path,
               int* state, char* buf, int* buf_len) {
     LOG_MSG(">>> FUSE_fetch(%s)", path);
 
@@ -628,7 +628,7 @@ int GIGAfetch(const char *path, mode_t mode,
     char dir[PATH_MAX] = {0};
     int dir_id = lookup_parent_dir(path, file, dir);
 
-    ret = rpc_fetch(dir_id, file, mode, state, buf, buf_len);
+    ret = rpc_fetch(dir_id, file, state, buf, buf_len);
 
     return FUSE_ERROR(ret);
 }
@@ -640,7 +640,7 @@ int GIGAreadall(struct fuse_file_info *fi,
     int ret = 0;
     int state;
     rpc_leveldb_fh_t* fh = (rpc_leveldb_fh_t*) (uintptr_t) fi->fh;
-    ret = rpc_fetch(fh->dir_id, fh->file, fh->flags,
+    ret = rpc_fetch(fh->dir_id, fh->file,
                     &state, buf, buf_len);
 
     return FUSE_ERROR(ret);

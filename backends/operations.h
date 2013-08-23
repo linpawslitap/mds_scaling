@@ -51,7 +51,7 @@ int rpc_create(int dir_id, const char *path, mode_t mode);
 scan_list_t rpc_readdir(int dir_id, const char *path);
 int rpc_opendir(int dir_id, const char *path);
 int rpc_releasedir(int dir_id, const char *path);
-int rpc_fetch(int dir_id, const char *path, int mode,
+int rpc_fetch(int dir_id, const char *path,
               int* state, char* buf, int* buf_len);
 int rpc_updatelink(int dir_id, const char *path,
                    const char* link);

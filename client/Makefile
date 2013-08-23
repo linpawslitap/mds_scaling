@@ -28,6 +28,5 @@ libclient_test: $(BACKENDOBJ) $(LIBCLIENTOBJ) libclient_test.o
 ../libgiga_client.so : $(BACKENDOBJ) $(LIBCLIENTOBJ) $(LIBS)
 	$(CC) -shared -o ../libgiga_client.so $?
 
-
 clean :
 	rm -f $(TARGETS) $(OBJS)

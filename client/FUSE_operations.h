@@ -26,7 +26,7 @@ int GIGAtruncate(const char *path, off_t newsize);
 int GIGAutime(const char *path, struct utimbuf *ubuf);
 
 int GIGAupdatelink(const char *path, const char* link);
-int GIGAfetch(const char *path, mode_t mode,
+int GIGAfetch(const char *path,
               int* state, char* buf, int* buf_len);
 int GIGAreadall(struct fuse_file_info *fi,
                  char* buf, int* buf_len);

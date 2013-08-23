@@ -672,7 +672,7 @@ retry:
 }
 
 
-int rpc_fetch(int dir_id, const char *path, int mode,
+int rpc_fetch(int dir_id, const char *path,
              int* state, char *buf, int* buf_len)
 {
     int ret = 0;
@@ -695,7 +695,7 @@ retry:
 
     LOG_MSG(">>> RPC_fetch(%s): to s%d]", path, server_id);
 
-    if (giga_rpc_fetch_1(dir_id, (char*)path, mode, &rpc_reply, rpc_clnt)
+    if (giga_rpc_fetch_1(dir_id, (char*)path, &rpc_reply, rpc_clnt)
         != RPC_SUCCESS) {
         LOG_ERR("ERR_rpc_fetch(%s)", clnt_spcreateerror(path));
         exit(1);

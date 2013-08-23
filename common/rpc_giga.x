@@ -170,8 +170,7 @@ version GIGA_RPC_VERSION {          /* version number */
         giga_open_reply_t GIGA_RPC_OPEN(giga_dir_id, giga_pathname,
                                         int mode ) = 801;
 
-        giga_fetch_reply_t GIGA_RPC_FETCH(giga_dir_id, giga_pathname,
-                                          int mode ) = 802;
+        giga_fetch_reply_t GIGA_RPC_FETCH(giga_dir_id, giga_pathname) = 802;
 
         giga_result_t GIGA_RPC_CLOSE(giga_dir_id, giga_pathname) = 901;
 

@@ -6,5 +6,6 @@
 # Description:
 #########################################################################
 
-export LD_LIBRARY_PATH=../
-java -classpath /usr/share/java/jna.jar:. GigaClient
+export LD_LIBRARY_PATH=./:../
+#java -classpath /usr/share/java/jna.jar:. GigaClient
+java -classpath /usr/share/java/jna.jar:. BytesTest

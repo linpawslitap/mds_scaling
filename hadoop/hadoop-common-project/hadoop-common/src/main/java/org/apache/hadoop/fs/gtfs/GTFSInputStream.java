@@ -84,7 +84,6 @@ public class GTFSInputStream extends FSInputStream {
             return -1;
         }
         int res = Math.min(len, (int) (buf_len-pos));
-        System.out.println("off"+off+" pos"+pos+" len"+len+" res"+res);
         System.arraycopy(buf, (int) pos, b, off, res);
         pos += res;
         return res;

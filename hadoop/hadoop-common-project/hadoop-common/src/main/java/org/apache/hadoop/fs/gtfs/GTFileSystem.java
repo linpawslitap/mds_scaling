@@ -57,7 +57,7 @@ public class GTFileSystem extends FileSystem {
     public void initialize(URI uri, Configuration conf) throws IOException {
         super.initialize(uri, conf);
         try {
-            this.uri = URI.create(uri.getScheme() + "://" + uri.getAuthority());
+            this.uri = URI.create(uri.getScheme() + "://");
             this.hdfs = FileSystem.get(uri, conf);
             this.workingDir = new Path("/");
             this.gtfs_impl = new GTFSImpl();
@@ -188,7 +188,9 @@ public class GTFileSystem extends FileSystem {
         if (fd < 0) {
             throw new IOException("Cannot create the file:" + file);
         }
-        GTFSOutputStream out = new GTFSOutputStream(fd, new Path("/"),
+        int parent_id = gtfs_impl.getParentID(fd);
+        GTFSOutputStream out = new GTFSOutputStream(fd,
+                new Path("/"+parent_id+"/"+file.getName()),
                 permission, overwrite, bufferSize, replication, blockSize, 0,
                 threshold, this, this.gtfs_impl, progress);
         return new FSDataOutputStream(out, statistics);

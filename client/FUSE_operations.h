@@ -32,6 +32,7 @@ int GIGAreadall(struct fuse_file_info *fi,
                  char* buf, int* buf_len);
 int GIGAwritelink(struct fuse_file_info *fi,
                  const char* link);
+int GIGAgetparentid(struct fuse_file_info *fi);
 int GIGAread(const char *path, char *buf, size_t size, off_t offset,
              struct fuse_file_info *fi);
 int GIGAwrite(const char *path, const char *buf, size_t size, off_t offset,

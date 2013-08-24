@@ -657,6 +657,11 @@ int GIGAwritelink(struct fuse_file_info *fi,
     return FUSE_ERROR(ret);
 }
 
+int GIGAgetparentid(struct fuse_file_info *fi) {
+    rpc_leveldb_fh_t* fh = (rpc_leveldb_fh_t*) (uintptr_t) fi->fh;
+    return fh->dir_id;
+}
+
 int GIGAupdatelink(const char *path, const char* link) {
     LOG_MSG(">>> FUSE_updatelink(%s)", path);
 

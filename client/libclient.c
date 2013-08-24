@@ -132,6 +132,13 @@ int gigaWritelink(int fd, const char* link)
     return GIGAwritelink(&(gi->fi), link);
 }
 
+int gigaGetParentID(int fd)
+{
+    giga_file_info_t *gi = get_giga_fi(fd);
+    return GIGAgetparentid(&(gi->fi));
+}
+
+
 int gigaUpdatelink(const char *path, const char *link) {
     return GIGAupdatelink(path, link);
 }

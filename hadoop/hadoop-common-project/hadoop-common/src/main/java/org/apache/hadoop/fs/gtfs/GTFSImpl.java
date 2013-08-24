@@ -41,7 +41,6 @@ public class GTFSImpl {
     public static class Info extends Structure {
         public int permission;  /* File permission.  */
         public int is_dir; /* File type */
-        public int __unused;
         public int uid;   /* User ID of the file's owner.  */
         public int gid;   /* Group ID of the file's group. */
         public int size;  /* Size of file, in bytes.  */

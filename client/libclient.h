@@ -14,7 +14,6 @@ void gigaDestroy();
 struct info {
     int permission;
     int is_dir;
-    int unused;
     int uid, gid;
     int size;
     int atime;

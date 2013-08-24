@@ -302,14 +302,14 @@ public class GTFileSystem extends FileSystem {
                         System.exit(1);
                     }
                 FileStatus status = fs.getFileStatus(path);
-                System.out.println(status.isDir());
+                System.out.println(status.isDirectory());
                 System.out.println(status.getLen());
             }
             for (int i = 0; i < 10; ++i) {
                 Path path = new Path(root, "dir"+i);
                 fs.mkdirs(path, FsPermission.getFileDefault());
                 FileStatus status = fs.getFileStatus(path);
-                System.out.println(status.isDir());
+                System.out.println(status.isDirectory());
                 System.out.println(status.getLen());
             }
         } catch (Exception e) {

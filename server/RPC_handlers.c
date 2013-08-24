@@ -361,48 +361,9 @@ bool_t giga_rpc_readdir_serial_1_svc(scan_args_t args,
         return true;
     }
 
-    /*
-    struct giga_directory *dir = cache_lookup(&dir_id);
-    if (dir == NULL) {
-        LOG_MSG("ERR_cache: dir(%d) missing! Reading from LDB...", dir_id);
-
-        int zeroth_srv = 0;
-        struct giga_directory *new = new_cache_entry(&dir_id, zeroth_srv);
-
-        //FIXME: need to fetch it from disk first??
-        if (metadb_read_bitmap(ldb_mds, dir_id, -1, NULL, &new->mapping) != 0) {
-            //LOG_ERR("ERR_mdb_bitmap_read(%s): for d%d ", path, dir_id);
-            //exit(1);
-
-            LOG_MSG("Reading d%d from LDB failed ... creating", dir_id);
-            //XXX: needs an RPC
-            int ret = metadb_create_dir(ldb_mds, dir_id, -1, NULL,
-                                        &new->mapping);
-            if (ret < 0) {
-                LOG_ERR("ERR_mdb_create(%s): partition entry failed", dir_id);
-                rpc_reply->errnum = ret;
-                return true;
-            }
-        }
-        cache_insert(&dir_id, new);
-        cache_release(new);
-
-        if ((dir = cache_lookup(&dir_id)) == NULL) {
-            LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
-            rpc_reply->errnum = -EIO;
-            return true;
-        }
-        //rpc_reply->errnum = -EIO;
-        //LOG_MSG("ERR_cache: dir(%d) missing", dir_id);
-        //return true;
-    }
-    */
-
     int partition_id = args.partition_id;
 
     LOG_MSG(">>> RPC_readdir(d=%d, p[%d])", dir_id, partition_id);
-
-    //bzero(rpc_reply, sizeof(readdir_return_t));
 
     char *buf;
     if ((buf = (char*)malloc(sizeof(char)*MAX_BUF)) == NULL) {
@@ -444,10 +405,6 @@ bool_t giga_rpc_readdir_serial_1_svc(scan_args_t args,
 
         metadb_readdir_iter_get_stat(iter, &statbuf);
 
-/*
-        assert((statbuf.st_mode & S_IFDIR) > 0);
-        assert(memcmp(objname, realpath, len) == 0);
-*/
         LOG_MSG("#%d: \t obj=[%s] \t sym=[%s]", entry, objname, realpath);
         (void)realpath;
 
@@ -466,18 +423,10 @@ bool_t giga_rpc_readdir_serial_1_svc(scan_args_t args,
     rpc_reply->readdir_return_t_u.result.num_entries = num_ent;
     rpc_reply->readdir_return_t_u.result.end_partition = partition_id;
 
-    //XXX: code for serial readdir
     int key_len = strlen(end_key);
     rpc_reply->readdir_return_t_u.result.end_key.scan_key_val = strdup(end_key);
     rpc_reply->readdir_return_t_u.result.end_key.scan_key_val[key_len] = '\0';
     rpc_reply->readdir_return_t_u.result.end_key.scan_key_len = strlen(rpc_reply->readdir_return_t_u.result.end_key.scan_key_val);
-
-    /*
-    //memcpy(rpc_reply->readdir_return_t_u.result.end_key.scan_key_val, end_key,
-    //       rpc_reply->readdir_return_t_u.result.end_key.scan_key_len);
-    rpc_reply->readdir_return_t_u.result.end_key.scan_key_val = end_key;
-    rpc_reply->readdir_return_t_u.result.end_key.scan_key_len = sizeof(metadb_key_t);
-    */
 
     LOG_MSG("readdir_ret: end_key=[%s],len=%d",
             rpc_reply->readdir_return_t_u.result.end_key.scan_key_val,

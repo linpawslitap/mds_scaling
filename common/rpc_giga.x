@@ -49,9 +49,41 @@ struct scan_args_t {
     int         partition_id;
 };
 
+typedef struct status_entry_t* status_list_t;
+
+struct info_t {
+    int mode;
+    int uid, gid;
+    int size;
+    int atime, ctime;
+};
+
+struct status_entry_t {
+    giga_pathname  entry_name;
+    struct info_t  info;
+    struct status_entry_t*    next;
+};
+
+struct status_result_t {
+    scan_key    end_key;
+    int         end_partition;
+    status_list_t list;
+    int         num_entries;
+    int         more_entries_flag;
+};
+
 union readdir_return_t switch (int errnum) {
     case 0:
         struct scan_result_t result;
+    case -EAGAIN:
+        giga_bitmap bitmap;
+    default:
+      void;
+};
+
+union liststatus_return_t switch (int errnum) {
+    case 0:
+        struct status_result_t result;
     case -EAGAIN:
         giga_bitmap bitmap;
     default:
@@ -153,6 +185,9 @@ version GIGA_RPC_VERSION {          /* version number */
         readdir_return_t GIGA_RPC_READDIR_REQ(giga_dir_id, int, scan_key) = 502;
         */
         readdir_return_t GIGA_RPC_READDIR_SERIAL(scan_args_t) = 502;
+
+        liststatus_return_t GIGA_RPC_LISTSTATUS(scan_args_t) = 503;
+
 
         /* {dir_to_split, parent_index, child_index, path_leveldb_files} */
         giga_result_t GIGA_RPC_SPLIT(giga_dir_id, int, int, giga_pathname,

@@ -110,7 +110,7 @@ public class GTFileSystem extends FileSystem {
     @Override
     public FileStatus[] listStatus(Path path) throws IOException {
         Path absolute = makeAbsolute(path);
-        return null;
+        return gtfs_impl.listStatus(path.toString());
     }
 
     public String getUser(int uid) {

@@ -11,7 +11,11 @@ package org.apache.hadoop.fs.gtfs;
 import com.sun.jna.Library;
 import com.sun.jna.Native;
 import com.sun.jna.Structure;
+import com.sun.jna.Pointer;
 import com.sun.jna.ptr.IntByReference;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.permission.FsPermission;
 
 public class GTFSImpl {
 
@@ -59,16 +63,22 @@ public class GTFSImpl {
         public void gigaDestroy();
         public int gigaMknod(String path, int mode);
         public int gigaMkdir(String path, int mode);
+        public Pointer gigaListStatus(String path, IntByReference numEntries);
+        public void gigaStatusInfo(Pointer ptr, Info info);
+        public Pointer gigaStatusName(Pointer ptr, IntByReference name_len);
+        public Pointer gigaNextStatus(Pointer ptr);
+        public int gigaValidStatus(Pointer ptr);
+        public void gigaCleanStatusList(Pointer ptr);
         public int gigaCreate(String path, int mode);
         public int gigaRmdir(String path);
         public int gigaGetAttr(String path, Stat stat);
         public int gigaGetInfo(String path, Info info);
         public int gigaOpen(String path, int flags);
-        public int gigaUpdatelink(String path, String link);
+        public int gigaUpdateLink(String path, String link);
         public int gigaFetch(String path, byte[] buf, FetchReply.ByReference reply);
         public int gigaGetParentID(int fd);
-        public int gigaWritelink(int fd, String link);
-        public int gigaReadall(int fd, byte[] buf, FetchReply.ByReference reply);
+        public int gigaWriteLink(int fd, String link);
+        public int gigaReadAll(int fd, byte[] buf, FetchReply.ByReference reply);
         public int gigaRead(int fd, byte[] buf, int size);
         public int gigaWrite(int fd, byte[] buf, int size);
         public int gigaClose(int fd);
@@ -104,6 +114,28 @@ public class GTFSImpl {
         return gigaclient.gigaRmdir(path);
     }
 
+    public FileStatus[] listStatus(String path) {
+        IntByReference iref = new IntByReference();
+        Pointer start_ptr = gigaclient.gigaListStatus(path, iref);
+        int num_entries = iref.getValue();
+        FileStatus[] result = new FileStatus[num_entries];
+        Pointer iter_ptr = start_ptr;
+        Info info = new Info();
+        for (int i = 0; i < num_entries; ++i)
+            if (gigaclient.gigaValidStatus(iter_ptr) > 0) {
+                gigaclient.gigaStatusInfo(iter_ptr, info);
+                Pointer name = gigaclient.gigaStatusName(iter_ptr, iref);
+                Path entry_name = new Path(name.getString(0));
+                result[i] = new FileStatus(info.size, info.is_dir>0, 3, 1<<26,
+                        info.ctime, info.atime,
+                        FsPermission.createImmutable((short) info.permission),
+                        Integer.toString(info.uid), Integer.toString(info.gid),
+                        entry_name);
+                iter_ptr = gigaclient.gigaNextStatus(iter_ptr);
+            }
+       gigaclient.gigaCleanStatusList(start_ptr);
+    }
+
     public int getAttr(String path, Stat stat) {
         return gigaclient.gigaGetAttr(path, stat);
     }
@@ -125,14 +157,14 @@ public class GTFSImpl {
     }
 
     public int readall(int fd, byte[] buf, FetchReply.ByReference reply) {
-        return gigaclient.gigaReadall(fd, buf, reply);
+        return gigaclient.gigaReadAll(fd, buf, reply);
     }
     public int updatelink(String path, String link) {
-        return gigaclient.gigaUpdatelink(path, link);
+        return gigaclient.gigaUpdateLink(path, link);
     }
 
     public int writelink(int fd, String link) {
-        return gigaclient.gigaWritelink(fd, link);
+        return gigaclient.gigaWriteLink(fd, link);
     }
 
     public int read(int fd, byte[] buf, int size) {

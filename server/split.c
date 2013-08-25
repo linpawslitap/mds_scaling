@@ -111,7 +111,7 @@ bool_t giga_rpc_split_1_svc(giga_dir_id dir_id,
     LOG_MSG(">>> RPC_split_recv: [dir%d,(p%d-->p%d),path=%s]",
                dir_id, parent_index, child_index, path);
 
-    ACQUIRE_MUTEX(&ldb_mds.mtx_bulkload, "bulkload(from=%s)", path);
+    ACQUIRE_MUTEX(&(ldb_mds->mtx_bulkload), "bulkload(from=%s)", path);
 
     bzero(rpc_reply, sizeof(giga_result_t));
 
@@ -177,7 +177,7 @@ bool_t giga_rpc_split_1_svc(giga_dir_id dir_id,
         cache_release(dir);
     }
 
-    RELEASE_MUTEX(&ldb_mds.mtx_bulkload, "bulkload(from=%s)", path);
+    RELEASE_MUTEX(&(ldb_mds->mtx_bulkload), "bulkload(from=%s)", path);
 
     LOG_MSG("<<< RPC_split_recv: [status=%d]", rpc_reply->errnum);
     return true;
@@ -278,7 +278,7 @@ int split_in_levelDB(struct giga_directory *dir,
 
         LOG_MSG("LOCAL_split ... p[%d]", child_index);
 
-        ACQUIRE_MUTEX(&ldb_mds.mtx_bulkload, "bulkload(%s)", split_dir_path);
+        ACQUIRE_MUTEX(&(ldb_mds->mtx_bulkload), "bulkload(%s)", split_dir_path);
 
         if (metadb_bulkinsert(ldb_mds, split_dir_path, min, max) < 0) {
             LOG_ERR("ERR_ldb: bulkload(%s)", split_dir_path);
@@ -288,7 +288,7 @@ int split_in_levelDB(struct giga_directory *dir,
             dir->partition_size[child_index] = ret;
         }
 
-        RELEASE_MUTEX(&ldb_mds.mtx_bulkload, "bulkload(%s)", split_dir_path);
+        RELEASE_MUTEX(&(ldb_mds->mtx_bulkload), "bulkload(%s)", split_dir_path);
 
     }
     else {
@@ -331,8 +331,6 @@ void* split_thread(void *arg)
     if (pthread_mutex_lock(&queue_mutex) < 0) {
         logMessage(LOG_FATAL, __func__, "ERR_pthread: queue_mtx failed.");
     }
-
-    object_id += 0;
 
     while (!pthread_cond_wait(&queue_cond, &queue_mutex)) {
         while (queue) {

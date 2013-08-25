@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="hadoop-hdfs-0.23.7">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/Software/hadoop-0.23.7/share/hadoop/hdfs/hadoop-hdfs-0.23.7.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

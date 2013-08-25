@@ -34,6 +34,9 @@ static void print_settings();
 #ifdef PANFS
 static void init_parallel_fs_mnt();
 #endif
+#ifdef HDFS
+static void init_hdfs();
+#endif
 
 void initGIGAsetting(int cli_or_srv, char *cli_mnt, const char *srv_list_file)
 {
@@ -83,6 +86,12 @@ void init_default_backends(const char *cli_mnt)
 #else
             strncpy(giga_options_t.leveldb_dir, DEFAULT_LEVELDB_DIR, PATH_MAX);
             strncpy(giga_options_t.split_dir, DEFAULT_SPLIT_DIR, PATH_MAX);
+#endif
+#ifdef HDFS
+            init_hdfs();
+#else
+            giga_options_t.hdfsIP = NULL;
+            giga_options_t.hdfsPort = 0;
 #endif
             snprintf(giga_options_t.mountpoint, PATH_MAX,
                      "%s/s%d/", DEFAULT_SRV_BACKEND, giga_options_t.serverID+1);
@@ -189,7 +198,7 @@ void init_parallel_fs_mnt()
         (char**) malloc(sizeof(char *)* MAX_PARALLEL_VOLS);
 
     if (giga_options_t.pfs_volumes == NULL) {
-        LOG_MSG("Kartik: ERR_malloc for pfs_volumes %s", strerror(errno));
+        LOG_MSG("ERR_malloc for pfs_volumes %s", strerror(errno));
         fclose (gigaVolsFile);
         exit(1);
     }
@@ -205,7 +214,7 @@ void init_parallel_fs_mnt()
         giga_options_t.pfs_volumes[index] =
             (char*) malloc(sizeof (char)* MAX_PARALLEL_VOL_NAME);
         if (giga_options_t.pfs_volumes[index] == NULL) {
-            LOG_MSG("Kartik: ERR_malloc for pfs_volumes[index] %s",
+            LOG_MSG("ERR_malloc for pfs_volumes[index] %s",
                     strerror(errno));
             fclose (gigaVolsFile);
             exit(1);
@@ -220,6 +229,30 @@ void init_parallel_fs_mnt()
         LOG_MSG("giga_options_t.num_servers is %d",giga_options_t.num_servers );
         exit(1);
     }
+}
+#endif
+
+#ifdef HDFS
+static
+void init_hdfs()
+{
+    FILE *hdfsConfFile = NULL;
+    if ((hdfsConfFile = fopen(HDFS_SERVER_CONF, "r" )) == NULL) {
+        LOG_MSG("ERR_open(%s): %s",  HDFS_SERVER_CONF, strerror(errno));
+        exit(1);
+    }
+
+    giga_options_t.hdfsIP = (char *) malloc(sizeof(char) * 128);
+    if (fscanf(hdfsConfFile, "%s", giga_options_t.hdfsIP) < 1) {
+        LOG_MSG("ERR_read(%s): %s",  HDFS_SERVER_CONF, strerror(errno));
+        exit(1);
+    }
+    if (fscanf(hdfsConfFile, "%d", &(giga_options_t.hdfsPort)) < 1) {
+        LOG_MSG("ERR_read(%s): %s",  HDFS_SERVER_CONF, strerror(errno));
+        exit(1);
+    }
+
+    fclose(hdfsConfFile);
 }
 #endif
 

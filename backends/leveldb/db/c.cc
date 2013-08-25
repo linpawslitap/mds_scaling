@@ -430,6 +430,12 @@ leveldb_options_t* leveldb_options_create() {
   return new leveldb_options_t;
 }
 
+leveldb_options_t* leveldb_options_create_with_hdfs_env(const char* ip,
+                                                        int port) {
+  leveldb_options_t* option = new leveldb_options_t;
+  option->rep.env = Env::HDFSEnv(ip, port);
+}
+
 void leveldb_options_destroy(leveldb_options_t* options) {
   delete options;
 }
@@ -618,6 +624,13 @@ leveldb_env_t* leveldb_create_default_env() {
   return result;
 }
 
+leveldb_env_t* leveldb_create_hdfs_env(const char* serverIP,
+                                       int serverPort) {
+  leveldb_env_t* result = new leveldb_env_t;
+  result->rep = Env::HDFSEnv(serverIP, serverPort);
+  result->is_default = false;
+  return result;
+}
 void leveldb_env_destroy(leveldb_env_t* env) {
   if (!env->is_default) delete env->rep;
   delete env;

@@ -147,7 +147,7 @@ extern void leveldb_bulksplit(
 extern void leveldb_bulkinsert(
     leveldb_t* db,
     const leveldb_writeoptions_t* options,
-    const char* filename,
+    const char* dirname,
     uint64_t min_sequence_number,
     uint64_t max_sequence_number,
     char** errptr);
@@ -199,6 +199,8 @@ extern void leveldb_writebatch_iterate(
 /* Options */
 
 extern leveldb_options_t* leveldb_options_create();
+extern leveldb_options_t* leveldb_options_create_with_hdfs_env(
+                const char* ip, int port);
 extern void leveldb_options_destroy(leveldb_options_t*);
 extern void leveldb_options_set_comparator(
     leveldb_options_t*,
@@ -286,6 +288,7 @@ extern void leveldb_cache_destroy(leveldb_cache_t* cache);
 /* Env */
 
 extern leveldb_env_t* leveldb_create_default_env();
+extern leveldb_env_t* leveldb_create_hdfs_env(const char* ip, int port);
 extern void leveldb_env_destroy(leveldb_env_t*);
 
 /* TableBuilder */

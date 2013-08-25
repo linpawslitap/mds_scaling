@@ -361,48 +361,9 @@ bool_t giga_rpc_readdir_serial_1_svc(scan_args_t args,
         return true;
     }
 
-    /*
-    struct giga_directory *dir = cache_lookup(&dir_id);
-    if (dir == NULL) {
-        LOG_MSG("ERR_cache: dir(%d) missing! Reading from LDB...", dir_id);
-
-        int zeroth_srv = 0;
-        struct giga_directory *new = new_cache_entry(&dir_id, zeroth_srv);
-
-        //FIXME: need to fetch it from disk first??
-        if (metadb_read_bitmap(ldb_mds, dir_id, -1, NULL, &new->mapping) != 0) {
-            //LOG_ERR("ERR_mdb_bitmap_read(%s): for d%d ", path, dir_id);
-            //exit(1);
-
-            LOG_MSG("Reading d%d from LDB failed ... creating", dir_id);
-            //XXX: needs an RPC
-            int ret = metadb_create_dir(ldb_mds, dir_id, -1, NULL,
-                                        &new->mapping);
-            if (ret < 0) {
-                LOG_ERR("ERR_mdb_create(%s): partition entry failed", dir_id);
-                rpc_reply->errnum = ret;
-                return true;
-            }
-        }
-        cache_insert(&dir_id, new);
-        cache_release(new);
-
-        if ((dir = cache_lookup(&dir_id)) == NULL) {
-            LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
-            rpc_reply->errnum = -EIO;
-            return true;
-        }
-        //rpc_reply->errnum = -EIO;
-        //LOG_MSG("ERR_cache: dir(%d) missing", dir_id);
-        //return true;
-    }
-    */
-
     int partition_id = args.partition_id;
 
     LOG_MSG(">>> RPC_readdir(d=%d, p[%d])", dir_id, partition_id);
-
-    //bzero(rpc_reply, sizeof(readdir_return_t));
 
     char *buf;
     if ((buf = (char*)malloc(sizeof(char)*MAX_BUF)) == NULL) {
@@ -437,22 +398,20 @@ bool_t giga_rpc_readdir_serial_1_svc(scan_args_t args,
     LOG_MSG("PRINT_readdir() buf with %d entries ...", num_ent);
     while (metadb_readdir_iter_valid(iter)) {
         size_t len;
-        struct stat statbuf;
 
         const char* objname = metadb_readdir_iter_get_objname(iter, &len);
-        const char* realpath = metadb_readdir_iter_get_realpath(iter, &len);
-
-        metadb_readdir_iter_get_stat(iter, &statbuf);
-
-/*
-        assert((statbuf.st_mode & S_IFDIR) > 0);
-        assert(memcmp(objname, realpath, len) == 0);
-*/
-        LOG_MSG("#%d: \t obj=[%s] \t sym=[%s]", entry, objname, realpath);
-        (void)realpath;
+        const struct stat* statbuf = metadb_readdir_iter_get_stat(iter);
 
         ls = *ls_ptr = (scan_entry_t*)malloc(sizeof(scan_entry_t));
         ls->entry_name = strdup(objname);
+        ls->info.permission = statbuf->st_mode
+                            & (S_IRWXU | S_IRWXG | S_IRWXO);
+        ls->info.is_dir = S_ISDIR(statbuf->st_mode);
+        ls->info.uid = statbuf->st_uid;
+        ls->info.uid = statbuf->st_gid;
+        ls->info.size = statbuf->st_size;
+        ls->info.atime = statbuf->st_atime;
+        ls->info.ctime = statbuf->st_ctime;
         ls_ptr = &ls->next;
 
         entry += 1;
@@ -466,18 +425,10 @@ bool_t giga_rpc_readdir_serial_1_svc(scan_args_t args,
     rpc_reply->readdir_return_t_u.result.num_entries = num_ent;
     rpc_reply->readdir_return_t_u.result.end_partition = partition_id;
 
-    //XXX: code for serial readdir
     int key_len = strlen(end_key);
     rpc_reply->readdir_return_t_u.result.end_key.scan_key_val = strdup(end_key);
     rpc_reply->readdir_return_t_u.result.end_key.scan_key_val[key_len] = '\0';
     rpc_reply->readdir_return_t_u.result.end_key.scan_key_len = strlen(rpc_reply->readdir_return_t_u.result.end_key.scan_key_val);
-
-    /*
-    //memcpy(rpc_reply->readdir_return_t_u.result.end_key.scan_key_val, end_key,
-    //       rpc_reply->readdir_return_t_u.result.end_key.scan_key_len);
-    rpc_reply->readdir_return_t_u.result.end_key.scan_key_val = end_key;
-    rpc_reply->readdir_return_t_u.result.end_key.scan_key_len = sizeof(metadb_key_t);
-    */
 
     LOG_MSG("readdir_ret: end_key=[%s],len=%d",
             rpc_reply->readdir_return_t_u.result.end_key.scan_key_val,
@@ -597,6 +548,9 @@ void create_dir_in_storage(int object_id) {
     sprintf(path_name, "%s/files/%d",
             DEFAULT_FILE_VOL, object_id);
     local_mkdir(path_name, DEFAULT_MODE);
+#else
+    (void) path_name;
+    (void) object_id;
 #endif
 #ifdef PVFS
     sprintf(path_name, "%s/files/%d",
@@ -702,7 +656,7 @@ start:
             // create object entry (metadata) in levelDB
             // and create partition entry for this object
 
-            object_id += 1;
+            int object_id = metadb_get_next_inode_count(ldb_mds);
             int zeroth_server = giga_options_t.serverID;  //FIXME: randomize please!
             struct giga_directory *new_dir = new_cache_entry(&object_id, zeroth_server);
             cache_insert(&object_id, new_dir);
@@ -760,8 +714,10 @@ bool_t giga_rpc_read_1_svc(giga_dir_id dir_id, giga_pathname path,
     // check for giga specific addressing checks.
     //
     int index = check_giga_addressing(dir, path, &(rpc_reply->result), NULL);
-    if (index < 0)
+    if (index < 0) {
+        rpc_reply->result.errnum = 1;
         return true;
+    }
 
     int state;
     int buf_len;
@@ -876,6 +832,9 @@ start:
 
     switch (giga_options_t.backend_type) {
         case BACKEND_RPC_LEVELDB:
+#ifdef HDFS
+          state = RPC_LEVELDB_FILE_IN_DB;
+#else
             rpc_reply->result.errnum =
                   metadb_get_file(ldb_mds,
                                   dir_id, index, path,
@@ -885,8 +844,9 @@ start:
                 rpc_reply->link = strdup("");
                 break;
             }
+#endif
             if (state == RPC_LEVELDB_FILE_IN_DB) {
-                if (size + offset < FILE_THRESHOLD) {
+                if (size + offset <= FILE_THRESHOLD) {
                   rpc_reply->state = state;
                   rpc_reply->result.errnum =
                       metadb_write_file(ldb_mds,
@@ -910,8 +870,6 @@ start:
                             close(fd);
                         } else {
                             close(fd);
-                            struct stat stbuf;
-                            stat(fpath, &stbuf);
                             metadb_write_link(ldb_mds, dir_id, index, path, fpath);
                             rpc_reply->result.errnum = 0;
                         }
@@ -940,6 +898,120 @@ start:
     return true;
 }
 
+bool_t giga_rpc_fetch_1_svc(giga_dir_id dir_id, giga_pathname path,
+                            giga_fetch_reply_t *rpc_reply,
+                            struct svc_req *rqstp)
+{
+
+    (void)rqstp;
+    assert(rpc_reply);
+    assert(path);
+
+    LOG_MSG(">>> RPC_fetch(d=%d,p=%s)", dir_id, path);
+
+    bzero(rpc_reply, sizeof(giga_fetch_reply_t));
+
+    struct giga_directory *dir = fetch_dir_mapping(dir_id);
+    // check for giga specific addressing checks.
+    //
+    int index = check_giga_addressing(dir, path, &(rpc_reply->result), NULL);
+    if (index < 0) {
+        rpc_reply->result.errnum = 1;
+        return true;
+    }
+
+    int state;
+    char* buf = (char*) malloc(FILE_THRESHOLD * sizeof(char));
+    int buf_len;
+
+    switch (giga_options_t.backend_type) {
+        case BACKEND_RPC_LEVELDB:
+            rpc_reply->result.errnum =
+                  metadb_get_file(ldb_mds,
+                                  dir_id, index, path,
+                                  &state, buf, &buf_len);
+            if (rpc_reply->result.errnum == 0) {
+                rpc_reply->data.state = state;
+                switch (state) {
+                  case RPC_LEVELDB_FILE_IN_DB:
+                      if (buf_len > 0) {
+                          rpc_reply->data.giga_read_t_u.buf.giga_file_data_val
+                              = buf;
+                          rpc_reply->data.giga_read_t_u.buf.giga_file_data_len
+                              = buf_len;
+                      } else {
+                          rpc_reply->data.giga_read_t_u.buf.giga_file_data_val
+                              = NULL;
+                          rpc_reply->data.giga_read_t_u.buf.giga_file_data_len
+                              = 0;
+                      }
+                      break;
+                  case RPC_LEVELDB_FILE_IN_FS:
+                      rpc_reply->data.giga_read_t_u.link = buf;
+                      break;
+                  default:
+                    break;
+                }
+
+            }
+            break;
+        default:
+            break;
+    }
+
+    release_dir_mapping(dir);
+
+    LOG_MSG("<<< RPC_fetch(d=%d,p=%s): state=[%d], status=[%d]",
+            dir_id, path, rpc_reply->data.state,
+            rpc_reply->result.errnum);
+    return true;
+}
+
+bool_t giga_rpc_updatelink_1_svc(giga_dir_id dir_id,
+                                 giga_pathname path,
+                                 giga_pathname link,
+                                 giga_result_t *rpc_reply,
+                                 struct svc_req *rqstp)
+{
+    (void)rqstp;
+
+    assert(rpc_reply);
+    assert(path);
+
+    LOG_MSG(">>> RPC_updatelink(d=%d,p=%s,link=%s)",
+            dir_id, path, link);
+
+    bzero(rpc_reply, sizeof(giga_result_t));
+    struct giga_directory *dir = fetch_dir_mapping(dir_id);
+    int index;
+
+start:
+    // check for giga specific addressing checks.
+    //
+    if ((index=check_giga_addressing(dir, path, rpc_reply, NULL))<0)
+    {
+        return true;
+    }
+
+    ACQUIRE_MUTEX(&dir->partition_mtx[index], "updatelink(%s)", path);
+
+    if (check_giga_addressing(dir, path, rpc_reply, NULL) != index) {
+        RELEASE_MUTEX(&dir->partition_mtx[index], "updatelink(%s)", path);
+        LOG_MSG("RECOMPUTE_INDEX: updatelink(%s) for p(%d) changed.", path, index);
+        goto start;
+    }
+
+    rpc_reply->errnum = metadb_write_link(ldb_mds, dir_id, index, path, link);
+
+    RELEASE_MUTEX(&dir->partition_mtx[index], "updatelink(%s)", path);
+
+    release_dir_mapping(dir);
+
+    LOG_MSG("<<< RPC_updatelink(d=%d,p=%s): status=[%d]",
+            dir_id, path, rpc_reply->errnum);
+    return true;
+}
+
 bool_t giga_rpc_open_1_svc(giga_dir_id dir_id, giga_pathname path, int mode,
                            giga_open_reply_t *rpc_reply,
                            struct svc_req *rqstp)
@@ -952,14 +1024,6 @@ bool_t giga_rpc_open_1_svc(giga_dir_id dir_id, giga_pathname path, int mode,
     LOG_MSG(">>> RPC_open(d=%d,p=%s)", dir_id, path);
 
     bzero(rpc_reply, sizeof(giga_open_reply_t));
-
-    /*
-    rpc_reply->result.errnum = 0;
-    rpc_reply->state = RPC_LEVELDB_FILE_IN_DB;
-    rpc_reply->link = strdup("");
-
-    return true;
-    */
 
     struct giga_directory *dir = fetch_dir_mapping(dir_id);
     // check for giga specific addressing checks.

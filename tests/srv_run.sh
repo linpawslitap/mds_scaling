@@ -1,6 +1,8 @@
 #!/bin/bash
 
-MNT="/m/pvfs"
+source ../hdfs.sh
+MNT="/l0"
+
 GIGA="${MNT}/giga_srv/"
 LDB="${MNT}/giga_ldb/"
 PID="/tmp/giga_server.pid"
@@ -54,6 +56,7 @@ f) # foreground server execution
 n) # normal server execution
    #
 echo "lauch giga_server $PWD"
+<<<<<<< HEAD
 export LD_LIBRARY_PATH="/usr/lib64/openmpi/lib/:/usr/libexec/dropbox/"
 
 if [ -f $PID ]; then
@@ -66,6 +69,10 @@ fi
 #../giga_server &
 catchsegv ../giga_server 2>&1 > /tmp/err.log &
 echo $! > $PID
+=======
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/lib64/openmpi/lib/:/usr/libexec/dropbox/
+../giga_server &
+>>>>>>> a8ca4ca2e71a3191fd64b305bc5d610e2d17790a
 ;;
 
 u)

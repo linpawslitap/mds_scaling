@@ -22,9 +22,6 @@
 #define LOG_MSG(format, ...) \
     logMessage(_LEVEL_, __func__, format, __VA_ARGS__);
 
-static struct MetaDB ldb_mds;
-//static uint64_t object_id = 0;
-
 static int  parse_path_components(const char *path, char *file, char *dir);
 static void get_full_path(char fpath[], const char *path);
 
@@ -107,19 +104,6 @@ void* GIGAinit(struct fuse_conn_info *conn)
     (void)conn;
 
     switch (giga_options_t.backend_type) {
-        /*
-        case BACKEND_LOCAL_LEVELDB:
-            metadb_init(&ldb_mds, DEFAULT_LEVELDB_DIR);
-            object_id = 0;
-            if (metadb_create(ldb_mds,
-                              ROOT_DIR_ID, 0,
-                              OBJ_DIR,
-                              object_id, "/", giga_options_t.mountpoint) < 0) {
-                LOG_ERR("root entry creation error(%s)", ROOT_DIR_ID);
-                exit(1);
-            }
-            break;
-        */
         case BACKEND_RPC_LOCALFS:
             break;
         case BACKEND_RPC_LEVELDB:
@@ -190,11 +174,6 @@ int GIGAgetattr(const char *path, struct stat *statbuf)
             //if ((ret = lstat(fpath, statbuf)) < 0)
             //    ret = FUSE_ERROR(ret);
             break;
-        case BACKEND_LOCAL_LEVELDB:
-            parse_path_components(path, file, dir);
-            ret  = metadb_lookup(ldb_mds, 0, 0, file, statbuf);
-            ret = FUSE_ERROR(ret);
-            break;
         case BACKEND_RPC_LEVELDB:
             dir_id = lookup_parent_dir(path, file, dir);
             ret = rpc_getattr(dir_id, file, statbuf);
@@ -234,14 +213,6 @@ int GIGAmkdir(const char *path, mode_t mode)
             ret = local_mkdir(fpath, mode);
             ret = FUSE_ERROR(ret);
             break;
-        /*
-        case BACKEND_LOCAL_LEVELDB:
-            parse_path_components(path, file, dir);
-            object_id += 1;
-            ret = metadb_create(ldb_mds, 0, 0, OBJ_DIR, object_id, file, path);
-            ret = FUSE_ERROR(ret);
-            break;
-        */
         case BACKEND_RPC_LEVELDB:
             dir_id = lookup_parent_dir(path, file, dir);
             ret = rpc_mkdir(dir_id, file, mode);
@@ -278,14 +249,6 @@ int GIGAmknod(const char *path, mode_t mode, dev_t dev)
             ret = local_mknod(fpath, mode, dev);
             ret = FUSE_ERROR(ret);
             break;
-        /*
-        case BACKEND_LOCAL_LEVELDB:
-            parse_path_components(path, file, dir);
-            object_id += 1;
-            ret = metadb_create(ldb_mds, 0, 0, OBJ_MKNOD, object_id, file, path);
-            ret = FUSE_ERROR(ret);
-            break;
-        */
         case BACKEND_RPC_LOCALFS:
             ;
         case BACKEND_RPC_LEVELDB:
@@ -354,7 +317,8 @@ int GIGAreaddir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offse
             break;
         case BACKEND_RPC_LEVELDB:
             dir_id = lookup_dir(path);
-            ret_ls = (scan_list_t)rpc_readdir(dir_id, path);
+            int num_entries = 0;
+            ret_ls = (scan_list_t)rpc_readdir(dir_id, path, &num_entries);
             for (ls = ret_ls; ls != NULL; ls = ls->next) {
                 if (filler(buf, ls->entry_name, NULL, 0) != 0) {
                     ret = ENOMEM;
@@ -371,6 +335,13 @@ int GIGAreaddir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offse
     LOG_MSG("<<< FUSE_readdir(%s): ret=[%d:%s]", path, ret, strerror(ret));
 
     return FUSE_ERROR(ret);
+}
+
+scan_list_t GIGAliststatus(const char *path, int* num_entries)
+{
+    int dir_id = 0;
+    dir_id = lookup_dir(path);
+    return (scan_list_t)rpc_readdir(dir_id, path, num_entries);
 }
 
 int GIGAreleasedir(const char *path, struct fuse_file_info *fi)
@@ -656,12 +627,70 @@ int GIGAopen(const char *path, struct fuse_file_info *fi)
     return FUSE_ERROR(ret);
 }
 
+int GIGAfetch(const char *path,
+              int* state, char* buf, int* buf_len) {
+    LOG_MSG(">>> FUSE_fetch(%s)", path);
+
+    int ret = 0;
+    char file[PATH_MAX] = {0};
+    char dir[PATH_MAX] = {0};
+    int dir_id = lookup_parent_dir(path, file, dir);
+
+    ret = rpc_fetch(dir_id, file, state, buf, buf_len);
+
+    return FUSE_ERROR(ret);
+}
+
+int GIGAreadall(struct fuse_file_info *fi,
+                 char* buf, int* buf_len) {
+    LOG_MSG(">>> FUSE_read_all: fi=[0x%016x]", fi);
+
+    int ret = 0;
+    int state;
+    rpc_leveldb_fh_t* fh = (rpc_leveldb_fh_t*) (uintptr_t) fi->fh;
+    ret = rpc_fetch(fh->dir_id, fh->file,
+                    &state, buf, buf_len);
+
+    return FUSE_ERROR(ret);
+}
+
+int GIGAwritelink(struct fuse_file_info *fi,
+                 const char* link) {
+    LOG_MSG(">>> FUSE_writelink: fi=[0x%016x]", fi);
+
+    int ret = 0;
+    rpc_leveldb_fh_t* fh = (rpc_leveldb_fh_t*) (uintptr_t) fi->fh;
+    ret = rpc_updatelink(fh->dir_id, fh->file, link);
+
+    return FUSE_ERROR(ret);
+}
+
+int GIGAgetparentid(struct fuse_file_info *fi) {
+    rpc_leveldb_fh_t* fh = (rpc_leveldb_fh_t*) (uintptr_t) fi->fh;
+    return fh->dir_id;
+}
+
+int GIGAupdatelink(const char *path, const char* link) {
+    LOG_MSG(">>> FUSE_updatelink(%s)", path);
+
+    int ret = 0;
+    char file[PATH_MAX] = {0};
+    char dir[PATH_MAX] = {0};
+    int dir_id = lookup_parent_dir(path, file, dir);
+
+    ret = rpc_updatelink(dir_id, file, link);
+
+    return FUSE_ERROR(ret);
+}
+
+
 int GIGAread(const char *path, char *buf, size_t size, off_t offset,
              struct fuse_file_info *fi)
 {
-    LOG_MSG(">>> FUSE_read(%s): size=%ld,offset=%ld,and fi=[0x%016lx] ",
-            path, size, offset, fi);
+    LOG_MSG(">>> FUSE_read: fi=[0x%016x] size=%ld offset=%ld",
+            fi, size, offset);
 
+    (void) path;
     int ret = 0;
     char fpath[PATH_MAX] = {0};
     rpc_leveldb_fh_t* fh = NULL;
@@ -696,7 +725,8 @@ int GIGAread(const char *path, char *buf, size_t size, off_t offset,
             break;
     }
 
-    LOG_MSG("<<< FUSE_read(%s): ret=[%d]", path, ret);
+    LOG_MSG("<<< FUSE_read: fi=[0x%016x] ret=[%d] %s",
+            fi, ret, strerror(ret));
 
     return ret;
 }
@@ -704,9 +734,10 @@ int GIGAread(const char *path, char *buf, size_t size, off_t offset,
 int GIGAwrite(const char *path, const char *buf, size_t size, off_t offset,
               struct fuse_file_info *fi)
 {
-    LOG_MSG(">>> FUSE_write(%s): size=%ld, offset=%ld and fi=[0x%016x]",
-            path, size, offset, fi);
+    LOG_MSG(">>> FUSE_write: fi=[0x%016x] size=%ld offset=%ld",
+            fi, size, offset);
 
+    (void) path;
     int ret = 0;
     char fpath[PATH_MAX] = {0};
     rpc_leveldb_fh_t* fh = NULL;
@@ -727,16 +758,18 @@ int GIGAwrite(const char *path, const char *buf, size_t size, off_t offset,
                 ret = rpc_write(fh->dir_id, fh->file, buf, size, offset,
                                 &fh->state, fpath);
                 if (fh->state == RPC_LEVELDB_FILE_IN_FS) {
-                    LOG_MSG("open(%s): %s", path, fpath);
+                    LOG_MSG("open (migrate): %s", fpath);
                     if ((fh->fd = open(fpath, O_RDWR)) <= 0) {
                         fh->fd = 0;
                         ret = FUSE_ERROR(errno);
-                        LOG_MSG("write(%s): error fpath=[%s] ret=[%d]", path, fpath, ret);
+                        LOG_MSG("write (migrate) error fpath=[%s] ret=[%d]", 
+                                fpath, ret);
                         break;
                     }
                     if ((ret = pwrite(fh->fd, buf, size, offset)) < 0)
                         ret = FUSE_ERROR(errno);
-                    LOG_MSG("write(%s): fd=[%d] fpath=[%s] ret=[%d]", path, fh->fd, fpath, ret);
+                    LOG_MSG("write (migrate): fd=[%d] fpath=[%s] ret=[%d]",
+                            fh->fd, fpath, ret);
                 }
             }
             break;
@@ -745,7 +778,8 @@ int GIGAwrite(const char *path, const char *buf, size_t size, off_t offset,
             break;
     }
 
-    LOG_MSG("<<< FUSE_write(%s): ret=[%d] %s", path, ret, strerror(ret));
+    LOG_MSG("<<< FUSE_write: fi=[0x%016x] ret=[%d] %s",
+            fi, ret, strerror(ret));
 
     return ret;
 }
@@ -820,8 +854,9 @@ int GIGArelease(const char *path, struct fuse_file_info *fi)
 
 int GIGAfsync(const char *path, int datasync, struct fuse_file_info *fi)
 {
-    LOG_MSG(">>> FUSE_fsync(%s): datasync=%d and fi=[0x%016lx]", path, datasync, fi);
+    LOG_MSG(">>> FUSE_fsync: fi=[0x%016lx] datasync=%d", fi, datasync);
 
+    (void) path;
     int ret = 0;
 
     switch (giga_options_t.backend_type) {
@@ -838,7 +873,8 @@ int GIGAfsync(const char *path, int datasync, struct fuse_file_info *fi)
             break;
     }
 
-    LOG_MSG("<<< FUSE_fsync(%s): ret=[%d:%s]", path, ret, strerror(ret));
+    LOG_MSG("<<< FUSE_fsync: fi=[0x%016lx] ret=[%d:%s]",
+            fi, ret, strerror(ret));
 
     return FUSE_ERROR(ret);
 }
@@ -892,11 +928,9 @@ int GIGAcreate(const char *path, mode_t mode, struct fuse_file_info *fi)
 
     int ret = 0;
     char fpath[PATH_MAX] = {0};
-    /*
     char dir[PATH_MAX] = {0};
-    char file[PATH_MAX] = {0};
-    */
     int fd = 0;
+    rpc_leveldb_fh_t* fh;
 
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
@@ -906,14 +940,16 @@ int GIGAcreate(const char *path, mode_t mode, struct fuse_file_info *fi)
             fi->fh = fd;
             ret = FUSE_ERROR(ret);
             break;
-        /*
-        case BACKEND_LOCAL_LEVELDB:
-            parse_path_components(path, file, dir);
-            object_id += 1;
-            ret = metadb_create(ldb_mds, 0, 0, OBJ_MKNOD, object_id, file, path);
-            ret = FUSE_ERROR(ret);
+        case BACKEND_RPC_LEVELDB:
+            fh = (rpc_leveldb_fh_t *) malloc(sizeof(rpc_leveldb_fh_t));
+            fh->dir_id = lookup_parent_dir(path, fh->file, dir);
+            ret = rpc_mknod(fh->dir_id, fh->file, mode, 0);
+            if (ret == 0) {
+              fi->fh = (intptr_t) fh;
+            } else {
+              ret = FUSE_ERROR(ret);
+            }
             break;
-        */
         default:
             ret = ENOTSUP;
             ret = FUSE_ERROR(ret);
@@ -996,26 +1032,3 @@ int GIGAreadlink(const char *path, char *link, size_t size)
 
     return FUSE_ERROR(ret);
 }
-
-/*
-{
-    LOG_MSG(">>> FUSE_XXX(%s): ", path);
-
-    int ret = 0;
-    char fpath[PATH_MAX] = {0};
-
-    switch (giga_options_t.backend_type) {
-        case BACKEND_LOCAL_FS:
-            get_full_path(fpath, path);
-            ret = local_XXX();
-            break;
-        default:
-            ret = ENOTSUP;
-            break;
-    }
-
-    LOG_MSG("<<< FUSE_XXX(%s): ret=[%d:%s]", path, ret, strerror(ret));
-
-    return FUSE_ERROR(ret);
-}
-*/

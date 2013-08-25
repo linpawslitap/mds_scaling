@@ -68,12 +68,11 @@ static void mknod_files(const char *dir)
 {
     printf("Creating %d files from test_%d ... \n", num_files, pid);
     mode_t m = CREATE_MODE;
-    dev_t d = CREATE_RDEV;
 
     for (curr=0; curr<num_files; curr++) {
         char p[512] = {0};
         snprintf(p, sizeof(p), "%s%s_p%d_f%d", dir, hostname, pid, curr);
-        if (gigaMknod(p, m, d) < 0) {
+        if (gigaMknod(p, m) < 0) {
               printf ("ERROR during mknod(%s): %s\n", p, strerror(errno));
               return;
         }

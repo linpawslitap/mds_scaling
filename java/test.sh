@@ -6,5 +6,6 @@
 # Description:
 #########################################################################
 
-export LD_LIBRARY_PATH=../
-java -classpath /usr/share/java/jna.jar:. GigaClient
+export LD_LIBRARY_PATH=./:../
+java -classpath /usr/share/java/jna.jar:.:../hadoop/hadoop-common-project/hadoop-common/target/hadoop-common-0.23.7.jar GigaClient
+#java -classpath /usr/share/java/jna.jar:. BytesTest

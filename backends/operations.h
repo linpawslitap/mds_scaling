@@ -24,6 +24,11 @@
 #define CREATE_FLAGS    (O_CREAT | O_APPEND)
 #define CREATE_RDEV     0
 
+#define INODE_COUNT_KEY     "inode_count"
+#define INODE_COUNT_KEY_LEN 11
+#define INODE_COUNT_VAL_FORMAT  "%020d"
+#define INODE_COUNT_VAL_LEN 21
+
 /*
  * Operations for local file system as the backend.
  */
@@ -43,9 +48,13 @@ int rpc_getattr(int dir_id, const char *path, struct stat *statbuf);
 int rpc_mkdir(int dir_id, const char *path, mode_t mode);
 int rpc_mknod(int dir_ID, const char *path, mode_t mode, dev_t dev);
 int rpc_create(int dir_id, const char *path, mode_t mode);
-scan_list_t rpc_readdir(int dir_id, const char *path);
+scan_list_t rpc_readdir(int dir_id, const char *path, int *num_entries);
 int rpc_opendir(int dir_id, const char *path);
 int rpc_releasedir(int dir_id, const char *path);
+int rpc_fetch(int dir_id, const char *path,
+              int* state, char* buf, int* buf_len);
+int rpc_updatelink(int dir_id, const char *path,
+                   const char* link);
 int rpc_open(int dir_id, const char *path, int mode,
              int* state, char* link);
 int rpc_close(int dir_id, const char *path);
@@ -141,6 +150,9 @@ struct MetaDB {
     pthread_mutex_t     mtx_leveldb;
 
     FILE* logfile;
+    int use_hdfs;
+    int server_id;
+    int inode_count;
 };
 
 typedef int (*update_func_t)(metadb_val_t* mval, void* arg1);
@@ -155,28 +167,31 @@ const char* metadb_readdir_iter_get_objname(metadb_readdir_iterator_t *iter,
                                       size_t *name_len);
 const char* metadb_readdir_iter_get_realpath(metadb_readdir_iterator_t *iter,
                                        size_t *path_len);
-int metadb_readdir_iter_get_stat(metadb_readdir_iterator_t *iter,
-                                 struct stat *statbuf);
+const struct stat* metadb_readdir_iter_get_stat(metadb_readdir_iterator_t *iter);
 
-char* metadb_get_metric(struct MetaDB mdb);
+char* metadb_get_metric(struct MetaDB *mdb);
+
+int metadb_get_next_inode_count(struct MetaDB *mdb);
 
 // Returns "0" if a new LDB is created successfully, "1" if an existing LDB is
 // opened successfully, and "-1" on error.
-int metadb_init(struct MetaDB *mdb, const char *mdb_name);
+int metadb_init(struct MetaDB *mdb, const char *mdb_name,
+                const char* serverIP, int serverPort,
+                int server_id);
 
-int metadb_close(struct MetaDB mdb);
+int metadb_close(struct MetaDB *mdb);
 
-int metadb_valid(struct MetaDB mdb);
+int metadb_valid(struct MetaDB *mdb);
 
 // Returns "0" if MDB creates the file successfully, otherwise "-1" on error.
-int metadb_create(struct MetaDB mdb,
+int metadb_create(struct MetaDB *mdb,
                   const metadb_inode_t dir_id,
                   const int partition_id,
                   const char *objname,
                   const char *realpath);
 
 // Returns "0" if MDB creates the directory successfully, otherwise "-1" on error.
-int metadb_create_dir(struct MetaDB mdb,
+int metadb_create_dir(struct MetaDB *mdb,
                       const metadb_inode_t dir_id,
                       const int partition_id,
                       //const metadb_inode_t inode_id,
@@ -184,14 +199,14 @@ int metadb_create_dir(struct MetaDB mdb,
                       metadb_val_dir_t* dir_mapping);
 
 // Returns "0" if MDB removes the file successfully, otherwise "-1" on error.
-int metadb_remove(struct MetaDB mdb,
+int metadb_remove(struct MetaDB *mdb,
                   const metadb_inode_t dir_id,
                   const int partition_id,
                   const char *objname);
 
 // Returns "0" if MDB get the file stat successfully,
 // otherwise "-ENOENT" when no file is found.
-int metadb_lookup(struct MetaDB mdb,
+int metadb_lookup(struct MetaDB *mdb,
                   const metadb_inode_t dir_id,
                   const int partition_id,
                   const char *objname,
@@ -199,7 +214,7 @@ int metadb_lookup(struct MetaDB mdb,
 
 // Returns "0" if MDB get directory entries successfully,
 // otherwise "-ENOENT" when no file is found.
-int metadb_readdir(struct MetaDB mdb,
+int metadb_readdir(struct MetaDB *mdb,
                    const metadb_inode_t dir_id,
                    int *partition_id,
                    const char* start_key,
@@ -210,7 +225,7 @@ int metadb_readdir(struct MetaDB mdb,
                    int* more_entries_flag);
 // Returns "0" if MDB extract entries successfully,
 // otherwise "-ENOENT" when the target directory is found.
-int metadb_extract_do(struct MetaDB mdb,
+int metadb_extract_do(struct MetaDB *mdb,
                       const metadb_inode_t dir_id,
                       const int old_partition_id,
                       const int new_partition_id,
@@ -220,59 +235,59 @@ int metadb_extract_do(struct MetaDB mdb,
 
 // Returns "0" if MDB clean extraction successfully,
 // otherwise negative integer on error.
-int metadb_extract_clean(struct MetaDB mdb);
+int metadb_extract_clean(struct MetaDB *mdb);
 
 // Returns "0" if MDB bulkinsert entries successfully,
 // otherwise negative integer on error.
-int metadb_bulkinsert(struct MetaDB mdb,
+int metadb_bulkinsert(struct MetaDB *mdb,
                       const char* dir_with_new_partition,
                       uint64_t min_sequence_number,
                       uint64_t max_sequence_number);
 
-int metadb_read_bitmap(struct MetaDB mdb,
+int metadb_read_bitmap(struct MetaDB *mdb,
                        const metadb_inode_t dir_id,
                        const int partition_id,
                        const char* objname,
                        struct giga_mapping_t* map_val);
 
-int metadb_write_bitmap(struct MetaDB mdb,
+int metadb_write_bitmap(struct MetaDB *mdb,
                         const metadb_inode_t dir_id,
                         const int partition_id,
                         const char* objname,
                         struct giga_mapping_t* map_val);
 
 
-int metadb_get_file(struct MetaDB mdb,
+int metadb_get_file(struct MetaDB *mdb,
                     const metadb_inode_t dir_id,
                     const int partition_id,
                     const char* objname,
                     int* state, char* buf, int* buf_len);
 
-int metadb_get_state(struct MetaDB mdb,
+int metadb_get_state(struct MetaDB *mdb,
                      const metadb_inode_t dir_id,
                      const int partition_id,
                      const char* objname,
                      int* state, char* link, int* link_len);
 
-int metadb_write_file(struct MetaDB mdb,
+int metadb_write_file(struct MetaDB *mdb,
                       const metadb_inode_t dir_id,
                       const int partition_id,
                       const char* objname,
                       const char* buf, int buf_len, int offset);
 
-int metadb_write_link(struct MetaDB mdb,
+int metadb_write_link(struct MetaDB *mdb,
                       const metadb_inode_t dir_id,
                       const int partition_id,
                       const char* objname,
                       const char* pathname);
 
-int metadb_setattr(struct MetaDB mdb,
+int metadb_setattr(struct MetaDB *mdb,
                    const metadb_inode_t dir_id,
                    const int partition_id,
                    const char* path,
                    const struct stat* stbuf);
 
-int metadb_chmod(struct MetaDB mdb,
+int metadb_chmod(struct MetaDB *mdb,
                  const metadb_inode_t dir_id,
                  const int partition_id,
                  const char* path,

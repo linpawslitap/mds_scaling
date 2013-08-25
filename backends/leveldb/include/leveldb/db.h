@@ -149,9 +149,9 @@ class DB {
                            uint64_t sequence_number,
                            const Slice* begin, const Slice* end, 
                            const std::string &dname) = 0;
-  // Insert a sstable file into LevelDB
+  // Insert sstable files into LevelDB
   virtual Status BulkInsert(const WriteOptions& options,
-                            const std::string &fname,
+                            const std::string &dirname,
                             uint64_t min_sequence_number,
                             uint64_t max_sequence_number) = 0;
 

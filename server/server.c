@@ -74,7 +74,11 @@ int main(int argc, char **argv)
     log_fp = stderr;
 
     signal(SIGINT, sig_handler);    // handling SIGINT
-    signal(SIGTERM, sig_handler);    // handling SIGINT
+    signal(SIGTERM, sig_handler);    // handling SIGTERM
+    signal(SIGSEGV, sig_handler);    // handling SIGSEGV
+    signal(SIGABRT, sig_handler);    // handling SIGABRT
+    signal(SIGILL, sig_handler);    // handling SIGILL
+    signal(SIGFPE, sig_handler);    // handling SIGFPE
 
     // initialize logging
     char log_file[PATH_MAX] = {0};
@@ -412,6 +416,12 @@ void init_root_partition()
                         DEFAULT_FILE_VOL, ROOT_DIR_ID);
                 local_mkdir(path_name, DEFAULT_MODE);
 #endif
+#ifdef PVFS
+                sprintf(path_name, "%s/files/%d",
+                        DEFAULT_FILE_VOL, ROOT_DIR_ID);
+                local_mkdir(path_name, DEFAULT_MODE);
+#endif
+
                 cache_release(dir);
 
             }

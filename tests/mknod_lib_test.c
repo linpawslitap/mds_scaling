@@ -31,6 +31,7 @@ const int sampling = 1;
 volatile int curr;
 volatile int lastfile;
 int errors;
+time_t start_exp, end_exp;
 
 void *timer_thread(void *unused)
 {
@@ -169,15 +170,17 @@ int main(int argc, char **argv)
                     ret);
             exit(1);
         }
-
+        start_exp = time(NULL);
         mknod_files(argv[1]);
+        end_exp = time(NULL);
+
     }
     else {
         ls_files(argv[1]);
     }
 
     errors = 100;
-
+    printf("tot_time %d\n", (int)(end_exp-start_exp));
     gigaDestroy();
 
     return 0;

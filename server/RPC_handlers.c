@@ -598,6 +598,12 @@ void create_dir_in_storage(int object_id) {
             DEFAULT_FILE_VOL, object_id);
     local_mkdir(path_name, DEFAULT_MODE);
 #endif
+#ifdef PVFS
+    sprintf(path_name, "%s/files/%d",
+            DEFAULT_FILE_VOL, object_id);
+    local_mkdir(path_name, DEFAULT_MODE);
+#endif
+
 }
 
 bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id,
@@ -819,6 +825,10 @@ const char* get_storage_location() {
 #ifdef NFS
     return DEFAULT_FILE_VOL;
 #endif
+#ifdef PVFS
+    return DEFAULT_FILE_VOL;
+#endif
+
     return NULL;
 }
 

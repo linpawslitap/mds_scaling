@@ -63,7 +63,7 @@ void rpcConnect(void)
             LOG_ERR("CONN_ERROR: -> s[%d]", i);
         else {
             struct timeval to;
-            to.tv_sec = 60;
+            to.tv_sec = 180;
             to.tv_usec = 0;
             clnt_control(rpc_clnts[i], CLSET_TIMEOUT, (char*)&to);
             LOG_ERR("CONN_SETUP: -> s[%d]", i);

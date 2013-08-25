@@ -270,6 +270,7 @@ struct readdir_args {
     struct giga_directory dir_t;;
     int dir_id;
     int server_id;
+    int entries;
 };
 
 pthread_mutex_t final_ls_mtx;
@@ -381,13 +382,14 @@ retry:
         ents += rpc_reply.readdir_return_t_u.result.num_entries;
     } while(more_ents_flag != 0);
 
+    a->entries = ents;
     LOG_MSG("readdir[s%d]=%d", server_id, ents);
 
     //pthread_exit((void*)ret);
     pthread_exit(NULL);
 }
 
-scan_list_t rpc_readdir(int dir_id, const char *path)
+scan_list_t rpc_readdir(int dir_id, const char *path, int *num_entries)
 {
     //scan_list_t final_ls_start = NULL;
     //scan_list_t final_ls_end = NULL;
@@ -421,6 +423,7 @@ scan_list_t rpc_readdir(int dir_id, const char *path)
         args[i].dir_t = *dir;
         args[i].dir_id = dir_id;
         args[i].server_id = i;
+        args[i].entries = 0;
 
         if (pthread_create(&tid[i], &attr, readdir_thread, (void *)&args[i])) {
             fprintf(stderr, "pthread_create() error: scan on s[%d]\n", i);
@@ -428,6 +431,7 @@ scan_list_t rpc_readdir(int dir_id, const char *path)
         }
     }
 
+    *num_entries = 0;
     pthread_attr_destroy(&attr);
     for (i=0; i<max_servers; i++) { //#### start_for_loop for all partitions
 
@@ -436,9 +440,8 @@ scan_list_t rpc_readdir(int dir_id, const char *path)
             fprintf(stderr, "pthread_join(s[%d]) error: %d\n", i, ret);
             exit(1);
         }
+        *num_entries += args[i].entries;
         LOG_MSG("<<< readdir[%d]: status=[%ld]", i, (long)status);
-
-
     }
 
     cache_release(dir);

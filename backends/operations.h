@@ -48,7 +48,7 @@ int rpc_getattr(int dir_id, const char *path, struct stat *statbuf);
 int rpc_mkdir(int dir_id, const char *path, mode_t mode);
 int rpc_mknod(int dir_ID, const char *path, mode_t mode, dev_t dev);
 int rpc_create(int dir_id, const char *path, mode_t mode);
-scan_list_t rpc_readdir(int dir_id, const char *path);
+scan_list_t rpc_readdir(int dir_id, const char *path, int *num_entries);
 int rpc_opendir(int dir_id, const char *path);
 int rpc_releasedir(int dir_id, const char *path);
 int rpc_fetch(int dir_id, const char *path,
@@ -167,8 +167,7 @@ const char* metadb_readdir_iter_get_objname(metadb_readdir_iterator_t *iter,
                                       size_t *name_len);
 const char* metadb_readdir_iter_get_realpath(metadb_readdir_iterator_t *iter,
                                        size_t *path_len);
-int metadb_readdir_iter_get_stat(metadb_readdir_iterator_t *iter,
-                                 struct stat *statbuf);
+const struct stat* metadb_readdir_iter_get_stat(metadb_readdir_iterator_t *iter);
 
 char* metadb_get_metric(struct MetaDB *mdb);
 

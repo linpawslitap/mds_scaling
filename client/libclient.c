@@ -100,17 +100,17 @@ int gigaRmdir(const char *path)
 }
 
 scan_list_t gigaListStatus(const char *path, int* num_entries) {
-  return GIGAliststatus(path, num_entries);
+  scan_list_t ret = GIGAliststatus(path, num_entries);
+  return ret;
 }
 
 void gigaStatusInfo(scan_list_t ptr, struct info_t* buf) {
   *buf = ptr->info;
 }
 
-int gigaStatusName(scan_list_t ptr, char* buf) {
-  int name_len = strlen(ptr->entry_name);
-  memcpy(buf, ptr->entry_name, name_len);
-  return name_len;
+char* gigaStatusName(scan_list_t ptr, int* name_len) {
+  *name_len = strlen(ptr->entry_name);
+  return ptr->entry_name;
 }
 
 scan_list_t gigaNextStatus(scan_list_t ptr) {

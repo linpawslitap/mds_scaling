@@ -57,7 +57,8 @@ public class GTFileSystem extends FileSystem {
     public void initialize(URI uri, Configuration conf) throws IOException {
         super.initialize(uri, conf);
         try {
-            this.uri = URI.create(uri.getScheme() + "://");
+            this.uri = URI.create(uri.getScheme() + "://"+ uri.getAuthority());
+            System.out.println("URI:"+uri.getScheme() + "://"+ uri.getAuthority());
             this.hdfs = FileSystem.get(uri, conf);
             this.workingDir = new Path("/");
             this.gtfs_impl = new GTFSImpl();
@@ -202,8 +203,7 @@ public class GTFileSystem extends FileSystem {
         if (!exists(path))
             throw new IOException("File does not exist: " + path);
         byte [] buf = new byte[threshold];
-        GTFSImpl.FetchReply.ByReference reply =
-                new GTFSImpl.FetchReply.ByReference();
+        GTFSImpl.FetchReply reply = new GTFSImpl.FetchReply();
         gtfs_impl.fetch(path.toString(), buf, reply);
         GTFSInputStream in;
 
@@ -311,6 +311,11 @@ public class GTFileSystem extends FileSystem {
                 FileStatus status = fs.getFileStatus(path);
                 System.out.println(status.isDirectory());
                 System.out.println(status.getLen());
+            }
+            System.out.println("Finish creating entries");
+            FileStatus[] readdir_result = fs.listStatus(root);
+            for (int i = 0; i < readdir_result.length; ++i) {
+                System.out.println(readdir_result[i].getPath());
             }
         } catch (Exception e) {
             e.printStackTrace();

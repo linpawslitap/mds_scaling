@@ -75,10 +75,10 @@ public class GTFSImpl {
         public int gigaGetInfo(String path, Info info);
         public int gigaOpen(String path, int flags);
         public int gigaUpdateLink(String path, String link);
-        public int gigaFetch(String path, byte[] buf, FetchReply.ByReference reply);
+        public int gigaFetch(String path, byte[] buf, FetchReply reply);
         public int gigaGetParentID(int fd);
         public int gigaWriteLink(int fd, String link);
-        public int gigaReadAll(int fd, byte[] buf, FetchReply.ByReference reply);
+        public int gigaReadAll(int fd, byte[] buf, FetchReply reply);
         public int gigaRead(int fd, byte[] buf, int size);
         public int gigaWrite(int fd, byte[] buf, int size);
         public int gigaClose(int fd);
@@ -134,6 +134,7 @@ public class GTFSImpl {
                 iter_ptr = gigaclient.gigaNextStatus(iter_ptr);
             }
        gigaclient.gigaCleanStatusList(start_ptr);
+       return result;
     }
 
     public int getAttr(String path, Stat stat) {
@@ -148,7 +149,7 @@ public class GTFSImpl {
         return gigaclient.gigaOpen(path, flags);
     }
 
-    public int fetch(String path, byte[] buf, FetchReply.ByReference reply) {
+    public int fetch(String path, byte[] buf, FetchReply reply) {
         return gigaclient.gigaFetch(path, buf, reply);
     }
 
@@ -156,7 +157,7 @@ public class GTFSImpl {
         return gigaclient.gigaGetParentID(fd);
     }
 
-    public int readall(int fd, byte[] buf, FetchReply.ByReference reply) {
+    public int readall(int fd, byte[] buf, FetchReply reply) {
         return gigaclient.gigaReadAll(fd, buf, reply);
     }
     public int updatelink(String path, String link) {

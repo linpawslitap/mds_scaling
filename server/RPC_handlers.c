@@ -398,18 +398,20 @@ bool_t giga_rpc_readdir_serial_1_svc(scan_args_t args,
     LOG_MSG("PRINT_readdir() buf with %d entries ...", num_ent);
     while (metadb_readdir_iter_valid(iter)) {
         size_t len;
-        struct stat statbuf;
 
         const char* objname = metadb_readdir_iter_get_objname(iter, &len);
-        const char* realpath = metadb_readdir_iter_get_realpath(iter, &len);
-
-        metadb_readdir_iter_get_stat(iter, &statbuf);
-
-        LOG_MSG("#%d: \t obj=[%s] \t sym=[%s]", entry, objname, realpath);
-        (void)realpath;
+        const struct stat* statbuf = metadb_readdir_iter_get_stat(iter);
 
         ls = *ls_ptr = (scan_entry_t*)malloc(sizeof(scan_entry_t));
         ls->entry_name = strdup(objname);
+        ls->info.permission = statbuf->st_mode
+                            & (S_IRWXU | S_IRWXG | S_IRWXO);
+        ls->info.is_dir = S_ISDIR(statbuf->st_mode);
+        ls->info.uid = statbuf->st_uid;
+        ls->info.uid = statbuf->st_gid;
+        ls->info.size = statbuf->st_size;
+        ls->info.atime = statbuf->st_atime;
+        ls->info.ctime = statbuf->st_ctime;
         ls_ptr = &ls->next;
 
         entry += 1;

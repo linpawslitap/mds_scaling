@@ -996,15 +996,12 @@ const char* metadb_readdir_iter_get_realpath(metadb_readdir_iterator_t *iter,
     }
 }
 
-int metadb_readdir_iter_get_stat(metadb_readdir_iterator_t *iter,
-                                 struct stat *statbuf) {
+const struct stat* metadb_readdir_iter_get_stat(metadb_readdir_iterator_t *iter) {
     if (iter->cur_ent < iter->num_ent) {
-        memcpy(statbuf,
-               iter->buf + iter->offset + sizeof(readdir_rec_len_t),
-               sizeof(struct stat));
-        return 0;
+        return (const struct stat*) (iter->buf + iter->offset
+                                   + sizeof(readdir_rec_len_t));
     } else {
-        return -1;
+        return NULL;
     }
 }
 

@@ -317,7 +317,8 @@ int GIGAreaddir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offse
             break;
         case BACKEND_RPC_LEVELDB:
             dir_id = lookup_dir(path);
-            ret_ls = (scan_list_t)rpc_readdir(dir_id, path);
+            int num_entries = 0;
+            ret_ls = (scan_list_t)rpc_readdir(dir_id, path, &num_entries);
             for (ls = ret_ls; ls != NULL; ls = ls->next) {
                 if (filler(buf, ls->entry_name, NULL, 0) != 0) {
                     ret = ENOMEM;
@@ -334,6 +335,13 @@ int GIGAreaddir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offse
     LOG_MSG("<<< FUSE_readdir(%s): ret=[%d:%s]", path, ret, strerror(ret));
 
     return FUSE_ERROR(ret);
+}
+
+scan_list_t GIGAliststatus(const char *path, int* num_entries)
+{
+    int dir_id = 0;
+    dir_id = lookup_dir(path);
+    return (scan_list_t)rpc_readdir(dir_id, path, num_entries);
 }
 
 int GIGAreleasedir(const char *path, struct fuse_file_info *fi)

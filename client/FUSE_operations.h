@@ -2,6 +2,7 @@
 #define FUSE_OPERATIONS_H
 
 #include <fuse.h>
+#include "common/rpc_giga.h"
 
 void* GIGAinit(struct fuse_conn_info *conn);
 void GIGAdestroy(void *unused);
@@ -45,6 +46,8 @@ int GIGArelease(const char *path, struct fuse_file_info *fi);
 int GIGAfsync(const char *path, int datasync, struct fuse_file_info *fi);
 
 int GIGAopendir(const char *path, struct fuse_file_info *fi);
+
+scan_list_t GIGAliststatus(const char *path, int* num_entries);
 
 int GIGAreaddir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset,
                 struct fuse_file_info *fi);

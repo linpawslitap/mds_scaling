@@ -99,6 +99,37 @@ int gigaRmdir(const char *path)
   return GIGArmdir(path);
 }
 
+scan_list_t gigaListStatus(const char *path, int* num_entries) {
+  return GIGAliststatus(path, num_entries);
+}
+
+void gigaStatusInfo(scan_list_t ptr, struct info_t* buf) {
+  *buf = ptr->info;
+}
+
+int gigaStatusName(scan_list_t ptr, char* buf) {
+  int name_len = strlen(ptr->entry_name);
+  memcpy(buf, ptr->entry_name, name_len);
+  return name_len;
+}
+
+scan_list_t gigaNextStatus(scan_list_t ptr) {
+  return ptr->next;
+}
+
+int gigaValidStatus(scan_list_t ptr) {
+  return ptr != NULL;
+}
+
+void gigaCleanStatusList(scan_list_t ptr) {
+  scan_entry_t *next_ptr;
+  while (ptr != NULL) {
+    next_ptr = ptr->next;
+    free(ptr);
+    ptr = next_ptr;
+  }
+}
+
 int gigaOpen(const char *path, int flags)
 {
     struct fuse_file_info fi;
@@ -119,14 +150,14 @@ int gigaFetch(const char *path,
     return ret;
 }
 
-int gigaReadall(int fd, char *buf,
+int gigaReadAll(int fd, char *buf,
                 struct fetch_reply* reply)
 {
     giga_file_info_t *gi = get_giga_fi(fd);
     return GIGAreadall(&(gi->fi), buf, &(reply->buf_len));
 }
 
-int gigaWritelink(int fd, const char* link)
+int gigaWriteLink(int fd, const char* link)
 {
     giga_file_info_t *gi = get_giga_fi(fd);
     return GIGAwritelink(&(gi->fi), link);
@@ -139,7 +170,7 @@ int gigaGetParentID(int fd)
 }
 
 
-int gigaUpdatelink(const char *path, const char *link) {
+int gigaUpdateLink(const char *path, const char *link) {
     return GIGAupdatelink(path, link);
 }
 
@@ -192,12 +223,12 @@ int gigaPwrite(int fd, const void *buf, size_t size, size_t offset)
     return written;
 }
 
-int gigaGetattr(const char *path, struct stat *buf)
+int gigaGetAttr(const char *path, struct stat *buf)
 {
     return GIGAgetattr(path, buf);
 }
 
-int gigaGetInfo(const char *path, struct info *buf)
+int gigaGetInfo(const char *path, struct info_t *buf)
 {
     struct stat statbuf;
     int ret = GIGAgetattr(path, &statbuf);

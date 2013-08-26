@@ -1,6 +1,5 @@
 #!/bin/bash
 
-source ../hdfs.sh
 MNT="/l0"
 
 GIGA="${MNT}/giga_srv/"
@@ -22,13 +21,15 @@ case $1 in
 
 c) # cleanup and exit
    #
+
+sudo mkdir $MNT
 sudo chmod 777 $MNT
 killall -9 giga_server
 rm $PID
-#rm -rf $GIGA
-#rm -rf $LDB
-#mkdir $GIGA
-#mkdir $LDB
+rm -rf $GIGA
+rm -rf $LDB
+mkdir $GIGA
+mkdir $LDB
 #ps -ef | grep "giga_server" | grep -v grep | cut -c 9-15 |sudo xargs kill -9
 #rm -rf /panfs/test_vol$2/giga/
 #mkdir /panfs/test_vol$2/giga/
@@ -56,23 +57,8 @@ f) # foreground server execution
 n) # normal server execution
    #
 echo "lauch giga_server $PWD"
-<<<<<<< HEAD
-export LD_LIBRARY_PATH="/usr/lib64/openmpi/lib/:/usr/libexec/dropbox/"
-
-if [ -f $PID ]; then
-  if kill -0 `cat $PID` > /dev/null 2>&1; then
-    echo $command running as process `cat $PID`.  Stop it first.
-    exit 1
-  fi
-fi
-
-#../giga_server &
-catchsegv ../giga_server 2>&1 > /tmp/err.log &
-echo $! > $PID
-=======
 export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/lib64/openmpi/lib/:/usr/libexec/dropbox/
 ../giga_server &
->>>>>>> a8ca4ca2e71a3191fd64b305bc5d610e2d17790a
 ;;
 
 u)

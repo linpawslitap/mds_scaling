@@ -827,7 +827,7 @@ start:
     int state;
     char fpath[PATH_MAX]={0};
     char buf[FILE_THRESHOLD];
-    int buf_len;
+    int buf_len = 0;
     int fd;
 
     switch (giga_options_t.backend_type) {

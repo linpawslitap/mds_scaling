@@ -1,0 +1,160 @@
+\section{Experimental Evaluation}
+
+This section evaluates the scale and performance of our prototype using a mix of
+metadata-intensive and data-intensive benchmarks. Our evaluation layers \sys on
+the Panasas PanFS file system, and focuses on three questions:
+\begin{itemize}
+\item How does \sys enhance metadata throughput, particularly
+number of file creates per second for concurrent file creation workloads, on
+the PanFS storage system?
+\item What is the data throughput of \sys layered on PanFS for N-N checkpointing 
+workload found in HPC systems?
+\item How portable is \sys to be used on other cluster storage systems and
+configurations?
+\end{itemize}
+
+\subsection{Setup and Methodology}
+
+Our prototype is implemented in about 10,000 lines of C code using
+a modular design comprising of \tfs, \ldb and PanFS layers. In particular, the
+PanFS layer is unmodified and can be replaced with any other cluster file
+system. The current version implements most common POSIX file system operations 
+except \texttt{hardlink}, \texttt{rename}, and \texttt{xattr} related operations.
+The first two operations, \texttt{hardlink} and \texttt{rename}, are
+particularly complicated because they need distributed transaction support for
+correct and fault tolerant cross-server operations; this problem is beyond the
+scope of this paper.
+
+All experiments were performed on two clusters described in Table
+\ref{tab:setting}. The first cluster is a 5-shelf PanFS storage cluster, and the 
+second cluster is a 64-node setup to run \sys code and applications.
+Table \ref{tab:setting} describes the hardware and software configuration of
+these clusters.
+The first cluster is used to evaluate the scale and performance of the
+underlying cluster file system that uses our middleware.
+The second cluster is used to demonstrate that our middleware 
+solution can be layered on other file system deployments without any
+configuration changes; this setup
+emulates a case that each GIGA+ server runs in a different NFS node and manages 
+its own \tfs instance locally to scale the metadata performance of NFS.
+In all tests, the client uses library version code;
+the threshold for splitting a partition is always 8,000 entries;
+and \tfs managed by GIGA+ server syncs its data every 5 seconds.
+
+\begin{footnotesize}
+\begin{table}
+\center
+\begin{tabular}{lcc}
+\toprule
+      & Cluster 1 & Cluster 2 \\
+      & (Storage cluster) & (Test applications)\\
+\midrule
+\#Nodes & 5 & 64 \\
+\hline
+OS &   CentOS 6.3 &  Ubuntu 12.10 \\
+Kernel & 2.6.32 x86\_64 & 3.6.6 x86\_64 \\
+\hline
+CPU & AMD Opteron 6272 &  AMD Opteron 242 \\
+    & 64 Cores & Dual Core\\
+\hline
+Memory & 128GB DDR &  16GB DDR \\
+\hline
+Network & 40GE NIC &  1GE NIC  \\
+\hline
+Storage & PanFS & Western Digital \\
+System &      5 Shelves & Local hard disk  \\
+       &   (5 MDS + 50 ODS) &  2TB per node  \\
+\hline
+& & 100 seeks/sec \\
+& & random seeks   \\
+& & 137.6 MB/sec  \\
+& & seq. reads    \\
+& & 135.4 MB/sec  \\
+& & seq. writes   \\
+\bottomrule \\
+\end{tabular}
+\caption{
+\textit{\footnotesize Settings of two clusters used for evaluation.}
+}
+\label{tab:setting}
+\end{table}
+\end{footnotesize}
+
+In the following sections, we will first show the evaluation
+on the end-to-end performance of the integrated system on top of PanFS,
+and then present the results of a scaling experiment on another platform.
+
+\subsection{End-to-end System Evaluation}
+\label{sec:fullsystem}
+\input{full}
+
+\subsection{Understanding Scaling Behavior}
+
+\begin{figure*}[t]
+\centerline{\includegraphics[scale=0.55]{./figs/ldb_insertrate}}
+\vspace{10pt}
+\caption{\textit{\footnotesize 
+Our middleware metadata service prototype shows promising scalability
+up to 64 servers.
+Note that at the end of the experiment,
+the throughput drops to zero
+because clients stop creating files as they finish 1 million files per client.
+(Solid lines are Bezier curves to smooth the variability.)
+}
+}
+%\vspace{10pt}
+\hrule
+\label{graph:ldb-scaling}
+\end{figure*}
+
+This section shows how \sys scales over time in large multi-server setup. To
+understand this behavior we layered \sys on a different cluster (cluster \#2
+from Table \ref{tab:setting}) comprising of 64-nodes running \sys clients and
+servers. The main difference is the backend storage: this analysis emulates a
+federated NFS setup where each \psys server process in node manages its own \tfs 
+instance and store SSTables into a local disk.
+To emulate shared storage for split operations, we used a NFS-mounted shared 
+directory accessible from all machines; this shared directory was only used for 
+moving SSTables of splitting directory partitions across servers.
+%The distributed logging is not available in this experiment setting,
+%but which does not limit testing the scalability of our system.
+
+This analysis uses a \textit{weak scaling} experiment that creates
+1 million files per server, for a total of 64 million files in the
+64-server configuration. We vary the number of servers from 1 to 64
+to understand how performance scales with more servers.
+
+Figure \ref{graph:ldb-scaling} shows the instantaneous throughput
+during the concurrent create workload.
+The main result in this figure is that as the number of servers doubles the
+throughput of the system also scales up. With 64 servers, \giga can achieve a
+peak throughput of about 190,000 file creates per second.
+The prototype delivers peak performance after the directory workload
+has been spread among all servers.
+Reaching steady-state, the throughput quickly grows
+due to the splitting policies adopted by \giga.
+
+
+After reaching the steady state, throughput slowly drops
+as \tfs builds a larger metadata store.
+In fact, in large setups with 8 or more servers,
+the peak throughput drops by as much as 25\% (in case of the 64-server setup).
+This is because when there are more entries already existing in \tfs,
+it requires more compaction work to maintain invariants inside \ldb
+and to perform a negative lookup before each create
+has to search more SSTables on disk.
+In theory, the work of inserting a new entry to a LSM-tree is $O(\log_{B}(n))$
+where $n$ is the total number of inserted entries, and $B$ is a constant factor
+proportional to the average number of entries transferred in each disk request
+\cite{Bender2007}.
+Thus we can use the formula $\frac{a\cdot S+b}{\log{T}}$ to
+approximate the throughput timeline in Figure \ref{graph:ldb-scaling},
+where $S$ is the number of servers, $T$ is the running time,
+and $a$ as well as $b$ are constant factors
+relative to the disk speed and splitting overhead.
+This estimation projects that when inserting 64 billion files with 64 servers,
+the system may deliver an average of 1,000 operations per second per server,
+i.e. 64,000 operations per second in aggregate.
+This still exceeds today supercomputer's most rigorous scalability demands for
+40,000 file creates per second in a single directory \cite{hpcs-io:2008}.
+

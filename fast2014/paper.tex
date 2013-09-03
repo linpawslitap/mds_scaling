@@ -1,0 +1,63 @@
+\documentclass[letterpaper,twocolumn,10pt]{article}
+\usepackage{usenix}
+\usepackage{epsfig,endnotes}
+\usepackage{xspace}
+\usepackage{array}
+\usepackage{color,url,multirow,listings,booktabs}
+\usepackage{pdfsync, caption}
+\usepackage{balance}
+%our commands
+%\usepackage{fancyhdr}
+%\usepackage{setspace}
+%\linespread{2.5}
+%\pagestyle{fancy}
+%\fancyhead{10:31pm \today}
+
+\usepackage{url}
+
+\newcommand{\delete}[1]{}
+\newcommand{\tfs}{TableFS\xspace}
+\newcommand{\giga}{GIGA+\xspace}
+\newcommand{\ldb}{{LevelDB}\xspace}
+\newcommand{\sys}{GIGA+TableFS\xspace}
+\newcommand{\psys}{PanFS-GT\xspace}
+\newcommand{\comment}[1]{{\color{red} [{#1}]}}
+\newcommand{\kai}[1]{\comment{Kai says: #1}}
+
+
+\begin{document}
+
+%don't want date printed
+\date{}
+
+%make title bold and 14 pt font (Latex default is non-bold, 16 pt)
+\title{Building a High-Performance Metadata Service by Reusing Scalable I/O Bandwidth}
+
+\author{
+Authors Removed for Blind Review
+}
+
+\maketitle
+
+\begin{abstract}
+\input{abstract}
+\end{abstract}
+\input{intro}
+\input{design}
+\input{eval}
+\input{relatedwork}
+\input{summary}
+
+%\section*{Acknowledgment}
+%This research is supported in part by The Gordon and Betty Moore Foundation, NSF under award, SCI-0430781 and
+%CCF-1019104, Qatar National Research Foundation 09-1116-1-172, DOE/Los Alamos National Laboratory, under contract number DE-AC52-
+%06NA25396/161465-1, by Intel as part of the Intel Science and Technology Center for Cloud Computing (ISTC-CC), by gifts from
+%Actifio, EMC, Emulex, Facebook, Fusion-IO, Google, Hewlett-Packard, Hitachi, Huawei, Intel,
+%NEC, NetApp, Oracle, Panasas, Samsung, Seagate, STEC, Symantec, VMWare, and Western Digital.
+%We thank the member companies of the PDL Consortium for their interest, insights, feedback, and support.
+
+\bibliographystyle{plain}
+\bibliography{reference}
+\end{document}
+
+

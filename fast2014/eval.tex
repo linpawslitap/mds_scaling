@@ -44,33 +44,25 @@ and \tfs managed by GIGA+ server syncs its data every 5 seconds.
 \begin{footnotesize}
 \begin{table}
 \center
-\begin{tabular}{lcc}
+\begin{tabular}{lc}
 \toprule
-      & Cluster 1 & Cluster 2 \\
-      & (Storage cluster) & (Test applications)\\
+      & Cluster \\
 \midrule
-\#Nodes & 5 & 64 \\
+\#Nodes & 64 \\
 \hline
-OS &   CentOS 6.3 &  Ubuntu 12.10 \\
-Kernel & 2.6.32 x86\_64 & 3.6.6 x86\_64 \\
+OS &    Ubuntu 12.10 3.6.6 x86\_64 \\
 \hline
-CPU & AMD Opteron 6272 &  AMD Opteron 242 \\
-    & 64 Cores & Dual Core\\
+CPU &  AMD Opteron 242 Dual Core\\
 \hline
-Memory & 128GB DDR &  16GB DDR \\
+Memory & 16GB DDR-RAM\\
 \hline
-Network & 40GE NIC &  1GE NIC  \\
+Network & 1GE NIC  \\
 \hline
-Storage & PanFS & Western Digital \\
-System &      5 Shelves & Local hard disk  \\
-       &   (5 MDS + 50 ODS) &  2TB per node  \\
-\hline
-& & 100 seeks/sec \\
-& & random seeks   \\
-& & 137.6 MB/sec  \\
-& & seq. reads    \\
-& & 135.4 MB/sec  \\
-& & seq. writes   \\
+Storage & Western Digital hard disk \\
+System & 2TB per node  \\
+& 100 seeks/sec random seeks   \\
+& 137.6 MB/sec sequential reads \\
+& 135.4 MB/sec sequential writes \\
 \bottomrule \\
 \end{tabular}
 \caption{
@@ -89,72 +81,4 @@ and then present the results of a scaling experiment on another platform.
 \input{full}
 
 \subsection{Understanding Scaling Behavior}
-
-\begin{figure*}[t]
-\centerline{\includegraphics[scale=0.55]{./figs/ldb_insertrate}}
-\vspace{10pt}
-\caption{\textit{\footnotesize 
-Our middleware metadata service prototype shows promising scalability
-up to 64 servers.
-Note that at the end of the experiment,
-the throughput drops to zero
-because clients stop creating files as they finish 1 million files per client.
-(Solid lines are Bezier curves to smooth the variability.)
-}
-}
-%\vspace{10pt}
-\hrule
-\label{graph:ldb-scaling}
-\end{figure*}
-
-This section shows how \sys scales over time in large multi-server setup. To
-understand this behavior we layered \sys on a different cluster (cluster \#2
-from Table \ref{tab:setting}) comprising of 64-nodes running \sys clients and
-servers. The main difference is the backend storage: this analysis emulates a
-federated NFS setup where each \psys server process in node manages its own \tfs 
-instance and store SSTables into a local disk.
-To emulate shared storage for split operations, we used a NFS-mounted shared 
-directory accessible from all machines; this shared directory was only used for 
-moving SSTables of splitting directory partitions across servers.
-%The distributed logging is not available in this experiment setting,
-%but which does not limit testing the scalability of our system.
-
-This analysis uses a \textit{weak scaling} experiment that creates
-1 million files per server, for a total of 64 million files in the
-64-server configuration. We vary the number of servers from 1 to 64
-to understand how performance scales with more servers.
-
-Figure \ref{graph:ldb-scaling} shows the instantaneous throughput
-during the concurrent create workload.
-The main result in this figure is that as the number of servers doubles the
-throughput of the system also scales up. With 64 servers, \giga can achieve a
-peak throughput of about 190,000 file creates per second.
-The prototype delivers peak performance after the directory workload
-has been spread among all servers.
-Reaching steady-state, the throughput quickly grows
-due to the splitting policies adopted by \giga.
-
-
-After reaching the steady state, throughput slowly drops
-as \tfs builds a larger metadata store.
-In fact, in large setups with 8 or more servers,
-the peak throughput drops by as much as 25\% (in case of the 64-server setup).
-This is because when there are more entries already existing in \tfs,
-it requires more compaction work to maintain invariants inside \ldb
-and to perform a negative lookup before each create
-has to search more SSTables on disk.
-In theory, the work of inserting a new entry to a LSM-tree is $O(\log_{B}(n))$
-where $n$ is the total number of inserted entries, and $B$ is a constant factor
-proportional to the average number of entries transferred in each disk request
-\cite{Bender2007}.
-Thus we can use the formula $\frac{a\cdot S+b}{\log{T}}$ to
-approximate the throughput timeline in Figure \ref{graph:ldb-scaling},
-where $S$ is the number of servers, $T$ is the running time,
-and $a$ as well as $b$ are constant factors
-relative to the disk speed and splitting overhead.
-This estimation projects that when inserting 64 billion files with 64 servers,
-the system may deliver an average of 1,000 operations per second per server,
-i.e. 64,000 operations per second in aggregate.
-This still exceeds today supercomputer's most rigorous scalability demands for
-40,000 file creates per second in a single directory \cite{hpcs-io:2008}.
 

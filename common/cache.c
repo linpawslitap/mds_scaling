@@ -119,14 +119,6 @@ struct giga_directory* lru_cache_lookup(lru_cache_t* lru,
     struct giga_directory* entry;
     HASH_FIND_INT(lru->table, &handle, entry);
 
-    /*
-    if (entry != NULL) {
-        printf("LOOKUP: %d %d\n", handle, entry->split_flag);
-    } else {
-        printf("LOOKUP: %d NULL\n", handle);
-    }
-    */
-
     if (entry != NULL) {
         entry->refcount ++;
         double_list_remove(entry);
@@ -229,18 +221,23 @@ void cache_destory() {
     shard_cache_destroy(&my_dircache);
 }
 
-struct giga_directory* new_cache_entry(DIR_handle_t *handle, int srv_id)
+
+struct giga_directory* new_cache_entry_with_mapping(DIR_handle_t *handle,
+                                          struct giga_mapping_t* mapping)
 {
     int i = 0;
 
-    struct giga_directory *d = (struct giga_directory*)malloc(sizeof(struct giga_directory));
+    struct giga_directory *d =
+        (struct giga_directory*) malloc(sizeof(struct giga_directory));
     if (d == NULL) {
         logMessage(LOG_FATAL, __func__, "malloc_err: %s", strerror(errno));
         exit(1);
     }
 
     d->handle = *handle;
-    giga_init_mapping(&d->mapping, -1, d->handle, srv_id, giga_options_t.num_servers);
+    if (mapping != NULL) {
+      d->mapping = *mapping;
+    }
 
     //d->refcount = 1;
     d->split_flag = 0;
@@ -257,33 +254,17 @@ struct giga_directory* new_cache_entry(DIR_handle_t *handle, int srv_id)
     return d;
 }
 
+struct giga_directory* new_cache_entry(DIR_handle_t *handle, int srv_id)
+{
+    struct giga_directory* d =
+      new_cache_entry_with_mapping(handle, NULL);
+    giga_init_mapping(&d->mapping, -1, d->handle, srv_id,
+                      giga_options_t.num_servers);
+    return d;
+}
+
 int cache_init()
 {
-
-#if 0
-    int i = 0;
-
-    dircache = (struct giga_directory*)malloc(sizeof(struct giga_directory));
-    if (!dircache) {
-        logMessage(LOG_FATAL, __func__, "malloc_err: %s", strerror(errno));
-        exit(1);
-    }
-
-    dircache->handle = ROOT_DIR_ID;
-    int zeroth_srv = 0; //FIXME: how do you get zeroth server info?
-    giga_init_mapping(&dircache->mapping, -1, dircache->handle, zeroth_srv, giga_options_t.num_servers);
-    dircache->refcount = 1;
-    dircache->split_flag = 0;
-    pthread_mutex_init(&dircache->split_mtx, NULL);
-    //for (i=0; i < (int)sizeof(dir->partition_size); i++)
-    logMessage(CACHE_LOG, __func__, "init %d  partitions ...", MAX_NUM);
-    for (i=0; i < MAX_NUM; i++) {
-        dircache->partition_size[i] = 0;
-        pthread_mutex_init(&dircache->partition_mtx[i], NULL);
-    }
-    logMessage(LOG_TRACE, __func__, "Cache_CREATE: dir(%d)", dircache->handle);
-#endif
-
     shard_cache_init(&my_dircache, DEFAULT_DIR_CACHE_SIZE);
 
     fuse_cache = NULL;

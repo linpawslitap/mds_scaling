@@ -1,0 +1,39 @@
+\giga is a distributed hash-based indexing technique that incrementally
+divides each directory into multiple partitions that are spread over multiple
+servers \cite{GIGA11}.
+Each filename stored in a directory entry is hashed and mapped to a partition
+using a per-directory index.
+\giga selects a hash partition such that for any distribution of unique filenames,
+the hash values of these filenames will be uniformly distributed in the hash space.
+This makes load balancing much easier.
+In addition to load-balanced distribution, \giga also grows the directory
+index incrementally, i.e. all directories start small on a single server, and
+then expand to more servers as they grow in number of entries.
+
+A core scalability idea in \giga is parallel splitting: each server splits
+without system-wide serialization or synchronization.
+Such uncoordinated growth causes \giga servers to have only a partial view of
+the entire per-directory index;
+there is no central server that holds the global view of the
+partition-to-server mapping.
+Each server knows about the partitions it stores and knows the
+identity of other server that know more about each ``child'' partition
+resulting from a prior split by this server.
+This information is known as the per-server split history of
+a directory's partitions.
+The full per-directory \giga index is
+a transitive closure of the split history on each
+server and represents the lineage of the directory's partitioning.
+
+The full index (and split history) of a directory
+is also not maintained synchronously by any client.
+\giga clients can search through the partitions of a directory by traversing
+its split histories starting with the first partition that was created during
+\texttt{mkdir} and clients can cache what they learn.
+However, such an opportunistically cached index by a client may be
+incomplete or stale at any time, particularly for rapidly mutating directories.
+\giga allows clients to keep using stale mapping information
+because addressed servers verify and brief to clients as needed.
+More discussion of the cost-benefit of using
+inconsistent mapping state is not relevant to this work and can be found in
+prior \giga{} literature \cite{GIGA07, GIGA11}.

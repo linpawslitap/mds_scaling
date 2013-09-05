@@ -1,7 +1,5 @@
 #!/bin/bash
 
-source ../hdfs.sh
-
 MNT="/tmp/giga_c"
 NUM_FUSE_CLI="/tmp/.giga_clients"
 

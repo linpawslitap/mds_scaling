@@ -22,10 +22,10 @@ $(shell ./build_detect_platform build_config.mk)
 include build_config.mk
 
 HADOOP_INCLUDE = -I../../hadoop/include/ \
-  -I/usr/lib/jvm/java-1.7.0-sun-amd64/include/ \
-  -I/usr/lib/jvm/java-1.7.0-sun-amd64/include/linux
-HADOOP_LDFLAGS= -L/usr/lib/jvm/java-1.7.0-sun-amd64/jre/lib/amd64/ \
-	-L/usr/lib/jvm/java-1.7.0-sun-amd64/jre/lib/amd64/server \
+  -I/usr/lib/jvm/default-java/include/ \
+  -I/usr/lib/jvm/default-java/include/linux
+HADOOP_LDFLAGS= -L/usr/lib/jvm/default-java/jre/lib/amd64/ \
+	-L/usr/lib/jvm/default-java/jre/lib/amd64/server \
 	-ljvm
 HADOOP_LIB = ../../hadoop/lib/native/libhdfs.a
 

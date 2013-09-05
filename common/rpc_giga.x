@@ -111,6 +111,7 @@ union giga_read_t switch (int state) {
 struct giga_getattr_reply_t {
     struct stat statbuf;
     int file_size;
+    int zeroth_server;
     giga_result_t result;
     /**int fn_retval;*/
 };
@@ -154,6 +155,8 @@ version GIGA_RPC_VERSION {          /* version number */
 
         giga_getattr_reply_t GIGA_RPC_GETATTR(giga_dir_id, giga_pathname) = 101;
 
+        giga_result_t GIGA_RPC_GETMAPPING(giga_dir_id) = 102;
+
         giga_result_t GIGA_RPC_MKDIR(giga_dir_id, giga_pathname, mode_t) = 201;
 
         giga_result_t GIGA_RPC_MKZEROTH(giga_dir_id) = 202;
@@ -167,9 +170,11 @@ version GIGA_RPC_VERSION {          /* version number */
         */
         readdir_return_t GIGA_RPC_READDIR_SERIAL(scan_args_t) = 502;
 
-        /* {dir_to_split, parent_index, child_index, path_leveldb_files, partition map} */
-        giga_result_t GIGA_RPC_SPLIT(giga_dir_id, int, int, giga_pathname,
-				     giga_bitmap bitmap, 
+        /* {dir_to_split, parent_index, child_index, path_leveldb_files,
+            partition map} */
+        giga_result_t GIGA_RPC_SPLIT(giga_dir_id, int, int,
+                                     giga_pathname,
+                                     giga_bitmap bitmap,
                                      uint64_t, uint64_t, int) = 401;
 
         giga_write_reply_t GIGA_RPC_WRITE(giga_dir_id, giga_pathname,

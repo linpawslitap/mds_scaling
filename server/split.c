@@ -133,8 +133,8 @@ bool_t giga_rpc_split_1_svc(giga_dir_id dir_id,
         if (dir == NULL) {
             LOG_MSG("ERR_fetching(d=%d): cache_miss ... try_LDB ...", dir_id);
 
-            struct giga_directory *new = new_cache_entry_with_mapping(&dir_id,
-                                            mapping.zeroth_server, &mapping);
+            struct giga_directory *new =
+                    new_cache_entry_with_mapping(&dir_id, &mapping);
 
             //need to fetch it from disk first ...
             //

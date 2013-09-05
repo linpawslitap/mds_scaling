@@ -327,7 +327,6 @@ public class GTFileSystem extends FileSystem {
     }
 }
 
-
 class GTFSProgress implements Progressable {
     public void progress() {
 

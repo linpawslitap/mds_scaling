@@ -28,7 +28,7 @@ class TableBuilder {
   // Create a builder that will store the contents of the table it is
   // building in *file.  Does not close the file.  It is up to the
   // caller to close the file after calling Finish().
-  TableBuilder(const Options& options, WritableFile* file);
+  TableBuilder(const Options& options, WritableFile* file, bool lastLayer);
 
   // REQUIRES: Either Finish() or Abandon() has been called.
   ~TableBuilder();

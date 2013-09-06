@@ -44,7 +44,7 @@ struct TableBuilder::Rep {
 
   std::string compressed_output;
 
-  Rep(const Options& opt, WritableFile* f)
+  Rep(const Options& opt, WritableFile* f, bool lastLayer)
       : options(opt),
         index_block_options(opt),
         file(f),
@@ -54,14 +54,15 @@ struct TableBuilder::Rep {
         num_entries(0),
         closed(false),
         filter_block(opt.filter_policy == NULL ? NULL
-                     : new FilterBlockBuilder(opt.filter_policy)),
+                     : new FilterBlockBuilder(opt.filter_policy, lastLayer)),
         pending_index_entry(false) {
     index_block_options.block_restart_interval = 1;
   }
 };
 
-TableBuilder::TableBuilder(const Options& options, WritableFile* file)
-    : rep_(new Rep(options, file)) {
+TableBuilder::TableBuilder(const Options& options, WritableFile* file,
+                           bool lastLayer)
+    : rep_(new Rep(options, file, lastLayer)) {
   if (rep_->filter_block != NULL) {
     rep_->filter_block->StartBlock(0);
   }

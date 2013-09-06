@@ -38,7 +38,8 @@ class FilterPolicy {
   //
   // Warning: do not change the initial contents of *dst.  Instead,
   // append the newly constructed filter to *dst.
-  virtual void CreateFilter(const Slice* keys, int n, std::string* dst)
+  virtual void CreateFilter(const Slice* keys, int n, std::string* dst,
+                            bool lastLyaer)
       const = 0;
 
   // "filter" contains the data appended by a preceding call to
@@ -64,6 +65,8 @@ class FilterPolicy {
 // FilterPolicy (like NewBloomFilterPolicy) that does not ignore
 // trailing spaces in keys.
 extern const FilterPolicy* NewBloomFilterPolicy(int bits_per_key);
+
+extern const FilterPolicy* NewZigzagFilterPolicy(int bits_per_key);
 
 }
 

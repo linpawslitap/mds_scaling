@@ -15,8 +15,9 @@ namespace leveldb {
 static const size_t kFilterBaseLg = 11;
 static const size_t kFilterBase = 1 << kFilterBaseLg;
 
-FilterBlockBuilder::FilterBlockBuilder(const FilterPolicy* policy)
-    : policy_(policy) {
+FilterBlockBuilder::FilterBlockBuilder(const FilterPolicy* policy,
+                                       bool lastLayer)
+    : policy_(policy), lastLayer_(lastLayer) {
 }
 
 void FilterBlockBuilder::StartBlock(uint64_t block_offset) {
@@ -68,7 +69,7 @@ void FilterBlockBuilder::GenerateFilter() {
 
   // Generate filter for current set of keys and append to result_.
   filter_offsets_.push_back(result_.size());
-  policy_->CreateFilter(&tmp_keys_[0], num_keys, &result_);
+  policy_->CreateFilter(&tmp_keys_[0], num_keys, &result_, lastLayer_);
 
   tmp_keys_.clear();
   keys_.clear();

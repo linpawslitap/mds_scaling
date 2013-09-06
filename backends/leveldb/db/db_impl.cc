@@ -769,7 +769,8 @@ Status DBImpl::OpenCompactionOutputFile(CompactionState* compact) {
   std::string fname = TableFileName(dbname_, file_number);
   Status s = env_->NewWritableFile(fname, &compact->outfile);
   if (s.ok()) {
-    compact->builder = new TableBuilder(options_, compact->outfile);
+    compact->builder = new TableBuilder(options_, compact->outfile,
+                  compact->compaction->level()+2 >= config::kNumLevels);
   }
   return s;
 }
@@ -1433,7 +1434,7 @@ Status DBImpl::OpenDeletionOutputFile(DeletionState* deletion) {
   std::string fname = TableFileName(deletion->dname_, file_number);
   Status s = env_->NewWritableFile(fname, &deletion->outfile);
   if (s.ok()) {
-    deletion->builder = new TableBuilder(options_, deletion->outfile);
+    deletion->builder = new TableBuilder(options_, deletion->outfile, true);
   }
   return s;
 }

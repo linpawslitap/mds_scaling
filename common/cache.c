@@ -229,18 +229,23 @@ void cache_destory() {
     shard_cache_destroy(&my_dircache);
 }
 
-struct giga_directory* new_cache_entry(DIR_handle_t *handle, int srv_id)
+
+struct giga_directory* new_cache_entry_with_mapping(DIR_handle_t *handle,
+                              int srv_id, struct giga_mapping_t* mapping)
 {
     int i = 0;
 
-    struct giga_directory *d = (struct giga_directory*)malloc(sizeof(struct giga_directory));
+    struct giga_directory *d =
+        (struct giga_directory*) malloc(sizeof(struct giga_directory));
     if (d == NULL) {
         logMessage(LOG_FATAL, __func__, "malloc_err: %s", strerror(errno));
         exit(1);
     }
 
     d->handle = *handle;
-    giga_init_mapping(&d->mapping, -1, d->handle, srv_id, giga_options_t.num_servers);
+    if (mapping != NULL) {
+      d->mapping = *mapping;
+    }
 
     //d->refcount = 1;
     d->split_flag = 0;
@@ -255,6 +260,13 @@ struct giga_directory* new_cache_entry(DIR_handle_t *handle, int srv_id)
     logMessage(CACHE_LOG, __func__, "Cache_CREATE: dir(%d)", d->handle);
 
     return d;
+}
+
+struct giga_directory* new_cache_entry(DIR_handle_t *handle, int srv_id)
+{
+    struct giga_directory* d = new_cache_entry_with_mapping(handle, srv_id, NULL);
+    giga_init_mapping(&d->mapping, -1, d->handle, srv_id,
+                      giga_options_t.num_servers);
 }
 
 int cache_init()

@@ -8,4 +8,3 @@ OBJS = $(addsuffix .o, $(basename $(SRCS)))
 HADOOP_LDFLAGS= -L/usr/lib/jvm/java-1.7.0-sun-amd64/jre/lib/amd64/ \
 	-L/usr/lib/jvm/java-1.7.0-sun-amd64/jre/lib/amd64/server \
 	-ljvm
-

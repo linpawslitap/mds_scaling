@@ -87,6 +87,13 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
 
         dir->partition_size[parent] -= ret;
 
+        if (metadb_write_bitmap(ldb_mds, dir->handle, -1, NULL,
+                                &dir->mapping) != 0) {
+            LOG_ERR("ERR_mdb_write_bitmap(d%d): error writing bitmap.",
+                    dir->handle);
+            exit(1);
+        }
+
         LOG_MSG("SUCCESS: p%d(%d)-->p%d(%d)", parent, dir->partition_size[parent],
                                               child, ret);
         //ret = 0;
@@ -100,6 +107,7 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
 bool_t giga_rpc_split_1_svc(giga_dir_id dir_id,
                             int parent_index, int child_index,
                             giga_pathname path,
+                            giga_bitmap mapping,
                             uint64_t min_seq, uint64_t max_seq, int num_entries,
                             giga_result_t *rpc_reply,
                             struct svc_req *rqstp)
@@ -125,8 +133,8 @@ bool_t giga_rpc_split_1_svc(giga_dir_id dir_id,
         if (dir == NULL) {
             LOG_MSG("ERR_fetching(d=%d): cache_miss ... try_LDB ...", dir_id);
 
-            int zeroth_srv = 0;
-            struct giga_directory *new = new_cache_entry(&dir_id, zeroth_srv);
+            struct giga_directory *new = new_cache_entry_with_mapping(&dir_id,
+                                            mapping.zeroth_server, &mapping);
 
             //need to fetch it from disk first ...
             //
@@ -152,7 +160,6 @@ bool_t giga_rpc_split_1_svc(giga_dir_id dir_id,
         }
 
         // update bitmap and partition size
-        //giga_update_mapping(&(dir->mapping), parent_index);
         giga_update_mapping(&(dir->mapping), child_index);
 
         dir->partition_size[child_index] = num_entries;
@@ -299,8 +306,8 @@ int split_in_levelDB(struct giga_directory *dir,
                 dir->handle, parent_index, child_index, ret, split_dir_path);
 
         if (giga_rpc_split_1(dir->handle, parent_index, child_index,
-                             (char*)split_dir_path, min, max, ret,
-                             &rpc_reply, rpc_clnt)
+                             (char*)split_dir_path, dir->mapping,
+                             min, max, ret, &rpc_reply, rpc_clnt)
             != RPC_SUCCESS) {
             LOG_ERR("ERR_rpc_split(%s)", clnt_spcreateerror(split_dir_path));
             exit(1);//TODO: retry again?

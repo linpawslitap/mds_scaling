@@ -54,6 +54,9 @@ void cache_destory();
 
 struct giga_directory* new_cache_entry(DIR_handle_t *handle, int srv_id);
 
+struct giga_directory* new_cache_entry_with_mapping(DIR_handle_t *handle,
+                          int srv_id, struct giga_mapping_t *mapping);
+
 void fuse_cache_insert(char* path, DIR_handle_t dir_id);
 
 DIR_handle_t fuse_cache_lookup(char* path);

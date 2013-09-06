@@ -140,7 +140,8 @@ retry:
             stbuf->st_blocks = stbuf->st_size / 4096;
             LOG_MSG("GETATTR(%s) returns a directory for d%d", path, stbuf->st_ino);
             giga_print_mapping(&rpc_reply.result.giga_result_t_u.bitmap);
-            struct giga_directory *new = new_cache_entry((DIR_handle_t*)&stbuf->st_ino, rpc_reply.result.giga_result_t_u.bitmap.zeroth_server);
+            struct giga_directory *new = new_cache_entry((DIR_handle_t*)&stbuf->st_ino,
+							 rpc_reply.result.giga_result_t_u.bitmap.zeroth_server);
             cache_insert((DIR_handle_t*)&stbuf->st_ino, new);
             update_client_mapping(new, &rpc_reply.result.giga_result_t_u.bitmap);
             cache_release(new);
@@ -162,7 +163,8 @@ retry:
         if (S_ISDIR(stbuf->st_mode)) {
             LOG_MSG("GETATTR(%s) returns a directory for d%d", path, stbuf->st_ino);
             giga_print_mapping(&rpc_reply.result.giga_result_t_u.bitmap); 
-            struct giga_directory *new = new_cache_entry((DIR_handle_t*)&stbuf->st_ino, rpc_reply.result.giga_result_t_u.bitmap.zeroth_server); 
+            struct giga_directory *new = new_cache_entry((DIR_handle_t*)&stbuf->st_ino,
+						         rpc_reply.result.giga_result_t_u.bitmap.zeroth_server); 
             cache_insert((DIR_handle_t*)&stbuf->st_ino, new);
             update_client_mapping(new, &rpc_reply.result.giga_result_t_u.bitmap);
             cache_release(new);

@@ -4,7 +4,8 @@ include ../backends/build_config.mk
 HADOOP_LIB = ../hadoop/lib/native/libhdfs.a
 
 CFLAGS += -iquote ..
-CRYPTO_LIBS = /usr/lib/x86_64-linux-gnu/libssl.so.0.9.8
+CRYPTO_LIBS = /usr/lib/libssl.so.0.9.8
+#CRYPTO_LIBS = /usr/lib/x86_64-linux-gnu/libssl.so.0.9.8
 #CRYPTO_LIBS = /usr/libexec/dropbox/libssl.so.0.9.8
 LIBS += ../backends/$(LEVELDBLIBRARY) $(CRYPTO_LIBS) $(HADOOP_LIB) ../common.a
 

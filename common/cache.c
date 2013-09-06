@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
+#include <time.h>
 
 #define CACHE_LOG LOG_DEBUG
 
@@ -300,22 +301,37 @@ void fuse_cache_insert(char* path, DIR_handle_t dir_id)
     entry->pathname = (char*)malloc(strlen(path)+1);
     strcpy(entry->pathname, path);
     entry->dir_id = dir_id;
-    if (fuse_cache_lookup(path) != -1)
+    entry->inserted_time = time(NULL);
+    time_t tmp;
+    if (fuse_cache_lookup(path, &tmp) != -1)
         return;
-    HASH_ADD_KEYPTR(hh, fuse_cache, entry->pathname, strlen(entry->pathname), entry);
+    HASH_ADD_KEYPTR(hh, fuse_cache, entry->pathname,
+                    strlen(entry->pathname), entry);
     logMessage(LOG_DEBUG, __func__, "insert::[%s]-->[%d]", path, (int)dir_id);
 }
 
-DIR_handle_t fuse_cache_lookup(char* path)
+DIR_handle_t fuse_cache_lookup(char* path, time_t *timestamp)
 {
     struct fuse_cache_entry* ret;
     HASH_FIND_STR(fuse_cache, path, ret);
     if (ret == NULL) {
         return -1;
     } else {
-        logMessage(LOG_DEBUG, __func__, "lookup::[%s]-->[%d]", path, (int)ret->dir_id);
+        logMessage(LOG_DEBUG, __func__, "lookup::[%s]-->[%d]",
+                   path, (int)ret->dir_id);
+        *timestamp = ret->inserted_time;
         return ret->dir_id;
     }
 }
 
+void fuse_cache_update(char* path, DIR_handle_t dir_id) {
+    struct fuse_cache_entry* ret;
+    HASH_FIND_STR(fuse_cache, path, ret);
+    if (ret != NULL) {
+        logMessage(LOG_DEBUG, __func__, "lookup::[%s]-->[%d]",
+                   path, (int)ret->dir_id);
+        ret->dir_id = dir_id;
+        ret->inserted_time = time(NULL);
+    }
+}
 

@@ -99,7 +99,7 @@ struct leveldb_filterpolicy_t : public FilterPolicy {
       void*,
       const char* const* key_array, const size_t* key_length_array,
       int num_keys,
-      size_t* filter_length, bool last_level);
+      size_t* filter_length, unsigned char last_level);
   unsigned char (*key_match_)(
       void*,
       const char* key, size_t length,
@@ -123,7 +123,7 @@ struct leveldb_filterpolicy_t : public FilterPolicy {
     }
     size_t len;
     char* filter = (*create_)(state_, &key_pointers[0], &key_sizes[0], n, &len,
-                              last_level);
+                              (unsigned char) last_level);
     dst->append(filter, len);
     free(filter);
   }
@@ -528,7 +528,7 @@ leveldb_filterpolicy_t* leveldb_filterpolicy_create(
         void*,
         const char* const* key_array, const size_t* key_length_array,
         int num_keys,
-        size_t* filter_length, bool last_level),
+        size_t* filter_length, unsigned char last_level),
     unsigned char (*key_may_match)(
         void*,
         const char* key, size_t length,

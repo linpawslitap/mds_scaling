@@ -132,9 +132,16 @@ void GIGAdestroy(void * unused)
     //rpc_disconnect();
 }
 
+int get_expiration(const char* path) {
+  (void) path;
+  return 30;
+}
+
 int lookup_dir(const char* path) {
-  int dir_id = fuse_cache_lookup((char*)path);
-  if (dir_id >= 0) {
+  time_t current_ts = time(NULL);
+  time_t prev_ts;
+  int dir_id = fuse_cache_lookup((char*)path, &prev_ts);
+  if (dir_id >= 0 && current_ts - prev_ts > get_expiration(path)) {
     return dir_id;
   }
   char pdir[PATH_MAX] = {0};

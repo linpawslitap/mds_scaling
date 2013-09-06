@@ -32,6 +32,7 @@ struct giga_directory {
 struct fuse_cache_entry {
     char* pathname;
     DIR_handle_t dir_id;
+    time_t inserted_time;
     UT_hash_handle hh;
 };
 
@@ -59,6 +60,8 @@ struct giga_directory* new_cache_entry_with_mapping(DIR_handle_t *handle,
 
 void fuse_cache_insert(char* path, DIR_handle_t dir_id);
 
-DIR_handle_t fuse_cache_lookup(char* path);
+DIR_handle_t fuse_cache_lookup(char* path, time_t *time);
+
+void fuse_cache_update(char* path, DIR_handle_t dir_id);
 
 #endif

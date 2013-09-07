@@ -146,10 +146,13 @@ class ZigzagFilterPolicy : public FilterPolicy {
     const size_t len = filter.size();
     if (len < 3) return false;
     const char k = filter.data()[len-1];
-    switch (k) {
-      kFullIndex: return FIKeyMayMatch(key, filter);
-      kBloomFilter: return BFKeyMayMatch(key, filter);
-      default: return false;
+    if (k == kFullIndex) {
+      return FIKeyMayMatch(key, filter);
+    } else
+    if (k == kBloomFilter) {
+      return BFKeyMayMatch(key, filter);
+    } else {
+      return false;
     }
   }
 };

@@ -96,9 +96,12 @@ int rpc_host_connect(CLIENT **rpc_client, const char *host)
 
     memcpy(&addr.sin_addr, he->h_addr_list[0], he->h_length);
 
-    *rpc_client = clnttcp_create(&addr,
+    struct timeval wait_send;
+    wait_send.tv_sec = 1;
+    wait_send.tv_usec = 0;
+    *rpc_client = clntudp_create(&addr,
                                  GIGA_RPC_PROG, GIGA_RPC_VERSION,
-                                 &sock, 0, 0);
+                                 wait_send, &sock);
     if (*rpc_client == NULL) {
         LOG_ERR("ERR_rpc_conn: %s", clnt_spcreateerror((char*)host));
         return -1;
@@ -118,7 +121,7 @@ void getHostIPAddress(char *ip_addr, int ip_addr_len)
 
     memset(&hints, 0, sizeof(struct addrinfo));
     hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_socktype = SOCK_DGRAM;
     hints.ai_flags = AI_CANONNAME;
     hints.ai_protocol = 0;
 

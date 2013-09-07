@@ -93,8 +93,11 @@ class ZigzagFilterPolicy : public FilterPolicy {
 
   bool FIKeyMayMatch(const Slice& key, const Slice& full_index) const {
     const size_t len = full_index.size();
-    const size_t klen = key.size();
     uint32_t ri = DecodeFixed32(full_index.data()+(len-1-sizeof(uint32_t)));
+    const size_t klen = (len - 2) / ri;
+    if (klen != key.size()) {
+      return false;
+    }
     uint32_t li = 0;
     while (li < ri) {
       uint32_t mid = (li + ri) / 2;

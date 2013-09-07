@@ -11,8 +11,8 @@ INSTALL_PATH ?= $(CURDIR)
 # Uncomment exactly one of the lines labelled (A), (B), and (C) below
 # to switch between compilation modes.
 
-OPT ?= -O2 -DNDEBUG       # (A) Production use (optimized mode)
-# OPT ?= -g2              # (B) Debug mode, w/ full line-level debugging symbols
+# OPT ?= -O2 -DNDEBUG       # (A) Production use (optimized mode)
+OPT ?= -g2              # (B) Debug mode, w/ full line-level debugging symbols
 # OPT ?= -O2 -g2 -DNDEBUG # (C) Profiling mode: opt, but w/debugging symbols
 #-----------------------------------------------
 
@@ -60,7 +60,8 @@ TESTS = \
 	table_test \
 	version_edit_test \
 	version_set_test \
-	write_batch_test
+	write_batch_test \
+	zigzag_test
 
 PROGRAMS = db_bench $(TESTS)
 BENCHMARKS = db_bench_sqlite3 db_bench_tree_db
@@ -165,6 +166,9 @@ version_set_test: db/version_set_test.o $(LIBOBJECTS) $(TESTHARNESS)
 
 write_batch_test: db/write_batch_test.o $(LIBOBJECTS) $(TESTHARNESS)
 	$(CXX) db/write_batch_test.o $(LIBOBJECTS) $(TESTHARNESS) -o $@ $(LDFLAGS)
+
+zigzag_test: util/zigzag_test.o $(LIBOBJECTS) $(TESTHARNESS)
+	$(CXX) util/zigzag_test.o $(LIBOBJECTS) $(TESTHARNESS) -o $@ $(LDFLAGS)
 
 $(MEMENVLIBRARY) : $(MEMENVOBJECTS)
 	rm -f $@

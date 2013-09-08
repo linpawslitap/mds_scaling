@@ -138,24 +138,46 @@ int get_expiration(const char* path) {
 }
 
 int lookup_dir(const char* path) {
+  size_t path_len = strlen(path);
+  if (path_len < 2)
+    return ROOT_DIR_ID;
+
+  const char* lpos = path;
+  const char* rpos;
+  const char* end_path = path + path_len;
   time_t current_ts = time(NULL);
   time_t prev_ts;
-  int dir_id = fuse_cache_lookup((char*)path, &prev_ts);
-  if (dir_id >= 0 && current_ts - prev_ts > get_expiration(path)) {
-    return dir_id;
-  }
-  char pdir[PATH_MAX] = {0};
-  char dirname[PATH_MAX] = {0};
-  parse_path_components(path, dirname, pdir);
-  dir_id = lookup_dir(pdir);
-  struct stat statbuf;
-  int ret = rpc_getattr(dir_id, dirname, &statbuf);
-  if (ret < 0) {
-    return -1;
-  }
-  if (S_ISDIR(statbuf.st_mode))
-    fuse_cache_insert((char*)path, statbuf.st_ino);
-  return statbuf.st_ino;
+  int dir_id = ROOT_DIR_ID;
+  char dirname[PATH_MAX];
+  do {
+    rpos = strchr(lpos+1, '/');
+    if (rpos == NULL) {
+      rpos = end_path;
+    }
+    if (rpos - lpos > 1) {
+      strncpy(dirname, lpos+1, rpos-lpos-1);
+      int next_dir_id = fuse_cache_lookup(dir_id, dirname, &prev_ts);
+      LOG_MSG("lookup_dir(%d, %s): %d", dir_id, dirname, next_dir_id);
+
+      if (next_dir_id < 0 || current_ts-prev_ts > get_expiration(path)) {
+          struct stat statbuf;
+          int ret = rpc_getattr(dir_id, dirname, &statbuf);
+          if (ret < 0) {
+              return -1;
+          }
+          if (S_ISDIR(statbuf.st_mode)) {
+              if (next_dir_id < 0)
+                  fuse_cache_insert(dir_id, dirname, statbuf.st_ino);
+              else
+                  fuse_cache_update(dir_id, dirname, statbuf.st_ino);
+          }
+          next_dir_id = statbuf.st_ino;
+      }
+      dir_id = next_dir_id;
+    }
+    lpos = rpos;
+  } while (lpos != end_path);
+  return dir_id;
 }
 
 int lookup_parent_dir(const char* path, char* file, char* dir) {
@@ -185,7 +207,7 @@ int GIGAgetattr(const char *path, struct stat *statbuf)
             dir_id = lookup_parent_dir(path, file, dir);
             ret = rpc_getattr(dir_id, file, statbuf);
             if (S_ISDIR(statbuf->st_mode))
-                fuse_cache_insert((char*)path, statbuf->st_ino);
+                fuse_cache_insert(dir_id, file, statbuf->st_ino);
             ret = FUSE_ERROR(ret);
             break;
         case BACKEND_RPC_LOCALFS:

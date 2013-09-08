@@ -681,7 +681,6 @@ start:
             int zeroth_server = get_server_for_new_inode();
             struct giga_directory *new_dir =
               new_cache_entry(&object_id, zeroth_server);
-            cache_insert(&object_id, new_dir);
 
             LOG_MSG("d=%d,p=%d,o=%d,p=%s", dir_id, index, object_id, path);
 
@@ -694,21 +693,26 @@ start:
 
                 dir->partition_size[index] += 1;
 
-                giga_result_t rpc_mkzeroth_reply;
-                CLIENT *rpc_clnt = getConnection(zeroth_server);
+                if (zeroth_server != giga_options_t.serverID) {
+                    giga_result_t rpc_mkzeroth_reply;
+                    CLIENT *rpc_clnt = getConnection(zeroth_server);
 
-                LOG_MSG(">>> RPC_mkzeroth_send: [d%d, s%d-->s%d)]",
-                        object_id, giga_options_t.serverID, zeroth_server);
+                    LOG_MSG(">>> RPC_mkzeroth_send: [d%d, s%d-->s%d)]",
+                            object_id, giga_options_t.serverID, zeroth_server);
 
-                if (giga_rpc_mkzeroth_1(object_id, &rpc_mkzeroth_reply, rpc_clnt)
-                    != RPC_SUCCESS) {
-                    LOG_ERR("ERR_rpc_mkdir(%d)", object_id);
-                    exit(1);//TODO: retry again?
+                    if (giga_rpc_mkzeroth_1(object_id, &rpc_mkzeroth_reply,
+                                            rpc_clnt) != RPC_SUCCESS) {
+                        LOG_ERR("ERR_rpc_mkdir(%d)", object_id);
+                        exit(1);//TODO: retry again?
+                    }
+                    rpc_reply->errnum = rpc_mkzeroth_reply.errnum;
+                } else {
+                    rpc_reply->errnum = metadb_create_dir(ldb_mds, object_id,
+                                                  -1, NULL, &new_dir->mapping);
+                    if (rpc_reply->errnum == 0)
+                        create_dir_in_storage(dir_id);
                 }
-                rpc_reply->errnum = rpc_mkzeroth_reply.errnum;
             }
-
-            cache_release(new_dir);
     }
 
 exit_func:
@@ -732,7 +736,6 @@ bool_t giga_rpc_mkzeroth_1_svc(giga_dir_id dir_id,
     int zeroth_server = giga_options_t.serverID;
 
     struct giga_directory *new_dir = new_cache_entry(&dir_id, zeroth_server);
-    cache_insert(&dir_id, new_dir);
 
     LOG_MSG("mkzeroth(d=%d)", dir_id);
     rpc_reply->errnum = metadb_create_dir(ldb_mds, dir_id, -1, NULL,
@@ -740,7 +743,6 @@ bool_t giga_rpc_mkzeroth_1_svc(giga_dir_id dir_id,
     if (rpc_reply->errnum < 0)
         LOG_ERR("ERR_mdb_mkzeroth(%d)", dir_id);
 
-    cache_release(new_dir);
     create_dir_in_storage(dir_id);
 
     return true;

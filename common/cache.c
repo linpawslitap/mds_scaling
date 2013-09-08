@@ -269,7 +269,6 @@ int cache_init()
     shard_cache_init(&my_dircache, DEFAULT_DIR_CACHE_SIZE);
 
     fuse_cache = NULL;
-    fuse_cache_insert("/", ROOT_DIR_ID);
 
     return 0;
 }
@@ -294,43 +293,66 @@ int cache_update(DIR_handle_t *handle, struct giga_mapping_t *mapping)
     return 1;
 }
 
-void fuse_cache_insert(char* path, DIR_handle_t dir_id)
-{
-    struct fuse_cache_entry* entry
-        = (struct fuse_cache_entry*) malloc(sizeof(struct fuse_cache_entry));
-    entry->pathname = (char*)malloc(strlen(path)+1);
-    strcpy(entry->pathname, path);
-    entry->dir_id = dir_id;
-    entry->inserted_time = time(NULL);
-    time_t tmp;
-    if (fuse_cache_lookup(path, &tmp) != -1)
-        return;
-    HASH_ADD_KEYPTR(hh, fuse_cache, entry->pathname,
-                    strlen(entry->pathname), entry);
-    logMessage(LOG_DEBUG, __func__, "insert::[%s]-->[%d]", path, (int)dir_id);
+inline char* build_fuse_cache_key(DIR_handle_t dir_id, const char* path) {
+  char* key = (char*) malloc(16+strlen(path)+1);
+  sprintf(key, "%016x", dir_id);
+  strcpy(key+16, path);
+  return key;
 }
 
-DIR_handle_t fuse_cache_lookup(char* path, time_t *timestamp)
+void fuse_cache_insert(DIR_handle_t dir_id, const char* path,
+                       DIR_handle_t inode_id)
 {
-    struct fuse_cache_entry* ret;
-    HASH_FIND_STR(fuse_cache, path, ret);
-    if (ret == NULL) {
-        return -1;
+    char* key = build_fuse_cache_key(dir_id, path);
+    struct fuse_cache_entry* entry;
+    HASH_FIND_STR(fuse_cache, key, entry);
+    if (entry == NULL) {
+        entry = (struct fuse_cache_entry*)
+                  malloc(sizeof(struct fuse_cache_entry));
+        entry->pathname = key;
+        entry->inode_id = inode_id;
+        entry->inserted_time = time(NULL);
+
+        HASH_ADD_KEYPTR(hh, fuse_cache, entry->pathname,
+                        strlen(entry->pathname), entry);
+        logMessage(LOG_DEBUG, __func__, "insert::[%d][%s]-->[%d]",
+                   dir_id, path, (int)inode_id);
     } else {
-        logMessage(LOG_DEBUG, __func__, "lookup::[%s]-->[%d]",
-                   path, (int)ret->dir_id);
-        *timestamp = ret->inserted_time;
-        return ret->dir_id;
+        entry->inode_id = inode_id;
+        entry->inserted_time = time(NULL);
     }
 }
 
-void fuse_cache_update(char* path, DIR_handle_t dir_id) {
+DIR_handle_t fuse_cache_lookup(DIR_handle_t dir_id, const char* path,
+                               time_t *timestamp)
+{
     struct fuse_cache_entry* ret;
-    HASH_FIND_STR(fuse_cache, path, ret);
+    char* key = build_fuse_cache_key(dir_id, path);
+
+    HASH_FIND_STR(fuse_cache, key, ret);
+    free(key);
+    if (ret == NULL) {
+        logMessage(LOG_DEBUG, __func__, "lookup::[%d][%s]-->[-1]",
+                   dir_id, path);
+        return -1;
+    } else {
+        logMessage(LOG_DEBUG, __func__, "lookup::[%d][%s]-->[%d]",
+                   dir_id, path, (int)ret->inode_id);
+        *timestamp = ret->inserted_time;
+        return ret->inode_id;
+    }
+}
+
+void fuse_cache_update(DIR_handle_t dir_id, const char* path,
+                       DIR_handle_t inode_id) {
+    struct fuse_cache_entry* ret;
+    char* key = build_fuse_cache_key(dir_id, path);
+    HASH_FIND_STR(fuse_cache, key, ret);
+    free(key);
     if (ret != NULL) {
-        logMessage(LOG_DEBUG, __func__, "lookup::[%s]-->[%d]",
-                   path, (int)ret->dir_id);
-        ret->dir_id = dir_id;
+        logMessage(LOG_DEBUG, __func__, "lookup::[%d][%s]-->[%d]",
+                   dir_id, path, (int)ret->inode_id);
+        ret->inode_id = inode_id;
         ret->inserted_time = time(NULL);
     }
 }

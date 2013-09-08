@@ -265,7 +265,6 @@ void set_sockopt_server(int sock_fd)
 {
     int flags;
 
-    /*
     if ((flags = fcntl(sock_fd, F_GETFL, 0)) < 0) {
         close(sock_fd);
         logMessage(LOG_FATAL, __func__, "ERROR: fcntl(F_GETFL) failed.");
@@ -277,7 +276,6 @@ void set_sockopt_server(int sock_fd)
         logMessage(LOG_FATAL, __func__, "ERROR: fcntl(F_SETFL) failed.");
         exit(1);
     }
-    */
 
     flags = 1;
     if (setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR,
@@ -285,21 +283,21 @@ void set_sockopt_server(int sock_fd)
         logMessage(LOG_DEBUG, __func__, "ERROR: setsockopt(SO_REUSEADDR).");
     }
 
-    /*
     if (setsockopt(sock_fd, SOL_SOCKET, SO_KEEPALIVE,
                    (void *)&flags, sizeof(flags)) < 0) {
         logMessage(LOG_DEBUG, __func__, "ERROR: setsockopt(SO_KEEPALIVE).");
     }
+    /* FIXME
     if (setsockopt(sock_fd, SOL_SOCKET, SO_LINGER,
                    (void *)&flags, sizeof(flags)) < 0) {
         err_ret("ERROR: setsockopt(SO_LINGER).");
     }
+    */
 
     if (setsockopt(sock_fd, IPPROTO_TCP, TCP_NODELAY,
                    (void *)&flags, sizeof(flags)) < 0) {
         logMessage(LOG_DEBUG, __func__, "ERROR: setsockopt(TCP_NODELAY).");
     }
-    */
 
     return;
 }
@@ -307,7 +305,7 @@ void set_sockopt_server(int sock_fd)
 static
 void server_socket()
 {
-    int listen_fd = socket(AF_INET, SOCK_DGRAM, 0);
+    int listen_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (listen_fd < 0) {
         logMessage(LOG_FATAL, __func__, "ERROR: socket() creation failed.");
         exit(1);

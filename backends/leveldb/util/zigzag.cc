@@ -77,24 +77,27 @@ class ZigzagFilterPolicy : public FilterPolicy {
     for (int i = 0; i < n; ++i) {
       dst->append(keys[i].data(), keys[i].size());
     }
+    PutFixed32(dst, (uint32_t) keys[0].size());
     PutFixed32(dst, (uint32_t) n);
   }
 
   virtual void CreateFilter(const Slice* keys, int n, std::string* dst,
                             bool lastLayer) const {
+      /*
       if (!lastLayer) {
         CreateFullIndex(keys, n, dst);
         dst->push_back(static_cast<char>(kFullIndex));
       } else {
+      */
         CreateBloomFilter(keys, n, dst);
         dst->push_back(static_cast<char>(kBloomFilter));
-      }
+      //}
   }
 
   bool FIKeyMayMatch(const Slice& key, const Slice& full_index) const {
     const size_t len = full_index.size();
+    uint32_t klen = DecodeFixed32(full_index.data()+(len-1-2*sizeof(uint32_t)));
     uint32_t ri = DecodeFixed32(full_index.data()+(len-1-sizeof(uint32_t)));
-    const size_t klen = (len - 2) / ri;
     if (klen != key.size()) {
       return false;
     }

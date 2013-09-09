@@ -64,7 +64,7 @@ top:
         goto top;
 }
 
-static void mknod_files(const char *dir)
+static void mkdir_files(const char *dir)
 {
     printf("Creating %d files from test_%d ... \n", num_files, pid);
     mode_t m = CREATE_MODE;
@@ -72,14 +72,14 @@ static void mknod_files(const char *dir)
     for (curr=0; curr<num_files; curr++) {
         char p[512] = {0};
         snprintf(p, sizeof(p), "%s%s_p%d_f%d", dir, hostname, pid, curr);
-        if (gigaMknod(p, m) < 0) {
-              printf ("ERROR during mknod(%s): %s\n", p, strerror(errno));
+        if (gigaMkdir(p, m) < 0) {
+              printf ("ERROR during mkdir(%s): %s\n", p, strerror(errno));
               return;
         }
         if (rand() % 10 > 4) {
           struct stat statbuf;
           if (gigaGetAttr(p, &statbuf) < 0) {
-              printf ("ERROR during mknod(%s): %s\n", p, strerror(errno));
+              printf ("ERROR during mkdir(%s): %s\n", p, strerror(errno));
               return;
           }
         }
@@ -170,7 +170,7 @@ int main(int argc, char **argv)
             exit(1);
         }
         start_exp = time(NULL);
-        mknod_files(argv[1]);
+        mkdir_files(argv[1]);
         end_exp = time(NULL);
 
     }

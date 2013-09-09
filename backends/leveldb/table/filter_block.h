@@ -28,7 +28,7 @@ class FilterPolicy;
 //      (StartBlock AddKey*)* Finish
 class FilterBlockBuilder {
  public:
-  explicit FilterBlockBuilder(const FilterPolicy*);
+  explicit FilterBlockBuilder(const FilterPolicy*, bool lastLayer);
 
   void StartBlock(uint64_t block_offset);
   void AddKey(const Slice& key);
@@ -43,6 +43,7 @@ class FilterBlockBuilder {
   std::string result_;            // Filter data computed so far
   std::vector<Slice> tmp_keys_;   // policy_->CreateFilter() argument
   std::vector<uint32_t> filter_offsets_;
+  bool lastLayer_;
 
   // No copying allowed
   FilterBlockBuilder(const FilterBlockBuilder&);

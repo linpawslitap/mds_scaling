@@ -1,7 +1,5 @@
 #!/bin/bash
 
-source ../hdfs.sh
-
 MNT="/tmp/giga_c"
 NUM_FUSE_CLI="/tmp/.giga_clients"
 
@@ -48,7 +46,9 @@ do
             dir=${MNT}/${i}
         fi
 #        ./smallfile_lib_test / 1 $files > ~/_perf/$host.$i.$j 2>&1 &
-        ./mknod_lib_test / $files > ~/_perf/$host.$i.$j 2>&1 &
+#        ./mknod_lib_test / $files > ~/_perf/$host.$i.$j 2>&1 &
+        ./mkdir_lib_test / $files > ~/_perf/$host.$i.$j 2>&1 &
+
         #( time ./mknod_test ${dir} $files ) > ~/_perf/$host.$i.$j 2>&1 &
 
     done

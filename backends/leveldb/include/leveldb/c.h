@@ -249,7 +249,7 @@ extern leveldb_filterpolicy_t* leveldb_filterpolicy_create(
         void*,
         const char* const* key_array, const size_t* key_length_array,
         int num_keys,
-        size_t* filter_length),
+        size_t* filter_length, unsigned char last_level),
     unsigned char (*key_may_match)(
         void*,
         const char* key, size_t length,

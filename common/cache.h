@@ -31,7 +31,8 @@ struct giga_directory {
 
 struct fuse_cache_entry {
     char* pathname;
-    DIR_handle_t dir_id;
+    DIR_handle_t inode_id;
+    time_t inserted_time;
     UT_hash_handle hh;
 };
 
@@ -54,8 +55,16 @@ void cache_destory();
 
 struct giga_directory* new_cache_entry(DIR_handle_t *handle, int srv_id);
 
-void fuse_cache_insert(char* path, DIR_handle_t dir_id);
+struct giga_directory* new_cache_entry_with_mapping(DIR_handle_t *handle,
+                                         struct giga_mapping_t *mapping);
 
-DIR_handle_t fuse_cache_lookup(char* path);
+void fuse_cache_insert(DIR_handle_t dir_id, const char* path,
+                       DIR_handle_t inode_id);
+
+DIR_handle_t fuse_cache_lookup(DIR_handle_t dir_id,
+                               const char* path, time_t *time);
+
+void fuse_cache_update(DIR_handle_t dir_id, const char* path,
+                       DIR_handle_t inode_id);
 
 #endif

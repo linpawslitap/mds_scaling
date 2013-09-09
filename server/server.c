@@ -465,8 +465,5 @@ void init_giga_mapping()
     giga_print_mapping(&dir->mapping);
 #endif
 
-
     return;
 }
-
-

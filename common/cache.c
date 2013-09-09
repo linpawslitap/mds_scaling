@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
+#include <time.h>
 
 #define CACHE_LOG LOG_DEBUG
 
@@ -119,14 +120,6 @@ struct giga_directory* lru_cache_lookup(lru_cache_t* lru,
     struct giga_directory* entry;
     HASH_FIND_INT(lru->table, &handle, entry);
 
-    /*
-    if (entry != NULL) {
-        printf("LOOKUP: %d %d\n", handle, entry->split_flag);
-    } else {
-        printf("LOOKUP: %d NULL\n", handle);
-    }
-    */
-
     if (entry != NULL) {
         entry->refcount ++;
         double_list_remove(entry);
@@ -229,18 +222,23 @@ void cache_destory() {
     shard_cache_destroy(&my_dircache);
 }
 
-struct giga_directory* new_cache_entry(DIR_handle_t *handle, int srv_id)
+
+struct giga_directory* new_cache_entry_with_mapping(DIR_handle_t *handle,
+                                          struct giga_mapping_t* mapping)
 {
     int i = 0;
 
-    struct giga_directory *d = (struct giga_directory*)malloc(sizeof(struct giga_directory));
+    struct giga_directory *d =
+        (struct giga_directory*) malloc(sizeof(struct giga_directory));
     if (d == NULL) {
         logMessage(LOG_FATAL, __func__, "malloc_err: %s", strerror(errno));
         exit(1);
     }
 
     d->handle = *handle;
-    giga_init_mapping(&d->mapping, -1, d->handle, srv_id, giga_options_t.num_servers);
+    if (mapping != NULL) {
+      d->mapping = *mapping;
+    }
 
     //d->refcount = 1;
     d->split_flag = 0;
@@ -257,37 +255,20 @@ struct giga_directory* new_cache_entry(DIR_handle_t *handle, int srv_id)
     return d;
 }
 
+struct giga_directory* new_cache_entry(DIR_handle_t *handle, int srv_id)
+{
+    struct giga_directory* d =
+      new_cache_entry_with_mapping(handle, NULL);
+    giga_init_mapping(&d->mapping, -1, d->handle, srv_id,
+                      giga_options_t.num_servers);
+    return d;
+}
+
 int cache_init()
 {
-
-#if 0
-    int i = 0;
-
-    dircache = (struct giga_directory*)malloc(sizeof(struct giga_directory));
-    if (!dircache) {
-        logMessage(LOG_FATAL, __func__, "malloc_err: %s", strerror(errno));
-        exit(1);
-    }
-
-    dircache->handle = ROOT_DIR_ID;
-    int zeroth_srv = 0; //FIXME: how do you get zeroth server info?
-    giga_init_mapping(&dircache->mapping, -1, dircache->handle, zeroth_srv, giga_options_t.num_servers);
-    dircache->refcount = 1;
-    dircache->split_flag = 0;
-    pthread_mutex_init(&dircache->split_mtx, NULL);
-    //for (i=0; i < (int)sizeof(dir->partition_size); i++)
-    logMessage(CACHE_LOG, __func__, "init %d  partitions ...", MAX_NUM);
-    for (i=0; i < MAX_NUM; i++) {
-        dircache->partition_size[i] = 0;
-        pthread_mutex_init(&dircache->partition_mtx[i], NULL);
-    }
-    logMessage(LOG_TRACE, __func__, "Cache_CREATE: dir(%d)", dircache->handle);
-#endif
-
     shard_cache_init(&my_dircache, DEFAULT_DIR_CACHE_SIZE);
 
     fuse_cache = NULL;
-    fuse_cache_insert("/", ROOT_DIR_ID);
 
     return 0;
 }
@@ -312,29 +293,67 @@ int cache_update(DIR_handle_t *handle, struct giga_mapping_t *mapping)
     return 1;
 }
 
-void fuse_cache_insert(char* path, DIR_handle_t dir_id)
-{
-    struct fuse_cache_entry* entry
-        = (struct fuse_cache_entry*) malloc(sizeof(struct fuse_cache_entry));
-    entry->pathname = (char*)malloc(strlen(path)+1);
-    strcpy(entry->pathname, path);
-    entry->dir_id = dir_id;
-    if (fuse_cache_lookup(path) != -1)
-        return;
-    HASH_ADD_KEYPTR(hh, fuse_cache, entry->pathname, strlen(entry->pathname), entry);
-    logMessage(LOG_DEBUG, __func__, "insert::[%s]-->[%d]", path, (int)dir_id);
+inline char* build_fuse_cache_key(DIR_handle_t dir_id, const char* path) {
+  char* key = (char*) malloc(16+strlen(path)+1);
+  sprintf(key, "%016x", dir_id);
+  strcpy(key+16, path);
+  return key;
 }
 
-DIR_handle_t fuse_cache_lookup(char* path)
+void fuse_cache_insert(DIR_handle_t dir_id, const char* path,
+                       DIR_handle_t inode_id)
 {
-    struct fuse_cache_entry* ret;
-    HASH_FIND_STR(fuse_cache, path, ret);
-    if (ret == NULL) {
-        return -1;
+    char* key = build_fuse_cache_key(dir_id, path);
+    struct fuse_cache_entry* entry;
+    HASH_FIND_STR(fuse_cache, key, entry);
+    if (entry == NULL) {
+        entry = (struct fuse_cache_entry*)
+                  malloc(sizeof(struct fuse_cache_entry));
+        entry->pathname = key;
+        entry->inode_id = inode_id;
+        entry->inserted_time = time(NULL);
+
+        HASH_ADD_KEYPTR(hh, fuse_cache, entry->pathname,
+                        strlen(entry->pathname), entry);
+        logMessage(LOG_DEBUG, __func__, "insert::[%d][%s]-->[%d]",
+                   dir_id, path, (int)inode_id);
     } else {
-        logMessage(LOG_DEBUG, __func__, "lookup::[%s]-->[%d]", path, (int)ret->dir_id);
-        return ret->dir_id;
+        entry->inode_id = inode_id;
+        entry->inserted_time = time(NULL);
     }
 }
 
+DIR_handle_t fuse_cache_lookup(DIR_handle_t dir_id, const char* path,
+                               time_t *timestamp)
+{
+    struct fuse_cache_entry* ret;
+    char* key = build_fuse_cache_key(dir_id, path);
+
+    HASH_FIND_STR(fuse_cache, key, ret);
+    free(key);
+    if (ret == NULL) {
+        logMessage(LOG_DEBUG, __func__, "lookup::[%d][%s]-->[-1]",
+                   dir_id, path);
+        return -1;
+    } else {
+        logMessage(LOG_DEBUG, __func__, "lookup::[%d][%s]-->[%d]",
+                   dir_id, path, (int)ret->inode_id);
+        *timestamp = ret->inserted_time;
+        return ret->inode_id;
+    }
+}
+
+void fuse_cache_update(DIR_handle_t dir_id, const char* path,
+                       DIR_handle_t inode_id) {
+    struct fuse_cache_entry* ret;
+    char* key = build_fuse_cache_key(dir_id, path);
+    HASH_FIND_STR(fuse_cache, key, ret);
+    free(key);
+    if (ret != NULL) {
+        logMessage(LOG_DEBUG, __func__, "lookup::[%d][%s]-->[%d]",
+                   dir_id, path, (int)ret->inode_id);
+        ret->inode_id = inode_id;
+        ret->inserted_time = time(NULL);
+    }
+}
 

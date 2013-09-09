@@ -22,10 +22,10 @@ $(shell ./build_detect_platform build_config.mk)
 include build_config.mk
 
 HADOOP_INCLUDE = -I../../hadoop/include/ \
-  -I/usr/lib/jvm/java-1.7.0-sun-amd64/include/ \
-  -I/usr/lib/jvm/java-1.7.0-sun-amd64/include/linux
-HADOOP_LDFLAGS= -L/usr/lib/jvm/java-1.7.0-sun-amd64/jre/lib/amd64/ \
-	-L/usr/lib/jvm/java-1.7.0-sun-amd64/jre/lib/amd64/server \
+  -I/usr/lib/jvm/default-java/include/ \
+  -I/usr/lib/jvm/default-java/include/linux
+HADOOP_LDFLAGS= -L/usr/lib/jvm/default-java/jre/lib/amd64/ \
+	-L/usr/lib/jvm/default-java/jre/lib/amd64/server \
 	-ljvm
 HADOOP_LIB = ../../hadoop/lib/native/libhdfs.a
 
@@ -60,7 +60,8 @@ TESTS = \
 	table_test \
 	version_edit_test \
 	version_set_test \
-	write_batch_test
+	write_batch_test \
+	zigzag_test
 
 PROGRAMS = db_bench $(TESTS)
 BENCHMARKS = db_bench_sqlite3 db_bench_tree_db
@@ -165,6 +166,9 @@ version_set_test: db/version_set_test.o $(LIBOBJECTS) $(TESTHARNESS)
 
 write_batch_test: db/write_batch_test.o $(LIBOBJECTS) $(TESTHARNESS)
 	$(CXX) db/write_batch_test.o $(LIBOBJECTS) $(TESTHARNESS) -o $@ $(LDFLAGS)
+
+zigzag_test: util/zigzag_test.o $(LIBOBJECTS) $(TESTHARNESS)
+	$(CXX) util/zigzag_test.o $(LIBOBJECTS) $(TESTHARNESS) -o $@ $(LDFLAGS)
 
 $(MEMENVLIBRARY) : $(MEMENVOBJECTS)
 	rm -f $@

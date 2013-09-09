@@ -11,28 +11,9 @@
 #define ASSERT(x) \
   if (!((x))) { fprintf(stderr, "%s %d failed\n", __FILE__, __LINE__); }
 int num_print_entries;
-/*
+
 static
-void print_meta_obj_key(metadb_key_t *mkey) {
-    printf("%ld, %ld, ", mkey->parent_id, mkey->partition_id);
-    int i;
-    for (i = 0; i < HASH_LEN; ++i)
-        printf("%c", mkey->name_hash[i]);
-    printf("\n");
-}
-static
-void init_meta_obj_key(metadb_key_t *mkey,
-                       metadb_inode_t dir_id,
-                       int partition_id, const char* path)
-{
-    mkey->parent_id = dir_id;
-    mkey->partition_id = partition_id;
-    memset(mkey->name_hash, 0, sizeof(mkey->name_hash));
-    giga_hash_name(path, mkey->name_hash);
-}
-*/
-static
-void myreaddir(struct MetaDB mdb,
+void myreaddir(struct MetaDB *mdb,
                metadb_inode_t dir_id,
                int partition_id) {
     char* buf = (char *) malloc(MAX_BUF_SIZE);
@@ -56,7 +37,8 @@ void myreaddir(struct MetaDB mdb,
             const char* realpath =
                 metadb_readdir_iter_get_realpath(iter, &len);
             struct stat statbuf;
-                metadb_readdir_iter_get_stat(iter, &statbuf);
+            statbuf = *metadb_readdir_iter_get_stat(iter);
+            (void) statbuf;
             printf("%s %s\n", objname, realpath);
             metadb_readdir_iter_next(iter);
         }
@@ -65,29 +47,56 @@ void myreaddir(struct MetaDB mdb,
     free(buf);
 }
 
+static
+void listmdb(struct MetaDB* mdb) {
+    leveldb_iterator_t* iter =
+      leveldb_create_iterator(mdb->db, mdb->scan_options);
+
+    leveldb_iter_seek_to_first(iter);
+    while (leveldb_iter_valid(iter)) {
+        size_t klen;
+        const char* kstr = leveldb_iter_key(iter, &klen);
+        const metadb_key_t* key = (const metadb_key_t *) kstr;
+        printf("%ld %ld %ld %s\n",
+               key->parent_id >> 20, key->parent_id & ((1<<20)-1),
+               key->partition_id, key->name_hash);
+        size_t vlen;
+        const char* vstr = leveldb_iter_value(iter, &vlen);
+        (void) vstr;
+        leveldb_iter_next(iter);
+    }
+
+    leveldb_iter_destroy(iter);
+}
+
 void run_test(int nargs, char* args[]) {
     if (nargs < 1) {
         return;
     }
 
+    (void) myreaddir;
+
     char* dbname = args[1];
 
     struct MetaDB mdb;
 
-    printf("metadb_init return value %d\n", metadb_init(&mdb, dbname));
+    printf("metadb_init return value %d\n",
+           metadb_init(&mdb, dbname, NULL, 0, 0));
 
+    listmdb(&mdb);
+
+    /*
     int dir_id = 1;
     int partition_id = 1;
-
     num_print_entries = 0;
     myreaddir(mdb, dir_id, partition_id);
     printf("After myreaddir %d \n", num_print_entries);
-
     struct stat statbuf;
     printf("%d\n", metadb_lookup(mdb, dir_id, partition_id,
            "h0.giga.ycsb.marmot.pdl.cmu.local_p5369_f34", &statbuf));
+    */
 
-    metadb_close(mdb);
+    metadb_close(&mdb);
 }
 
 int main(int nargs, char* args[]) {

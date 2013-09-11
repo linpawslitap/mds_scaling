@@ -32,6 +32,7 @@ typedef struct {
     int flags;
     int state;
     int dir_id;
+    int zeroth_srv;
     char file[PATH_MAX];
 } rpc_leveldb_fh_t;
 
@@ -104,8 +105,6 @@ void* GIGAinit(struct fuse_conn_info *conn)
     (void)conn;
 
     switch (giga_options_t.backend_type) {
-        case BACKEND_RPC_LOCALFS:
-            break;
         case BACKEND_RPC_LEVELDB:
             rpcInit();
             //rpcConnect();     //FIXME: I don't need this
@@ -137,7 +136,7 @@ int get_expiration(const char* path) {
   return 30;
 }
 
-int lookup_dir(const char* path) {
+int lookup_dir(const char* path, int* ret_zeroth_server) {
   size_t path_len = strlen(path);
   if (path_len < 2)
     return ROOT_DIR_ID;
@@ -147,6 +146,8 @@ int lookup_dir(const char* path) {
   const char* end_path = path + path_len;
   time_t current_ts = time(NULL);
   time_t prev_ts;
+  int zeroth_server;
+  int prev_zeroth_server = 0;
   int dir_id = ROOT_DIR_ID;
   char dirname[PATH_MAX];
   do {
@@ -156,33 +157,42 @@ int lookup_dir(const char* path) {
     }
     if (rpos - lpos > 1) {
       strncpy(dirname, lpos+1, rpos-lpos-1);
-      int next_dir_id = fuse_cache_lookup(dir_id, dirname, &prev_ts);
-      LOG_MSG("lookup_dir(%d, %s): %d", dir_id, dirname, next_dir_id);
+      int next_dir_id = fuse_cache_lookup(dir_id, dirname,
+                                          &prev_ts, &zeroth_server);
+      LOG_MSG("lookup_dir(%d, %s): %d %d",
+              dir_id, dirname, next_dir_id, zeroth_server);
 
       if (next_dir_id < 0 || current_ts-prev_ts > get_expiration(path)) {
           struct stat statbuf;
-          int ret = rpc_getattr(dir_id, dirname, &statbuf);
+          int ret = rpc_getattr(dir_id, prev_zeroth_server, dirname,
+                                &statbuf, &zeroth_server);
           if (ret < 0) {
               return -1;
           }
           if (S_ISDIR(statbuf.st_mode)) {
               if (next_dir_id < 0)
-                  fuse_cache_insert(dir_id, dirname, statbuf.st_ino);
+                  fuse_cache_insert(dir_id, dirname,
+                                    statbuf.st_ino, zeroth_server);
               else
-                  fuse_cache_update(dir_id, dirname, statbuf.st_ino);
+                  fuse_cache_update(dir_id, dirname,
+                                    statbuf.st_ino, zeroth_server);
           }
           next_dir_id = statbuf.st_ino;
       }
       dir_id = next_dir_id;
+      prev_zeroth_server = zeroth_server;
     }
     lpos = rpos;
   } while (lpos != end_path);
+  *ret_zeroth_server = prev_zeroth_server;
+  assert(prev_zeroth_server < giga_options_t.num_servers);
   return dir_id;
 }
 
-int lookup_parent_dir(const char* path, char* file, char* dir) {
+int lookup_parent_dir(const char* path, char* file, char* dir,
+                      int *zeroth_server) {
     parse_path_components(path, file, dir);
-    return lookup_dir(dir);
+    return lookup_dir(dir, zeroth_server);
 }
 
 int GIGAgetattr(const char *path, struct stat *statbuf)
@@ -194,7 +204,8 @@ int GIGAgetattr(const char *path, struct stat *statbuf)
     char dir[PATH_MAX] = {0};
     char file[PATH_MAX] = {0};
     int dir_id = 0;
-
+    int zeroth_srv = 0;
+    int next_zeroth_srv = 0;
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
             get_full_path(fpath, path);
@@ -204,16 +215,12 @@ int GIGAgetattr(const char *path, struct stat *statbuf)
             //    ret = FUSE_ERROR(ret);
             break;
         case BACKEND_RPC_LEVELDB:
-            dir_id = lookup_parent_dir(path, file, dir);
-            ret = rpc_getattr(dir_id, file, statbuf);
+            dir_id = lookup_parent_dir(path, file, dir, &zeroth_srv);
+            ret = rpc_getattr(dir_id, zeroth_srv, file, statbuf,
+                              &next_zeroth_srv);
             if (S_ISDIR(statbuf->st_mode))
-                fuse_cache_insert(dir_id, file, statbuf->st_ino);
-            ret = FUSE_ERROR(ret);
-            break;
-        case BACKEND_RPC_LOCALFS:
-            parse_path_components(path, file, dir);
-            //TODO: convert "dir" to "dir_id"
-            ret = rpc_getattr(dir_id, file, statbuf);
+                fuse_cache_insert(dir_id, file,
+                                  statbuf->st_ino, next_zeroth_srv);
             ret = FUSE_ERROR(ret);
             break;
         default:
@@ -235,7 +242,7 @@ int GIGAmkdir(const char *path, mode_t mode)
     char dir[PATH_MAX] = {0};
     char file[PATH_MAX] = {0};
     int dir_id = 0;
-
+    int zeroth_srv = 0;
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
             get_full_path(fpath, path);
@@ -243,13 +250,8 @@ int GIGAmkdir(const char *path, mode_t mode)
             ret = FUSE_ERROR(ret);
             break;
         case BACKEND_RPC_LEVELDB:
-            dir_id = lookup_parent_dir(path, file, dir);
-            ret = rpc_mkdir(dir_id, file, mode);
-            ret = FUSE_ERROR(ret);
-            break;
-        case BACKEND_RPC_LOCALFS:
-            parse_path_components(path, file, dir);
-            ret = rpc_mkdir(dir_id, file, mode);
+            dir_id = lookup_parent_dir(path, file, dir, &zeroth_srv);
+            ret = rpc_mkdir(dir_id, zeroth_srv, file, mode);
             ret = FUSE_ERROR(ret);
             break;
         default:
@@ -271,18 +273,16 @@ int GIGAmknod(const char *path, mode_t mode, dev_t dev)
     char dir[PATH_MAX] = {0};
     char file[PATH_MAX] = {0};
     int dir_id = 0;
-
+    int zeroth_srv = 0;
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
             get_full_path(fpath, path);
             ret = local_mknod(fpath, mode, dev);
             ret = FUSE_ERROR(ret);
             break;
-        case BACKEND_RPC_LOCALFS:
-            ;
         case BACKEND_RPC_LEVELDB:
-            dir_id = lookup_parent_dir(path, file, dir);
-            ret = rpc_mknod(dir_id, file, mode, dev);
+            dir_id = lookup_parent_dir(path, file, dir, &zeroth_srv);
+            ret = rpc_mknod(dir_id, zeroth_srv, file, mode, dev);
             ret = FUSE_ERROR(ret);
             break;
         default:
@@ -328,6 +328,7 @@ int GIGAreaddir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offse
 
     int ret = 0;
     int dir_id = 0;
+    int zeroth_srv = 0;
     struct dirent *de;
     DIR *dp = (DIR*) (uintptr_t) fi->fh;
 
@@ -345,9 +346,10 @@ int GIGAreaddir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offse
             } while ((de = readdir(dp)) != NULL);
             break;
         case BACKEND_RPC_LEVELDB:
-            dir_id = lookup_dir(path);
+            dir_id = lookup_dir(path, &zeroth_srv);
             int num_entries = 0;
-            ret_ls = (scan_list_t)rpc_readdir(dir_id, path, &num_entries);
+            ret_ls = (scan_list_t)rpc_readdir(dir_id, zeroth_srv,
+                                              path, &num_entries);
             for (ls = ret_ls; ls != NULL; ls = ls->next) {
                 if (filler(buf, ls->entry_name, NULL, 0) != 0) {
                     ret = ENOMEM;
@@ -369,8 +371,9 @@ int GIGAreaddir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offse
 scan_list_t GIGAliststatus(const char *path, int* num_entries)
 {
     int dir_id = 0;
-    dir_id = lookup_dir(path);
-    return (scan_list_t)rpc_readdir(dir_id, path, num_entries);
+    int zeroth_srv;
+    dir_id = lookup_dir(path, &zeroth_srv);
+    return (scan_list_t)rpc_readdir(dir_id, zeroth_srv, path, num_entries);
 }
 
 int GIGAreleasedir(const char *path, struct fuse_file_info *fi)
@@ -628,9 +631,10 @@ int GIGAopen(const char *path, struct fuse_file_info *fi)
             break;
         case BACKEND_RPC_LEVELDB:
             fh = (rpc_leveldb_fh_t *) malloc(sizeof(rpc_leveldb_fh_t));
-            fh->dir_id = lookup_parent_dir(path, fh->file, dir);
+            fh->dir_id = lookup_parent_dir(path, fh->file, dir,
+                                           &fh->zeroth_srv);
             fh->flags = fi->flags;
-            ret = rpc_open(fh->dir_id, fh->file, fi->flags,
+            ret = rpc_open(fh->dir_id, fh->zeroth_srv, fh->file, fi->flags,
                            &fh->state, fpath);
             if (ret >= 0) {
                 if (fh->state == RPC_LEVELDB_FILE_IN_FS) {
@@ -663,9 +667,10 @@ int GIGAfetch(const char *path,
     int ret = 0;
     char file[PATH_MAX] = {0};
     char dir[PATH_MAX] = {0};
-    int dir_id = lookup_parent_dir(path, file, dir);
+    int zeroth_srv;
+    int dir_id = lookup_parent_dir(path, file, dir, &zeroth_srv);
 
-    ret = rpc_fetch(dir_id, file, state, buf, buf_len);
+    ret = rpc_fetch(dir_id, zeroth_srv, file, state, buf, buf_len);
 
     return FUSE_ERROR(ret);
 }
@@ -677,7 +682,7 @@ int GIGAreadall(struct fuse_file_info *fi,
     int ret = 0;
     int state;
     rpc_leveldb_fh_t* fh = (rpc_leveldb_fh_t*) (uintptr_t) fi->fh;
-    ret = rpc_fetch(fh->dir_id, fh->file,
+    ret = rpc_fetch(fh->dir_id, fh->zeroth_srv, fh->file,
                     &state, buf, buf_len);
 
     return FUSE_ERROR(ret);
@@ -689,7 +694,7 @@ int GIGAwritelink(struct fuse_file_info *fi,
 
     int ret = 0;
     rpc_leveldb_fh_t* fh = (rpc_leveldb_fh_t*) (uintptr_t) fi->fh;
-    ret = rpc_updatelink(fh->dir_id, fh->file, link);
+    ret = rpc_updatelink(fh->dir_id, fh->zeroth_srv, fh->file, link);
 
     return FUSE_ERROR(ret);
 }
@@ -705,9 +710,10 @@ int GIGAupdatelink(const char *path, const char* link) {
     int ret = 0;
     char file[PATH_MAX] = {0};
     char dir[PATH_MAX] = {0};
-    int dir_id = lookup_parent_dir(path, file, dir);
+    int zeroth_srv;
+    int dir_id = lookup_parent_dir(path, file, dir, &zeroth_srv);
 
-    ret = rpc_updatelink(dir_id, file, link);
+    ret = rpc_updatelink(dir_id, zeroth_srv, file, link);
 
     return FUSE_ERROR(ret);
 }
@@ -737,7 +743,8 @@ int GIGAread(const char *path, char *buf, size_t size, off_t offset,
                 if (fh->fd >= 0 && (ret = pread(fh->fd, buf, size, offset)) < 0)
                     ret = FUSE_ERROR(ret);
             } else {
-                ret = rpc_read(fh->dir_id, fh->file, buf, size, offset,
+                ret = rpc_read(fh->dir_id, fh->zeroth_srv,
+                               fh->file, buf, size, offset,
                                &fh->state, fpath);
                 if (fh->state == RPC_LEVELDB_FILE_IN_FS) {
                     if ((fh->fd = open(fpath, fi->flags)) < 0) {
@@ -784,8 +791,8 @@ int GIGAwrite(const char *path, const char *buf, size_t size, off_t offset,
                 if (fh->fd >= 0 && (ret = pwrite(fh->fd, buf, size, offset)) < 0)
                    ret = FUSE_ERROR(ret);
             } else {
-                ret = rpc_write(fh->dir_id, fh->file, buf, size, offset,
-                                &fh->state, fpath);
+                ret = rpc_write(fh->dir_id, fh->zeroth_srv, fh->file, buf, size,
+                                offset, &fh->state, fpath);
                 if (fh->state == RPC_LEVELDB_FILE_IN_FS) {
                     LOG_MSG("open (migrate): %s", fpath);
                     if ((fh->fd = open(fpath, O_RDWR)) <= 0) {
@@ -867,7 +874,7 @@ int GIGArelease(const char *path, struct fuse_file_info *fi)
             if (fh->state == RPC_LEVELDB_FILE_IN_FS) {
                 ret = close(fh->fd);
             }
-            ret_remote = rpc_close(fh->dir_id, fh->file);
+            ret_remote = rpc_close(fh->dir_id, fh->zeroth_srv, fh->file);
             if (ret_remote < ret) {
               ret = ret_remote;
             }
@@ -971,8 +978,9 @@ int GIGAcreate(const char *path, mode_t mode, struct fuse_file_info *fi)
             break;
         case BACKEND_RPC_LEVELDB:
             fh = (rpc_leveldb_fh_t *) malloc(sizeof(rpc_leveldb_fh_t));
-            fh->dir_id = lookup_parent_dir(path, fh->file, dir);
-            ret = rpc_mknod(fh->dir_id, fh->file, mode, 0);
+            fh->dir_id = lookup_parent_dir(path, fh->file, dir,
+                                           &fh->zeroth_srv);
+            ret = rpc_mknod(fh->dir_id, fh->zeroth_srv, fh->file, mode, 0);
             if (ret == 0) {
               fi->fh = (intptr_t) fh;
             } else {

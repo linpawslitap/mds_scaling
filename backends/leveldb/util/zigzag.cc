@@ -41,9 +41,10 @@ class ZigzagFilterPolicy : public FilterPolicy {
     return "leveldb.BuiltinZigzagFilter";
   }
 
-  void CreateBloomFilter(const Slice* keys, int n, std::string* dst) const {
+  void CreateBloomFilter(const Slice* keys, int n, std::string* dst,
+                         size_t bits_per_key) const {
     // Compute bloom filter size (in both bits and bytes)
-    size_t bits = n * bits_per_key_;
+    size_t bits = n * bits_per_key;
 
     // For small n, we can see a very high false positive rate.  Fix it
     // by enforcing a minimum bloom filter length.
@@ -88,10 +89,17 @@ class ZigzagFilterPolicy : public FilterPolicy {
         CreateFullIndex(keys, n, dst);
         dst->push_back(static_cast<char>(kFullIndex));
       } else {
-      */
         CreateBloomFilter(keys, n, dst);
         dst->push_back(static_cast<char>(kBloomFilter));
-      //}
+      }
+      */
+      if (!lastLayer) {
+        CreateBloomFilter(keys, n, dst, bits_per_key_ + 5);
+        dst->push_back(static_cast<char>(kBloomFilter));
+      } else {
+        CreateBloomFilter(keys, n, dst, bits_per_key_ - 1);
+        dst->push_back(static_cast<char>(kBloomFilter));
+      }
   }
 
   bool FIKeyMayMatch(const Slice& key, const Slice& full_index) const {

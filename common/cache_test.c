@@ -144,9 +144,10 @@ void TestEvictionPolicy() {
 void TestFUSECache() {
     char key[] = "20";
     time_t tmp;
-    ASSERT(fuse_cache_lookup(0, key, &tmp) == -1);
-    fuse_cache_insert(0, key, 1000);
-    ASSERT(fuse_cache_lookup(0, key, &tmp) == 1000);
+    int tmp1;
+    ASSERT(fuse_cache_lookup(0, key, &tmp, &tmp1) == -1);
+    fuse_cache_insert(0, key, 1000, tmp1);
+    ASSERT(fuse_cache_lookup(0, key, &tmp, &tmp1) == 1000);
 }
 /*
 int main() {

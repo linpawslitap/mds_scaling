@@ -357,7 +357,7 @@ void* split_thread(void *arg)
 
 void process_split(DIR_handle_t dir_id, index_t index)
 {
-    struct giga_directory *dir = cache_fetch(&dir_id);
+    struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
         LOG_MSG("ERR_cache: dir(%d) missing", dir_id);
         return;

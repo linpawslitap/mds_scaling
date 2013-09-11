@@ -26,7 +26,7 @@
 
 #define INODE_COUNT_KEY     "inode_count"
 #define INODE_COUNT_KEY_LEN 11
-#define INODE_COUNT_VAL_FORMAT  "%020d"
+#define INODE_COUNT_VAL_FORMAT  "%020lu"
 #define INODE_COUNT_VAL_LEN 21
 
 /*
@@ -44,24 +44,28 @@ int local_mkdir(const char *path, mode_t mode);
  */
 int rpc_init();
 void rpc_disconnect();
-int rpc_getattr(int dir_id, const char *path, struct stat *statbuf);
-int rpc_mkdir(int dir_id, const char *path, mode_t mode);
-int rpc_mknod(int dir_ID, const char *path, mode_t mode, dev_t dev);
-int rpc_create(int dir_id, const char *path, mode_t mode);
-scan_list_t rpc_readdir(int dir_id, const char *path, int *num_entries);
-int rpc_opendir(int dir_id, const char *path);
-int rpc_releasedir(int dir_id, const char *path);
-int rpc_fetch(int dir_id, const char *path,
+int rpc_getattr(int dir_id, int zeroth_server,
+                const char *path, struct stat *statbuf, int *ret_zeroth_erver);
+int rpc_mkdir(int dir_id, int zeroth_server,
+              const char *path, mode_t mode);
+int rpc_mknod(int dir_ID, int zeroth_server,
+              const char *path, mode_t mode, dev_t dev);
+int rpc_create(int dir_id, int zeroth_server,
+               const char *path, mode_t mode);
+scan_list_t rpc_readdir(int dir_id, int zeroth_server,
+                        const char *path, int *num_entries);
+int rpc_opendir(int dir_id, int zeroth_server, const char *path);
+int rpc_releasedir(int dir_id, int zeroth_server, const char *path);
+int rpc_fetch(int dir_id, int zeroth_server, const char *path,
               int* state, char* buf, int* buf_len);
-int rpc_updatelink(int dir_id, const char *path,
+int rpc_updatelink(int dir_id, int zeroth_server, const char *path,
                    const char* link);
-int rpc_open(int dir_id, const char *path, int mode,
+int rpc_open(int dir_id, int zeroth_server, const char *path, int mode,
              int* state, char* link);
-int rpc_close(int dir_id, const char *path);
-int rpc_read(int dir_id, const char *path,
-             char* buf, size_t size, off_t offset,
-             int* state, char* link);
-int rpc_write(int dir_id, const char *path,
+int rpc_close(int dir_id, int zeroth_server, const char *path);
+int rpc_read(int dir_id, int zeroth_server, const char *path,
+             char* buf, size_t size, off_t offset, int* state, char* link);
+int rpc_write(int dir_id, int zeroth_server, const char *path,
               const char* buf, size_t size, off_t offset,
               int* state, char* link);
 
@@ -152,7 +156,7 @@ struct MetaDB {
     FILE* logfile;
     int use_hdfs;
     int server_id;
-    int inode_count;
+    metadb_inode_t inode_count;
 };
 
 typedef int (*update_func_t)(metadb_val_t* mval, void* arg1);

@@ -1695,6 +1695,7 @@ Status DBImpl::BulkInsert(const WriteOptions& write_opt,
       if (w.new_sequence > versions_->LastSequence())
         versions_->SetLastSequence(w.new_sequence);
 
+      s = env_->DeleteDir(dirname);
     }
   } else {
     s = Status::IOError("Deleting DB during sstable bulk-insertion");

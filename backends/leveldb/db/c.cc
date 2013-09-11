@@ -436,6 +436,7 @@ leveldb_options_t* leveldb_options_create_with_hdfs_env(const char* ip,
                                                         int port) {
   leveldb_options_t* option = new leveldb_options_t;
   option->rep.env = Env::HDFSEnv(ip, port);
+  return option;
 }
 
 void leveldb_options_destroy(leveldb_options_t* options) {

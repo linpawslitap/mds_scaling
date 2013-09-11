@@ -13,6 +13,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <assert.h>
 
 #define RPCFS_LOG   LOG_DEBUG
 
@@ -104,17 +105,44 @@ void rpc_disconnect()
     rpcDisconnect();
 }
 
-int rpc_getattr(int dir_id, const char *path, struct stat *stbuf)
+struct giga_directory* rpc_getpartition(int object_id, int zeroth_server) {
+    CLIENT *rpc_clnt = getConnection(zeroth_server);
+    giga_result_t rpc_mapping_reply;
+    if (giga_rpc_getmapping_1(object_id, &rpc_mapping_reply, rpc_clnt)
+        != RPC_SUCCESS) {
+        LOG_ERR("ERR_rpc_getmapping(%d)", object_id);
+        exit(1);//TODO: retry again?
+    }
+    giga_print_mapping(&rpc_mapping_reply.giga_result_t_u.bitmap);
+    struct giga_directory *new =
+      new_cache_entry_with_mapping(&object_id,
+          &rpc_mapping_reply.giga_result_t_u.bitmap);
+    if (new->mapping.zeroth_server != (unsigned int) zeroth_server) {
+        LOG_ERR("ERR_rpc_getpartition(%d %d)",
+                object_id, zeroth_server);
+        new->mapping.zeroth_server = zeroth_server;
+    }
+    cache_insert(&object_id, new);
+    cache_release(new);
+    return new;
+}
+
+int rpc_getattr(int dir_id, int zeroth_srv, const char *path,
+                struct stat *stbuf, int *ret_zeroth_server)
 {
     int ret = 0;
 
     struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
+      dir = rpc_getpartition(dir_id, zeroth_srv);
+    }
+    if (dir == NULL) {
         LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
-        ret = -EIO;
+        return -EIO;
     }
 
     int server_id = 0;
+    *ret_zeroth_server = 0;
     giga_getattr_reply_t rpc_reply;
 
 retry:
@@ -143,6 +171,8 @@ retry:
             giga_print_mapping(&rpc_reply.result.giga_result_t_u.bitmap);
             struct giga_directory *new = new_cache_entry_with_mapping(
                         &object_id, &rpc_reply.result.giga_result_t_u.bitmap);
+            new->mapping.zeroth_server = rpc_reply.zeroth_server;
+            *ret_zeroth_server = new->mapping.zeroth_server;
             cache_insert(&object_id, new);
             cache_release(new);
             ret = 0;
@@ -163,22 +193,11 @@ retry:
         if (S_ISDIR(stbuf->st_mode)) {
             int object_id = stbuf->st_ino;
             int zeroth_server = rpc_reply.zeroth_server;
-            LOG_MSG("GETATTR(%s) returns a directory for d%d",
-                    path, object_id);
+            LOG_MSG("GETATTR(%s) returns a directory for d%d at %d",
+                    path, object_id, zeroth_server);
 
-            rpc_clnt = getConnection(zeroth_server);
-            giga_result_t rpc_mapping_reply;
-            if (giga_rpc_getmapping_1(object_id, &rpc_mapping_reply, rpc_clnt)
-                != RPC_SUCCESS) {
-                LOG_ERR("ERR_rpc_getmapping(%d)", object_id);
-                exit(1);//TODO: retry again?
-            }
-            giga_print_mapping(&rpc_mapping_reply.giga_result_t_u.bitmap);
-            struct giga_directory *new =
-              new_cache_entry_with_mapping(&object_id,
-                  &rpc_mapping_reply.giga_result_t_u.bitmap);
-            cache_insert(&object_id, new);
-            cache_release(new);
+            *ret_zeroth_server = zeroth_server;
+            rpc_getpartition(object_id, zeroth_server);
         }
     }
 
@@ -189,14 +208,17 @@ retry:
     return ret;
 }
 
-int rpc_mkdir(int dir_id, const char *path, mode_t mode)
+int rpc_mkdir(int dir_id, int zeroth_srv, const char *path, mode_t mode)
 {
     int ret = 0;
 
     struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
-        LOG_MSG("ERROR_cache: dir(%d) missing!", dir_id);
-        ret = -EIO;
+      dir = rpc_getpartition(dir_id, zeroth_srv);
+    }
+    if (dir == NULL) {
+        LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
+        return -EIO;
     }
 
     int server_id = 0;      //TODO: randomize zeroth server
@@ -234,14 +256,18 @@ retry:
     return ret;
 }
 
-int rpc_mknod(int dir_id, const char *path, mode_t mode, dev_t dev)
+int rpc_mknod(int dir_id, int zeroth_srv, const char *path,
+              mode_t mode, dev_t dev)
 {
     int ret = 0;
 
     struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
+      dir = rpc_getpartition(dir_id, zeroth_srv);
+    }
+    if (dir == NULL) {
         LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
-        ret = -EIO;
+        return -EIO;
     }
 
     int server_id = 0;
@@ -402,7 +428,7 @@ retry:
     pthread_exit(NULL);
 }
 
-scan_list_t rpc_readdir(int dir_id, const char *path, int *num_entries)
+scan_list_t rpc_readdir(int dir_id, int zeroth_srv, const char *path, int *num_entries)
 {
     //scan_list_t final_ls_start = NULL;
     //scan_list_t final_ls_end = NULL;
@@ -415,8 +441,11 @@ scan_list_t rpc_readdir(int dir_id, const char *path, int *num_entries)
 
     struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
+      dir = rpc_getpartition(dir_id, zeroth_srv);
+    }
+    if (dir == NULL) {
         LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
-        exit(1);
+        return NULL;
     }
 
     //FIXME: only for the servers that hold the partitions.
@@ -587,15 +616,20 @@ int rpc_opendir(int dir_id, const char *path)
     return ret;
 }
 
-int rpc_write(int dir_id, const char* path, const char* buf, size_t size,
+int rpc_write(int dir_id, int zeroth_srv, const char* path,
+              const char* buf, size_t size,
               off_t offset, int* state, char* symlink)
 {
     int ret = 0;
     struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
-        LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
-        ret = -EIO;
+      dir = rpc_getpartition(dir_id, zeroth_srv);
     }
+    if (dir == NULL) {
+        LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
+        return -EIO;
+    }
+
     int server_id = 0;
 
     giga_write_reply_t rpc_reply;
@@ -637,15 +671,20 @@ retry:
     return ret;
 }
 
-int rpc_read(int dir_id, const char* path, char* buf, size_t size,
-              off_t offset, int* state, char* symlink)
+int rpc_read(int dir_id, int zeroth_srv, const char* path,
+             char* buf, size_t size,
+             off_t offset, int* state, char* symlink)
 {
     int ret = 0;
     struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
-        LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
-        ret = -EIO;
+      dir = rpc_getpartition(dir_id, zeroth_srv);
     }
+    if (dir == NULL) {
+        LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
+        return -EIO;
+    }
+
     int server_id = 0;
 
     giga_read_reply_t rpc_reply;
@@ -688,7 +727,7 @@ retry:
 }
 
 
-int rpc_fetch(int dir_id, const char *path,
+int rpc_fetch(int dir_id, int zeroth_srv, const char *path,
              int* state, char *buf, int* buf_len)
 {
     int ret = 0;
@@ -697,8 +736,11 @@ int rpc_fetch(int dir_id, const char *path,
 
     struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
-        LOG_MSG("rpc_fetch: ERR_cache: dir(%d) missing!", dir_id);
-        exit(1);
+      dir = rpc_getpartition(dir_id, zeroth_srv);
+    }
+    if (dir == NULL) {
+        LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
+        return -EIO;
     }
 
     int server_id = 0;
@@ -741,7 +783,7 @@ retry:
     return ret;
 }
 
-int rpc_updatelink(int dir_id, const char *path,
+int rpc_updatelink(int dir_id, int zeroth_srv, const char *path,
                    const char* link)
 {
     int ret = 0;
@@ -750,8 +792,11 @@ int rpc_updatelink(int dir_id, const char *path,
 
     struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
-        LOG_MSG("rpc_updatelink: ERR_cache: dir(%d) missing!", dir_id);
-        exit(1);
+      dir = rpc_getpartition(dir_id, zeroth_srv);
+    }
+    if (dir == NULL) {
+        LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
+        return -EIO;
     }
 
     int server_id = 0;
@@ -787,7 +832,7 @@ retry:
 }
 
 
-int rpc_open(int dir_id, const char *path, int mode,
+int rpc_open(int dir_id, int zeroth_srv, const char *path, int mode,
              int* state, char *link)
 {
     int ret = 0;
@@ -796,8 +841,11 @@ int rpc_open(int dir_id, const char *path, int mode,
 
     struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
-        LOG_MSG("rpc_open: ERR_cache: dir(%d) missing!", dir_id);
-        exit(1);
+      dir = rpc_getpartition(dir_id, zeroth_srv);
+    }
+    if (dir == NULL) {
+        LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
+        return -EIO;
     }
 
     int server_id = 0;
@@ -835,14 +883,17 @@ retry:
     return ret;
 }
 
-int rpc_close(int dir_id, const char *path)
+int rpc_close(int dir_id, int zeroth_srv, const char *path)
 {
     int ret = 0;
 
     struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
+      dir = rpc_getpartition(dir_id, zeroth_srv);
+    }
+    if (dir == NULL) {
         LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
-        ret = -EIO;
+        return -EIO;
     }
 
     int server_id = 0;

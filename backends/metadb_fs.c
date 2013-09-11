@@ -274,7 +274,7 @@ void metadb_set_init_inode_count(struct MetaDB *mdb, int server_id) {
 }
 
 int metadb_get_next_inode_count(struct MetaDB *mdb) {
-  mdb->inode_count += (1 << 20);
+  mdb->inode_count += (1 << 10);
   return mdb->inode_count;
 }
 
@@ -442,7 +442,7 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name,
                                     INODE_COUNT_KEY, INODE_COUNT_KEY_LEN,
                                     &vallen, &err);
       if (err == NULL && vallen == INODE_COUNT_VAL_LEN) {
-        sscanf(inode_count_str, "%d", &(mdb->inode_count));
+        sscanf(inode_count_str, "%lu", &(mdb->inode_count));
         free(inode_count_str);
       } else {
         ret = -1;

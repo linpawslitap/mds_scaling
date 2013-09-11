@@ -709,8 +709,10 @@ start:
                 } else {
                     rpc_reply->errnum = metadb_create_dir(ldb_mds, object_id,
                                                   -1, NULL, &new_dir->mapping);
+                    /*
                     if (rpc_reply->errnum == 0)
                         create_dir_in_storage(dir_id);
+                    */
                 }
             }
     }
@@ -743,7 +745,9 @@ bool_t giga_rpc_mkzeroth_1_svc(giga_dir_id dir_id,
     if (rpc_reply->errnum < 0)
         LOG_ERR("ERR_mdb_mkzeroth(%d)", dir_id);
 
+    /*
     create_dir_in_storage(dir_id);
+    */
 
     return true;
 }

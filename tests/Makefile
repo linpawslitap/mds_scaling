@@ -18,6 +18,8 @@ all:
 	gcc $(OPT) -o ./mknod_lib_test ./mknod_lib_test.c -I.. ../libgiga_client.a $(LIBS) $(LDFLAGS) -I..
 	gcc $(OPT) -o ./mkdir_lib_test ./mknod_lib_test.c -I.. ../libgiga_client.a $(LIBS) $(LDFLAGS) -I..
 	gcc $(OPT) -o ./create_dir_test ./create_dir_test.c -I.. ../libgiga_client.a $(LIBS) $(LDFLAGS) -I..
+	gcc $(OPT) -o ./traverse_dir_test ./traverse_dir_test.c -I.. ../libgiga_client.a $(LIBS) $(LDFLAGS) -I..
+	gcc $(OPT) -o ./tree_test ./tree_test.c -I.. ../libgiga_client.a $(LIBS) $(LDFLAGS) -I..
 	gcc $(OPT) -o ./smallfile_lib_test ./smallfile_lib_test.c -I.. ../libgiga_client.a $(LIBS) $(LDFLAGS) -I..
 	gcc $(OPT) -o ./ldb_hdfs_test ./ldb_hdfs_test.c  $(LIBS) $(LDFLAGS) $(HADOOP_LDFLAGS)
 

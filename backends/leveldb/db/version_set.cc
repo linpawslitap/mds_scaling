@@ -20,16 +20,16 @@
 
 namespace leveldb {
 
-static const int kTargetFileSize = 16 * 1048576;
+static const int kTargetFileSize = 2 * 1048576;
 
 // Maximum bytes of overlaps in grandparent (i.e., level+2) before we
 // stop building a single file in a level->level+1 compaction.
-static const int64_t kMaxGrandParentOverlapBytes = 25 * kTargetFileSize;
+static const int64_t kMaxGrandParentOverlapBytes = 10 * kTargetFileSize;
 
 // Maximum number of bytes in all compacted files.  We avoid expanding
 // the lower level file set of a compaction if it would make the
 // total compaction cover more than this many bytes.
-static const int64_t kExpandedCompactionByteSizeLimit = 25 * kTargetFileSize;
+static const int64_t kExpandedCompactionByteSizeLimit = 10 * kTargetFileSize;
 
 static double MaxBytesForLevel(int level) {
   // Note: the result for level zero is not really used since we set

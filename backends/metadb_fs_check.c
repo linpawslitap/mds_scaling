@@ -57,9 +57,8 @@ void listmdb(struct MetaDB* mdb) {
         size_t klen;
         const char* kstr = leveldb_iter_key(iter, &klen);
         const metadb_key_t* key = (const metadb_key_t *) kstr;
-        printf("%ld %ld %ld %s\n",
-               key->parent_id >> 20, key->parent_id & ((1<<20)-1),
-               key->partition_id, key->name_hash);
+          printf("%ld %ld %s\n",
+                 key->parent_id, key->partition_id, key->name_hash);
         size_t vlen;
         const char* vstr = leveldb_iter_value(iter, &vlen);
         (void) vstr;
@@ -70,7 +69,7 @@ void listmdb(struct MetaDB* mdb) {
 }
 
 void run_test(int nargs, char* args[]) {
-    if (nargs < 1) {
+    if (nargs < 2) {
         return;
     }
 
@@ -81,7 +80,7 @@ void run_test(int nargs, char* args[]) {
     struct MetaDB mdb;
 
     printf("metadb_init return value %d\n",
-           metadb_init(&mdb, dbname, NULL, 0, 0));
+           metadb_init(&mdb, dbname, NULL, 0, 51));
 
     listmdb(&mdb);
 

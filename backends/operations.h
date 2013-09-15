@@ -68,6 +68,7 @@ int rpc_read(int dir_id, int zeroth_server, const char *path,
 int rpc_write(int dir_id, int zeroth_server, const char *path,
               const char* buf, size_t size, off_t offset,
               int* state, char* link);
+struct giga_directory* rpc_getpartition(int object_id, int zeroth_server);
 
 /*
  * Operations for MDB
@@ -150,7 +151,7 @@ struct MetaDB {
 
     pthread_rwlock_t    rwlock_extract;
     pthread_mutex_t     mtx_bulkload;
-    pthread_mutex_t     mtx_extload;
+    pthread_mutex_t     mtx_extract;
     pthread_mutex_t     mtx_leveldb;
 
     FILE* logfile;

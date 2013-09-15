@@ -56,6 +56,7 @@ TESTS = \
 	filter_block_test \
 	log_test \
 	memenv_test \
+	metatable_test \
 	skiplist_test \
 	table_test \
 	version_edit_test \
@@ -169,6 +170,9 @@ write_batch_test: db/write_batch_test.o $(LIBOBJECTS) $(TESTHARNESS)
 
 zigzag_test: util/zigzag_test.o $(LIBOBJECTS) $(TESTHARNESS)
 	$(CXX) util/zigzag_test.o $(LIBOBJECTS) $(TESTHARNESS) -o $@ $(LDFLAGS)
+
+metatable_test: util/metatable_test.o $(LIBOBJECTS) $(TESTHARNESS)
+	$(CXX) util/metatable_test.o $(LIBOBJECTS) $(TESTHARNESS) -o $@ $(LDFLAGS)
 
 $(MEMENVLIBRARY) : $(MEMENVOBJECTS)
 	rm -f $@

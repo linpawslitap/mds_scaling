@@ -7,6 +7,7 @@ NUM_FUSE_CLI="/tmp/.giga_clients"
 ##
 cli="1"
 apps="1"
+id="1"
 
 ## deprecated: replaced by a scan of file to see how many lines in that file.
 ##
@@ -17,18 +18,14 @@ host=`hostname | cut -d'.' -f 1`
 
 if [ $# -lt 1 ]
 then
-    echo "Usage : $0 [num_files]  __num_APPS__   _num_FUSE_"
+    echo "Usage : $0 [num_files]  __num_APPS__   _num_FUSE_ _id_"
     exit
 fi
 
-if [ $# -eq 3 ]
-then
-    apps=$2
-    cli=$3
-elif [ $# -eq 2 ]
-then
-    apps=$2
-fi
+echo $1 $2 $3 $4
+apps=$2
+cli=$3
+id=$4
 
 files=$(( $1/$(( $apps*$cli)) ))
 
@@ -45,9 +42,11 @@ do
         then
             dir=${MNT}/${i}
         fi
-        ./smallfile_lib_test / 1 $files > ~/_perf/$host.$i.$j 2>&1 &
+#        ./smallfile_lib_test / 1 $files > ~/_perf/$host.$i.$j 2>&1 &
 #        ./mknod_lib_test / $files > ~/_perf/$host.$i.$j 2>&1 &
 #        ./mkdir_lib_test / $files > ~/_perf/$host.$i.$j 2>&1 &
+        ./tree_test ../traces/tree1.log $files $id > ~/_perf/$host.$i.$j 2>&1
+#        gdb --args ./tree_test ../traces/tree1.log $files $id
 
         #( time ./mknod_test ${dir} $files ) > ~/_perf/$host.$i.$j 2>&1 &
 

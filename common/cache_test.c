@@ -1,8 +1,10 @@
 #include "cache.h"
 #include "options.h"
-
+#include "debugging.h"
 #define ASSERT(x) \
 if (!((x))) { fprintf(stderr, "%s %d failed\n", __FILE__, __LINE__); exit(1); }
+
+struct giga_options giga_options_t;
 
 int Lookup(int key) {
     struct giga_directory* entry = cache_lookup(&key);
@@ -149,16 +151,46 @@ void TestFUSECache() {
     fuse_cache_insert(0, key, 1000, tmp1);
     ASSERT(fuse_cache_lookup(0, key, &tmp, &tmp1) == 1000);
 }
-/*
-int main() {
+
+void TestDirCache(const char* filename) {
+    logOpen("/tmp/cache_test.log", LOG_FATAL);
+    FILE* file = fopen(filename, "r");
+    char op[100];
+    memset(op, 0, sizeof(op));
+    int inode;
+    struct giga_directory* entry;
+    while ((fscanf(file, "%s %d", op, &inode))>0) {
+        printf("%s %d\n", op, inode);
+        if (strcmp(op, "{cache_insert}") == 0) {
+          entry = new_cache_entry(&inode, 0);
+          cache_insert(&inode, entry);
+        }
+        if (strcmp(op, "{cache_lookup}") == 0) {
+          cache_lookup(&inode);
+        }
+        if (strcmp(op, "{cache_release}") == 0) {
+          entry = cache_lookup(&inode);
+          cache_release(entry);
+          cache_release(entry);
+        }
+
+    }
+    fclose(file);
+    logClose();
+}
+
+int main(int nargs, char** args) {
     cache_init();
+    /*
     TestUTHASH();
     TestHitAndMiss();
     TestErase();
     TestEntriesArePinned();
     TestEvictionPolicy();
     TestFUSECache();
+    */
+    if (nargs > 1)
+      TestDirCache(args[1]);
     cache_destory();
     return 0;
 }
-*/

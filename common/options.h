@@ -74,14 +74,14 @@ typedef enum backends {
 
 #define MAX_SERVERS     1024            // MAX number of GIGA+ servers
 #define DEFAULT_PORT    45678           // Default port used by GIGA+ servers
-#define SPLIT_THRESH    8000            // Default directory split theshold
+#define SPLIT_THRESH    10000           // Default directory split theshold
 #define CONFIG_FILE     "/tmp/.giga"    // Default config file location
 
 #define ROOT_DIR_ID     0
 
 #define PARENT_OF_ROOT      0
 #define PARTITION_OF_ROOT   0
-#define DEFAULT_DIR_CACHE_SIZE  40960
+#define DEFAULT_DIR_CACHE_SIZE  10240
 
 #define FILE_THRESHOLD 4096
 #define MAX_PARALLEL_VOLS 500

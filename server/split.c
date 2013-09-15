@@ -257,8 +257,9 @@ int split_in_levelDB(struct giga_directory *dir,
 
     char split_dir_path[PATH_MAX] = {0};
     snprintf(split_dir_path, sizeof(split_dir_path),
-             "%s/sst-d%d-p%dp%d",
-             giga_options_t.split_dir, dir->handle, parent_index, child_index);
+             "%s/sst-d%d-p%dp%d-s%ds%d",
+             giga_options_t.split_dir, dir->handle, parent_index, child_index,
+             parent_srv, child_srv);
 
     // TODO: should we even do this for local splitting?? move to remote
     // split??
@@ -268,7 +269,7 @@ int split_in_levelDB(struct giga_directory *dir,
     LOG_MSG("ldb_extract: (for d%d, p%d-->p%d) in (%s)",
             dir->handle, parent_index, child_index, split_dir_path);
 
-    //ACQUIRE_MUTEX(&ldb_mds.mtx_extract, "extract(%s)", split_dir_path);
+    ACQUIRE_MUTEX(&(ldb_mds->mtx_extract), "extract(%s)", split_dir_path);
     mdb_seq_num_t min, max = 0;
 
     ret = metadb_extract_do(ldb_mds, dir->handle,
@@ -320,7 +321,7 @@ int split_in_levelDB(struct giga_directory *dir,
     metadb_extract_clean(ldb_mds);
 
 exit_func:
-    //RELEASE_MUTEX(&ldb_mds.mtx_extract, "extract(%d,%d)", min, max);
+    RELEASE_MUTEX(&(ldb_mds->mtx_extract), "extract(%d,%d)", min, max);
 
     return ret;
 }

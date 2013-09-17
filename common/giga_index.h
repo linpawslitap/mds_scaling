@@ -14,7 +14,7 @@ typedef int index_t;                    // Index is the position in the bitmap
 #define HASH_NUM_BYTES 16                   //128-bit MD5 hash
 #define HASH_LEN    2*SHA1_HASH_SIZE        //bigger array for binary2hex
 
-#define MAX_RADIX 10
+#define MAX_RADIX 7
 #define MIN_RADIX 0
 
 #define MAX_GIGA_PARTITIONS  (1<<MAX_RADIX)

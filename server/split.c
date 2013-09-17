@@ -32,6 +32,8 @@ struct split_task {
 struct split_task *queue = NULL;
 pthread_cond_t queue_cond = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t split_counter_mutex = PTHREAD_MUTEX_INITIALIZER;
+static int num_split_task = 0;
 
 static int split_in_localFS(struct giga_directory *dir,
                             int parent_index, int parent_srv,
@@ -42,9 +44,30 @@ static int split_in_levelDB(struct giga_directory *dir,
                             int child_index, int child_srv);
 
 
+int get_num_split_tasks_in_progress() {
+    pthread_mutex_lock(&split_counter_mutex);
+    int ret = num_split_task;
+    pthread_mutex_unlock(&split_counter_mutex);
+    return ret;
+}
+
+void add_split_task() {
+    pthread_mutex_lock(&split_counter_mutex);
+    num_split_task++;
+    pthread_mutex_unlock(&split_counter_mutex);
+}
+
+void remove_split_task() {
+    pthread_mutex_lock(&split_counter_mutex);
+    num_split_task--;
+    pthread_mutex_unlock(&split_counter_mutex);
+}
+
 int split_bucket(struct giga_directory *dir, int partition_to_split)
 {
     int ret = -1;
+
+    add_split_task();
 
     int parent = partition_to_split;
     int parent_srv = giga_options_t.serverID;
@@ -100,6 +123,8 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
     }
 
     metadb_extract_clean(ldb_mds);
+
+    remove_split_task();
 
     return ret;
 }

@@ -5,7 +5,7 @@
 #include "common/options.h"
 #include "common/rpc_giga.h"
 #include "common/giga_index.h"
-
+#include "common/hash.h"
 #include "backends/operations.h"
 
 #include "server.h"
@@ -29,7 +29,8 @@ int check_split_eligibility(struct giga_directory *dir, int index)
 {
     if ((dir->partition_size[index] >= giga_options_t.split_threshold) &&
         (dir->split_flag == 0) &&
-        (giga_is_splittable(&dir->mapping, index) == 1)) {
+        (giga_is_splittable(&dir->mapping, index) == 1) &&
+        (get_num_split_tasks_in_progress() == 0)) {
         return true;
     }
 
@@ -112,9 +113,19 @@ void release_dir_mapping(struct giga_directory *dir)
 }
 
 static
-int get_server_for_new_inode() {
-    return rand() %  giga_options_t.num_servers;
-//    return 0;
+int get_server_for_new_inode(giga_dir_id dir_id, char* path) {
+    /*
+    zeroth_server_assigner++;
+    if (zeroth_server_assigner >= giga_options_t.num_servers)
+      zeroth_server_assigner = 0;
+    return zeroth_server_assigner;
+    */
+    /*
+    return rand() % giga_options_t.num_servers;
+    */
+    (void) dir_id;
+    uint32_t hash = getStrHash(path, strlen(path), 0);
+    return hash % giga_options_t.num_servers;
 }
 
 bool_t giga_rpc_init_1_svc(int rpc_req,
@@ -670,7 +681,7 @@ start:
             // and create partition entry for this object
 
             int object_id = metadb_get_next_inode_count(ldb_mds);
-            int zeroth_server = get_server_for_new_inode();
+            int zeroth_server = get_server_for_new_inode(dir_id, path);
             struct giga_directory *new_dir =
               new_cache_entry(&object_id, zeroth_server);
 

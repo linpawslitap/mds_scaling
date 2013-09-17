@@ -970,6 +970,7 @@ int GIGAcreate(const char *path, mode_t mode, struct fuse_file_info *fi)
     int fd = 0;
     rpc_leveldb_fh_t* fh;
 
+
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
             get_full_path(fpath, path);

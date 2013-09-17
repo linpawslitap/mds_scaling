@@ -379,7 +379,7 @@ public:
     const std::string prefix_des = "MANIFEST";
 
     on_hdfs = stringEndsWith(fname, ext_sst);
-/*              || stringEndsWith(fname, ext_log)
+/*              || stringEndsWith(fname, ext_log);
               || lastComponentStartsWith(fname, prefix_des);*/
     return on_hdfs;
   }

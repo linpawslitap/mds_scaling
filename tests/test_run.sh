@@ -45,7 +45,10 @@ do
 #        ./smallfile_lib_test / 1 $files > ~/_perf/$host.$i.$j 2>&1 &
 #        ./mknod_lib_test / $files > ~/_perf/$host.$i.$j 2>&1 &
 #        ./mkdir_lib_test / $files > ~/_perf/$host.$i.$j 2>&1 &
-        ./tree_test ../traces/tree1.log $files $id > ~/_perf/$host.$i.$j 2>&1
+#        ./tree_test ../traces/tree3.log $files $id > ~/_perf/$host.$i.$j 2>&1
+        ./tree_select_test ../traces/tree3/tree3.log \
+        ../traces/tree3/tree.client.$id.dat $files $id \
+        > ~/_perf/$host.$i.$j 2>&1
 #        gdb --args ./tree_test ../traces/tree1.log $files $id
 
         #( time ./mknod_test ${dir} $files ) > ~/_perf/$host.$i.$j 2>&1 &

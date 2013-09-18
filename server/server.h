@@ -16,6 +16,8 @@ struct giga_directory giga_dir_t;
 
 struct giga_options giga_options_t;
 
-int zeroth_server_assigner;
+void init_rpc_handlers();
+
+void destroy_rpc_handlers();
 
 #endif /* SERVER_H */

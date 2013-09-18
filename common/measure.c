@@ -8,9 +8,9 @@
 #include <sys/time.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <inttypes.h>
 #include <math.h>
 #include <memory.h>
+#include "measure.h"
 
 #define kNumBuckets 154
 typedef struct {
@@ -174,4 +174,21 @@ void finish_op() {
 
 void finish_measure() {
     histogram_print(&hist);
+}
+
+void measurement_clear(measurement_t *hist) {
+  hist->min_ = 1000000000;
+  hist->max_ = 0;
+  hist->num_ = 0;
+  hist->sum_ = 0;
+  hist->sum_squares_ = 0;
+}
+
+void measurement_add(measurement_t* hist, double value) {
+  // Linear search is fast enough for our usage in db_bench
+  if (hist->min_ > value) hist->min_ = value;
+  if (hist->max_ < value) hist->max_ = value;
+  hist->num_++;
+  hist->sum_ += value;
+  hist->sum_squares_ += (value * value);
 }

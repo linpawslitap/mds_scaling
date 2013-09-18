@@ -189,6 +189,7 @@ class DBImpl : public DB {
     }
   };
   CompactionStats stats_[config::kNumLevels];
+  CompactionStats sum_stats_;
 
   struct OperationStats {
     int64_t get_count;
@@ -205,6 +206,8 @@ class DBImpl : public DB {
   const Comparator* user_comparator() const {
     return internal_comparator_.user_comparator();
   }
+
+  void SendMetrics();
 };
 
 // Sanitize db options.  The caller should delete result.info_log if

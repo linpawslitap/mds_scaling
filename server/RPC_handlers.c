@@ -6,6 +6,7 @@
 #include "common/rpc_giga.h"
 #include "common/giga_index.h"
 #include "common/hash.h"
+#include "common/measure.h"
 #include "backends/operations.h"
 
 #include "server.h"
@@ -23,6 +24,10 @@
 
 #define DEBUG_MSG(format, ...) \
     logMessage(LOG_ERR, __func__, format, __VA_ARGS__);
+
+static measurement_t measurement;
+static int zeroth_server_assigner;
+static int stop_monitor_thread;
 
 static
 int check_split_eligibility(struct giga_directory *dir, int index)
@@ -128,6 +133,39 @@ int get_server_for_new_inode(giga_dir_id dir_id, char* path) {
     return hash % giga_options_t.num_servers;
 }
 
+void *monitor_thread(void *unused)
+{
+    (void)unused;
+
+    struct timespec ts;
+    ts.tv_sec = 5;
+    ts.tv_nsec = 0;
+
+    struct timespec rem;
+
+    while (stop_monitor_thread == 0) {
+        int ret = nanosleep(&ts, &rem);
+        if (ret == -1){
+            if (errno == EINTR)
+                nanosleep(&rem, NULL);
+        }
+    }
+    return NULL;
+}
+
+void init_rpc_handlers() {
+    zeroth_server_assigner = giga_options_t.serverID;
+    srand(zeroth_server_assigner);
+    measurement_clear(&measurement);
+    pthread_t tid;
+    int ret = pthread_create(&tid, NULL, monitor_thread, NULL);
+    (void) ret;
+}
+
+void destroy_rpc_handlers() {
+    stop_monitor_thread = 1;
+}
+
 bool_t giga_rpc_init_1_svc(int rpc_req,
                            giga_result_t *rpc_reply,
                            struct svc_req *rqstp)
@@ -179,6 +217,8 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
     assert(path);
 
     LOG_MSG(">>> RPC_getattr(d=%d,p=%s)", dir_id, path);
+
+    uint64_t start_time = now_micros();
 
     bzero(rpc_reply, sizeof(giga_getattr_reply_t));
 
@@ -247,6 +287,9 @@ exit_func:
 
     release_dir_mapping(dir);
 
+    uint64_t latency = now_micros() - start_time;
+    measurement_add(&measurement, latency);
+
     LOG_MSG("<<< RPC_getattr(d=%d,p=%s): status=[%d]",
             dir_id, path, rpc_reply->result.errnum);
     return true;
@@ -259,6 +302,8 @@ bool_t giga_rpc_getmapping_1_svc(giga_dir_id dir_id,
     bzero(rpc_reply, sizeof(giga_result_t));
     LOG_MSG(">>> RPC_getmapping(d=%d)", dir_id);
 
+    uint64_t start_time = now_micros();
+
     struct giga_directory *dir = fetch_dir_mapping(dir_id);
     if (dir == NULL) {
       rpc_reply->errnum = -ENOENT;
@@ -270,6 +315,9 @@ bool_t giga_rpc_getmapping_1_svc(giga_dir_id dir_id,
            &(dir->mapping), sizeof(struct giga_mapping_t));
 
     release_dir_mapping(dir);
+
+    uint64_t latency = now_micros() - start_time;
+    measurement_add(&measurement, latency);
 
     LOG_MSG("<<< RPC_getmapping(d=%d): status=[%d]",
             dir_id, rpc_reply->errnum);
@@ -285,6 +333,8 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
     (void)rqstp;
     assert(rpc_reply);
     assert(path);
+
+    uint64_t start_time = now_micros();
 
     LOG_MSG(">>> RPC_mknod(d=%d,p=%s): m=[0%3o]", dir_id, path, mode);
 
@@ -380,6 +430,9 @@ exit_func:
 
 exit_func_release:
     release_dir_mapping(dir);
+
+    uint64_t latency = now_micros() - start_time;
+    measurement_add(&measurement, latency);
 
     LOG_MSG("<<< RPC_mknod(d=%d,p=%s): status=[%d]", dir_id, path,
             rpc_reply->errnum);
@@ -611,6 +664,7 @@ bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id,
     (void)rqstp;
     assert(rpc_reply);
     assert(path);
+    uint64_t start_time = now_micros();
 
     LOG_MSG(">>> RPC_mkdir(d=%d,p=%s): mode=[0%3o]", dir_id, path, mode);
 
@@ -733,6 +787,9 @@ exit_func:
 exit_func_release:
 
     release_dir_mapping(dir);
+
+    uint64_t latency = now_micros() - start_time;
+    measurement_add(&measurement, latency);
 
     LOG_MSG("<<< RPC_mkdir(d=%d,p=%s): status=[%d]",
             dir_id, path, rpc_reply->errnum);
@@ -1239,51 +1296,3 @@ exit_func:
             dir_id, path, rpc_reply->errnum);
     return true;
 }
-
-// =============================================================================
-// XXX: DO NOT REMOVE THIS
-//
-//
-    /*
-    struct giga_directory *dir = cache_fetch(&dir_id);
-    if (dir == NULL) {
-        rpc_reply->errnum = -EIO;
-        LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
-        return true;
-    }
-
-    // (1): get the giga index/partition for operation
-    int index = giga_get_index_for_file(&dir->mapping, (const char*)path);
-    int server = giga_get_server_for_index(&dir->mapping, index);
-
-    // (2): is this the correct server?
-    // ---- NO = set rpc_reply (errnum=-EAGAIN and copy correct bitmap) and return
-    if (server != giga_options_t.serverID) {
-        memcpy(&(rpc_reply->giga_result_t_u.bitmap),
-               &dir->mapping, sizeof(dir->mapping));
-        rpc_reply->errnum = -EAGAIN;
-
-        LOG_MSG("ERR_redirect: send to s%d, not me(s%d)",
-                   server, giga_options_t.serverID);
-        return true;
-    }
-
-    // (3): check for splits.
-    if (dir->partition_size[index] > SPLIT_THRESHOLD) {
-        LOG_MSG("SPLIT: p%d has %d entries", index, dir->partition_size[index]);
-
-        if ((rpc_reply->errnum = split_bucket(dir, index)) < 0) {
-            logMessage(LOG_FATAL, __func__, "***FATAL_ERROR*** during split");
-            exit(1);    //FIXME: do somethign smarter
-        }
-
-        memcpy(&(rpc_reply->giga_result_t_u.bitmap),
-               &dir->mapping, sizeof(dir->mapping));
-        rpc_reply->errnum = -EAGAIN;
-
-        LOG_MSG("<<< RPC_mknod: [ret=%d] SPLIT_p%d", rpc_reply->errnum, index);
-
-        return true;
-    }
-    */
-

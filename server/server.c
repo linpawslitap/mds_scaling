@@ -114,12 +114,11 @@ int main(int argc, char **argv)
     }
 
     LOG_ERR("### server[%d] up ...\n", giga_options_t.serverID);
-    zeroth_server_assigner = giga_options_t.serverID;
-    srand(zeroth_server_assigner);
 
     void *retval;
 
     pthread_join(listen_tid, &retval);
+    destroy_rpc_handlers();
 
     exit((long)retval);
 }
@@ -132,6 +131,7 @@ static
 void sig_handler(const int sig)
 {
     (void)sig;
+    destroy_rpc_handlers();
     metadb_close(ldb_mds);
     free(ldb_mds);
     LOG_ERR("SIGINT=%d handled.\n", sig);

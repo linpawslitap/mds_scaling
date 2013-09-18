@@ -137,18 +137,41 @@ void *monitor_thread(void *unused)
 {
     (void)unused;
 
+    struct sockaddr_in recv_addr;
+    bzero(&recv_addr, sizeof(recv_addr));
+    recv_addr.sin_family = AF_INET;
+    recv_addr.sin_port = 10600;
+    recv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+    int fd;
+    if ((fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
+      return NULL;
+
     struct timespec ts;
     ts.tv_sec = 5;
     ts.tv_nsec = 0;
 
     struct timespec rem;
+    measurement_t last_measure;
+    measurement_clear(&last_measure);
 
+    char message[256];
     while (stop_monitor_thread == 0) {
         int ret = nanosleep(&ts, &rem);
         if (ret == -1){
             if (errno == EINTR)
                 nanosleep(&rem, NULL);
         }
+        double delta_num = measurement.num_ - last_measure.num_;
+        double delta_sum = measurement.sum_ - last_measure.sum_;
+        double avg_latency = delta_sum / delta_num;
+        time_t now_time = time(NULL);
+        snprintf(message, 256,
+                "giga_server_ops %ld %.0f\n"
+                "giga_server_avg_latency %ld %.3f\n",
+                now_time, delta_num,
+                now_time, avg_latency);
+        sendto(fd, message, 256, 0, &recv_addr, sizeof(recv_addr));
     }
     return NULL;
 }

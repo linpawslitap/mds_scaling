@@ -76,13 +76,6 @@ static void mknod_files(const char *dir)
               printf ("ERROR during mknod(%s): %s\n", p, strerror(errno));
               return;
         }
-        if (rand() % 10 > 4) {
-          struct stat statbuf;
-          if (gigaGetAttr(p, &statbuf) < 0) {
-              printf ("ERROR during mknod(%s): %s\n", p, strerror(errno));
-              return;
-          }
-        }
     }
 }
 

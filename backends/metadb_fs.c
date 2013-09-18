@@ -14,11 +14,12 @@
 
 #define METADB_LOG LOG_DEBUG
 
-#define DEFAULT_LEVELDB_CACHE_SIZE (16 << 20)
+#define DEFAULT_LEVELDB_CACHE_SIZE (32 << 20)
 #define DEFAULT_WRITE_BUFFER_SIZE  (64 << 20)
 #define DEFAULT_MAX_OPEN_FILES     1000
 #define DEFAULT_MAX_BATCH_SIZE     1024
-#define DEFAULT_SSTABLE_SIZE       (2 << 20)
+#define DEFAULT_BLOCK_SIZE         (64 << 10)
+#define DEFAULT_SSTABLE_SIZE       (10 << 20)
 #define DEFAULT_METRIC_SAMPLING_INTERVAL 1
 #define DEFAULT_SYNC_INTERVAL      5
 #define DEFAULT_METADB_LOG_FILE "/tmp/metadb.log" // Default metadb log file location
@@ -41,7 +42,11 @@ void init_meta_obj_key(metadb_key_t *mkey,
                        const char* path)
 {
     mkey->parent_id = dir_id;
-    mkey->partition_id = (uint64_t) partition_id;
+    if (partition_id < 0) {
+      mkey->partition_id = 0xFFFFFFFF;
+    } else {
+      mkey->partition_id = partition_id;
+    }
     memset(mkey->name_hash, 0, sizeof(mkey->name_hash));
     if (path != NULL)
         giga_hash_name(path, mkey->name_hash);
@@ -264,9 +269,12 @@ void metadb_save_inode_count(struct MetaDB *mdb,
                              char** err) {
   char inode_count_str[INODE_COUNT_VAL_LEN];
   sprintf(inode_count_str, INODE_COUNT_VAL_FORMAT, mdb->inode_count);
+  (void) err;
+  /*
   leveldb_put(mdb->db, mdb->sync_insert_options,
               INODE_COUNT_KEY, INODE_COUNT_KEY_LEN,
               inode_count_str, INODE_COUNT_VAL_LEN, err);
+  */
 }
 
 void metadb_set_init_inode_count(struct MetaDB *mdb, int server_id) {
@@ -274,7 +282,7 @@ void metadb_set_init_inode_count(struct MetaDB *mdb, int server_id) {
 }
 
 int metadb_get_next_inode_count(struct MetaDB *mdb) {
-  mdb->inode_count += (1 << 10);
+  mdb->inode_count += (1 << 9);
   return mdb->inode_count;
 }
 
@@ -382,17 +390,15 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name,
     leveldb_options_set_write_buffer_size(mdb->options,
                                           DEFAULT_WRITE_BUFFER_SIZE);
     leveldb_options_set_max_open_files(mdb->options, DEFAULT_MAX_OPEN_FILES);
-    leveldb_options_set_block_size(mdb->options, 1024*64);
+    leveldb_options_set_block_size(mdb->options, DEFAULT_BLOCK_SIZE);
     leveldb_options_set_compression(mdb->options, leveldb_no_compression);
-    /*
     leveldb_options_set_filter_policy(mdb->options,
                         leveldb_filterpolicy_create_bloom(14));
-    */
     mdb->lookup_options = leveldb_readoptions_create();
     leveldb_readoptions_set_fill_cache(mdb->lookup_options, 1);
 
     mdb->scan_options = leveldb_readoptions_create();
-    leveldb_readoptions_set_fill_cache(mdb->scan_options, 1);
+    leveldb_readoptions_set_fill_cache(mdb->scan_options, 0);
 
     mdb->insert_options = leveldb_writeoptions_create();
     leveldb_writeoptions_set_sync(mdb->insert_options, 0);
@@ -408,7 +414,7 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name,
     pthread_rwlock_init(&(mdb->rwlock_extract), NULL);
     pthread_mutex_init(&(mdb->mtx_bulkload), NULL);
     pthread_mutex_init(&(mdb->mtx_leveldb), NULL);
-    pthread_mutex_init(&(mdb->mtx_extload), NULL);
+    pthread_mutex_init(&(mdb->mtx_extract), NULL);
 
     if (lstat("./", &(INIT_STATBUF)) < 0) {
        logMessage(METADB_LOG, __func__, "Getting init statbuf failed");
@@ -425,19 +431,20 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name,
             err = NULL;
             mdb->db = leveldb_open(mdb->options, mdb_name, &err);
             if (err != NULL) {
+                ret = -1;
+                printf("metadb init reopen: %s\n", err);
+            } else {
                 metadb_set_init_inode_count(mdb, server_id);
                 metadb_save_inode_count(mdb, &err);
-                logMessage(METADB_LOG, __func__, "Init metadb %s", err);
-                ret = -1;
-            } else {
                 ret = 1;
             }
         } else {
+            printf("metadb init: %s\n", err);
             ret = -1;
         }
     } else {
       char* inode_count_str;
-      size_t vallen;
+      size_t vallen = 0;
       inode_count_str = leveldb_get(mdb->db, mdb->lookup_options,
                                     INODE_COUNT_KEY, INODE_COUNT_KEY_LEN,
                                     &vallen, &err);
@@ -445,10 +452,14 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name,
         sscanf(inode_count_str, "%lu", &(mdb->inode_count));
         free(inode_count_str);
       } else {
-        ret = -1;
+        printf("metadb init (cannot find inode count): %s \n", err);
+        mdb->inode_count = server_id + ((10000)<<9);
       }
     }
 
+    logMessage(METADB_LOG, __func__,
+               "Init metadb: server_id[%d] inode_count[%d]",
+              server_id, mdb->inode_count);
 //    metadb_log_init(mdb);
     metadb_sync_init(mdb);
 
@@ -473,7 +484,7 @@ int metadb_close(struct MetaDB *mdb) {
     pthread_rwlock_destroy(&(mdb->rwlock_extract));
     pthread_mutex_destroy(&(mdb->mtx_bulkload));
     pthread_mutex_destroy(&(mdb->mtx_leveldb));
-    pthread_mutex_destroy(&(mdb->mtx_extload));
+    pthread_mutex_destroy(&(mdb->mtx_extract));
 
     return 0;
 }
@@ -862,9 +873,10 @@ int metadb_write_bitmap(struct MetaDB *mdb,
                         const int partition_id,
                         const char* path,
                         struct giga_mapping_t* mapping) {
-    return metadb_update_internal(mdb, dir_id, partition_id, path,
+    metadb_update_internal(mdb, dir_id, partition_id, path,
                                   metadb_write_bitmap_handler,
                                   (void *) mapping);
+    return 0;
 }
 
 typedef struct {
@@ -1127,12 +1139,14 @@ int metadb_extract_do(struct MetaDB *mdb,
     int ret = 0;
     char* err = NULL;
 
+    time_t extract_start_time = time(NULL);
     ACQUIRE_MUTEX(&(mdb->mtx_leveldb), "metadb_extract(p%d->p%d)",
                     old_partition_id, new_partition_id);
 
+    /*
     ACQUIRE_MUTEX(&(mdb->mtx_extload), "metadb_extract(p%d->p%d)",
                     old_partition_id, new_partition_id);
-
+    */
 
     //ACQUIRE_RWLOCK_WRITE(&(mdb->rwlock_extract), "metadb_extract(p%d->p%d)",
     //                     old_partition_id, new_partition_id);
@@ -1143,15 +1157,18 @@ int metadb_extract_do(struct MetaDB *mdb,
     extraction->old_partition_id = old_partition_id;
     extraction->new_partition_id = new_partition_id;
     strcpy(extraction->dir_with_new_partition, dir_with_new_partition);
-    if (!directory_exists(dir_with_new_partition)) {
-        mkdir(dir_with_new_partition, DEFAULT_MODE);
+    if (!mdb->use_hdfs) {
+      if (!directory_exists(dir_with_new_partition)) {
+          mkdir(dir_with_new_partition, DEFAULT_MODE);
+      }
     }
-
     if (ret < 0) {
         //RELEASE_RWLOCK(&(mdb->rwlock_extract),  "metadb_extract(p%d->p%d)", old_partition_id, new_partition_id);
 
+        /*
         RELEASE_MUTEX(&(mdb->mtx_extload), "metadb_extract(p%d->p%d)",
                     old_partition_id, new_partition_id);
+        */
 
         RELEASE_MUTEX(&(mdb->mtx_leveldb), "metadb_extract(p%d->p%d)",
                   old_partition_id, new_partition_id);
@@ -1261,18 +1278,17 @@ int metadb_extract_do(struct MetaDB *mdb,
     leveldb_tablebuilder_destroy(builder);
     leveldb_iter_destroy(iter);
 
-    if (ret < 0) {
-        // commented by SVP:
-        // FIXME?? what if this condition is false?? where do you release this lock 
-        //
- //       RELEASE_RWLOCK(&(mdb->rwlock_extract),  "metadb_extract(p%d->p%d)", old_partition_id, new_partition_id);
-        RELEASE_MUTEX(&(mdb->mtx_leveldb), "metadb_extract(p%d->p%d)",
-                      old_partition_id, new_partition_id);
-    }
+    RELEASE_MUTEX(&(mdb->mtx_leveldb), "metadb_extract(p%d->p%d)",
+                  old_partition_id, new_partition_id);
 
+    time_t extract_finish_time = time(NULL);
+    logMessage(LOG_ERR, __func__, "metadata_extract(%ld): duration(%ld)",
+                dir_id, extract_finish_time - extract_start_time);
 
+    /*
     RELEASE_MUTEX(&(mdb->mtx_extload), "metadb_extract(p%d->p%d)",
                     old_partition_id, new_partition_id);
+    */
 
     return ret;
 }
@@ -1437,7 +1453,7 @@ int metadb_extract_clean(struct MetaDB *mdb) {
       }
     }
 
-    RELEASE_MUTEX(&(mdb->mtx_leveldb), "metadb_extract_clean", "");
+//    RELEASE_MUTEX(&(mdb->mtx_leveldb), "metadb_extract_clean", "");
 
     return ret;
 }

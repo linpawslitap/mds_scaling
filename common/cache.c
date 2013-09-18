@@ -12,11 +12,11 @@
 
 #define CACHE_LOG LOG_DEBUG
 
-#define NUM_SHARDS_BITS 4
+#define NUM_SHARDS_BITS 2
 #define NUM_SHARDS (1 << NUM_SHARDS_BITS)
 
 /* FIXME: this file is not thread safe */
-//static struct giga_directory *dircache = NULL;
+static struct giga_directory *dircache = NULL;
 
 static struct fuse_cache_entry* fuse_cache = NULL;
 
@@ -54,6 +54,7 @@ void lru_cache_unref(struct giga_directory* entry) {
     assert(entry->refcount > 0);
     --entry->refcount;
     if (entry->refcount <= 0) {
+        logMessage(LOG_DEBUG, __func__, "entry(%d)", entry->handle);
         free(entry);
     }
 }
@@ -80,15 +81,18 @@ void lru_cache_destroy(lru_cache_t* lru) {
 }
 
 void lru_cache_insert(lru_cache_t* lru,
-                      DIR_handle_t handle,
+                      DIR_handle_t key,
                       struct giga_directory* entry) {
-    ACQUIRE_MUTEX(&(lru->mutex_), "lru_cache_insert(%d)", handle);
 
-    // printf("INSERT %d %d, length: %ld, cap: %ld\n", handle, entry->split_flag, lru->length_+1, lru->capacity_);
+    ACQUIRE_MUTEX(&(lru->mutex_), "lru_cache_insert(%d)", key);
+
+    //TODO: DEBUG ONLY
+    entry->mapping.id = key;
 
     struct giga_directory* old;
-    HASH_FIND_INT(lru->table, &handle, old);
+    HASH_FIND_INT(lru->table, &key, old);
     if (old != NULL) {
+        assert(old->handle == key);
         HASH_DEL(lru->table, old);
         double_list_remove(old);
         lru_cache_unref(old);
@@ -96,22 +100,20 @@ void lru_cache_insert(lru_cache_t* lru,
         ++lru->length_;
     }
 
+    assert(entry->handle == key);
     HASH_ADD_INT(lru->table, handle, entry);
     double_list_append(&(lru->dummy), entry);
-    entry->refcount = 2;
+    entry->refcount++;
 
     while (lru->length_ > lru->capacity_ && lru->dummy.next != &(lru->dummy)) {
         struct giga_directory* old = lru->dummy.next;
-
-        logMessage(LOG_DEBUG, __func__, "evict entry %d", old->handle);
-
+        assert(old->handle != key);
         HASH_DEL(lru->table, old);
         double_list_remove(old);
         lru_cache_unref(old);
         --lru->length_;
     }
-
-    RELEASE_MUTEX(&(lru->mutex_), "lru_cache_insert(%d)", handle);
+    RELEASE_MUTEX(&(lru->mutex_), "lru_cache_insert(%d)", key);
 }
 
 struct giga_directory* lru_cache_lookup(lru_cache_t* lru,
@@ -134,9 +136,11 @@ struct giga_directory* lru_cache_lookup(lru_cache_t* lru,
 
 void lru_cache_release(lru_cache_t* lru,
                        struct giga_directory* entry) {
-    ACQUIRE_MUTEX(&(lru->mutex_), "lru_cache_release(%d)", entry->handle);
+
+    int handle = entry->handle;
+    ACQUIRE_MUTEX(&(lru->mutex_), "lru_cache_release(%d)", handle);
     lru_cache_unref(entry);
-    RELEASE_MUTEX(&(lru->mutex_), "lru_cache_release(%d)", entry->handle);
+    RELEASE_MUTEX(&(lru->mutex_), "lru_cache_release(%d)", handle);
 }
 
 void lru_cache_erase(lru_cache_t* lru,
@@ -146,8 +150,6 @@ void lru_cache_erase(lru_cache_t* lru,
     HASH_FIND_INT(lru->table, &handle, old);
 
     if (old != NULL) {
-//        printf("DEL %d %d %d\n", old->handle, old->split_flag, old->refcount);
-
         double_list_remove(old);
         HASH_DEL(lru->table, old);
         lru_cache_unref(old);
@@ -157,7 +159,7 @@ void lru_cache_erase(lru_cache_t* lru,
 }
 
 static int shard_cache_get_shard(DIR_handle_t handle) {
-    return handle >> ((sizeof(DIR_handle_t) << 3) - NUM_SHARDS_BITS);
+    return handle & (NUM_SHARDS - 1);
 }
 
 static void shard_cache_init(shard_cache_t* dircache, size_t capacity) {
@@ -202,6 +204,8 @@ void shard_cache_erase(shard_cache_t* dircache,
 
 struct giga_directory* cache_lookup(DIR_handle_t *handle)
 {
+    logMessage(LOG_DEBUG, __func__, "%d", *handle);
+
     struct giga_directory* dir =
         shard_cache_lookup(&my_dircache, *handle);
     return dir;
@@ -209,10 +213,14 @@ struct giga_directory* cache_lookup(DIR_handle_t *handle)
 
 void cache_insert(DIR_handle_t *handle,
                   struct giga_directory* giga_dir) {
+    logMessage(LOG_DEBUG, __func__, "%d", *handle);
+
     shard_cache_insert(&my_dircache, *handle, giga_dir);
 }
 
 void cache_release(struct giga_directory* giga_dir) {
+    logMessage(LOG_DEBUG, __func__, "%d", giga_dir->handle);
+
     giga_print_mapping(&giga_dir->mapping);
     shard_cache_release(&my_dircache, giga_dir);
 }
@@ -242,7 +250,7 @@ struct giga_directory* new_cache_entry_with_mapping(DIR_handle_t *handle,
       d->mapping = *mapping;
     }
 
-    //d->refcount = 1;
+    d->refcount = 1;
     d->split_flag = 0;
     pthread_mutex_init(&d->split_mtx, NULL);
 
@@ -270,6 +278,8 @@ int cache_init()
 {
     shard_cache_init(&my_dircache, DEFAULT_DIR_CACHE_SIZE);
 
+    dircache = NULL;
+
     fuse_cache = NULL;
 
     return 0;
@@ -279,14 +289,14 @@ int cache_init()
 struct giga_directory* cache_lookup(DIR_handle_t *handle)
 {
   struct giga_directory* ret;
-  HASH_FIND_INT(dir_cache, handle, ret);
+  HASH_FIND_INT(dircache, handle, ret);
   return ret;
 }
 
 void cache_insert(DIR_handle_t *handle,
                   struct giga_directory* giga_dir) {
     giga_dir->handle = *handle;
-    HASH_ADD_INT(dir_cache, handle, giga_dir);
+    HASH_ADD_INT(dircache, handle, giga_dir);
 }
 
 void cache_release(struct giga_directory* giga_dir) {
@@ -305,6 +315,7 @@ inline char* build_fuse_cache_key(DIR_handle_t dir_id, const char* path) {
   char* key = (char*) malloc(16+strlen(path)+1);
   sprintf(key, "%016x", dir_id);
   strcpy(key+16, path);
+  key[16+strlen(path)]='\0';
   return key;
 }
 
@@ -324,9 +335,11 @@ void fuse_cache_insert(DIR_handle_t dir_id, const char* path,
 
         HASH_ADD_KEYPTR(hh, fuse_cache, entry->pathname,
                         strlen(entry->pathname), entry);
+        //HASH_ADD_STR(fuse_cache, pathname, entry);
         logMessage(LOG_DEBUG, __func__, "insert::[%d][%s]-->[%d][%d]",
                    dir_id, path, (int)inode_id, zeroth_server);
     } else {
+        free(key);
         entry->inode_id = inode_id;
         entry->inserted_time = time(NULL);
         entry->zeroth_server = zeroth_server;

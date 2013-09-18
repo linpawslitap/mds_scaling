@@ -378,9 +378,9 @@ public:
     const std::string ext_log = ".log";
     const std::string prefix_des = "MANIFEST";
 
-    on_hdfs = stringEndsWith(fname, ext_sst) ||
-              stringEndsWith(fname, ext_log) ||
-              lastComponentStartsWith(fname, prefix_des);
+    on_hdfs = stringEndsWith(fname, ext_sst);
+/*              || stringEndsWith(fname, ext_log);
+              || lastComponentStartsWith(fname, prefix_des);*/
     return on_hdfs;
   }
 

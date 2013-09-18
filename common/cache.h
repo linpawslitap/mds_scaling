@@ -26,6 +26,7 @@ struct giga_directory {
     int refcount;
     struct giga_directory* prev;
     struct giga_directory* next;
+
     UT_hash_handle hh;
 };
 

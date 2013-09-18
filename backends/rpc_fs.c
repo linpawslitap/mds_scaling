@@ -106,6 +106,10 @@ void rpc_disconnect()
 }
 
 struct giga_directory* rpc_getpartition(int object_id, int zeroth_server) {
+    struct giga_directory* dir  = cache_lookup(&object_id);
+    if (dir != NULL)
+      return dir;
+
     CLIENT *rpc_clnt = getConnection(zeroth_server);
     giga_result_t rpc_mapping_reply;
     if (giga_rpc_getmapping_1(object_id, &rpc_mapping_reply, rpc_clnt)
@@ -113,18 +117,19 @@ struct giga_directory* rpc_getpartition(int object_id, int zeroth_server) {
         LOG_ERR("ERR_rpc_getmapping(%d)", object_id);
         exit(1);//TODO: retry again?
     }
-    giga_print_mapping(&rpc_mapping_reply.giga_result_t_u.bitmap);
-    struct giga_directory *new =
-      new_cache_entry_with_mapping(&object_id,
-          &rpc_mapping_reply.giga_result_t_u.bitmap);
-    if (new->mapping.zeroth_server != (unsigned int) zeroth_server) {
-        LOG_ERR("ERR_rpc_getpartition(%d %d)",
-                object_id, zeroth_server);
-        new->mapping.zeroth_server = zeroth_server;
+    if (rpc_mapping_reply.errnum == -EAGAIN) {
+        rpc_mapping_reply.giga_result_t_u.bitmap.id = object_id;
+        dir = new_cache_entry_with_mapping(&object_id,
+                             &rpc_mapping_reply.giga_result_t_u.bitmap);
+        if (dir->mapping.zeroth_server != (unsigned int) zeroth_server) {
+            LOG_ERR("ERR_rpc_getpartition(%d %d)",
+                    object_id, zeroth_server);
+            dir->mapping.zeroth_server = zeroth_server;
+        }
+        cache_insert(&object_id, dir);
     }
-    cache_insert(&object_id, new);
-    cache_release(new);
-    return new;
+    assert(dir != NULL);
+    return dir;
 }
 
 int rpc_getattr(int dir_id, int zeroth_srv, const char *path,
@@ -149,7 +154,7 @@ retry:
     server_id = get_server_for_file(dir, path);
     CLIENT *rpc_clnt = getConnection(server_id);
 
-    LOG_MSG(">>> RPC_getattr(%s): to s[%d]", path, server_id);
+    LOG_MSG(">>> RPC_getattr(%d, %s): to s[%d]", dir_id, path, server_id);
 
     if (giga_rpc_getattr_1(dir_id, (char*)path, &rpc_reply, rpc_clnt)
         != RPC_SUCCESS) {
@@ -157,6 +162,7 @@ retry:
         exit(1);//TODO: retry again?
     }
 
+    //TODO: do we need to update dircache when object_id already exists in dircache?
     // check return condition
     //
     ret = rpc_reply.result.errnum;
@@ -166,15 +172,21 @@ retry:
             stbuf->st_size = rpc_reply.file_size;
             stbuf->st_blocks = stbuf->st_size / 4096;
             int object_id = stbuf->st_ino;
-            LOG_MSG("GETATTR(%s) returns a directory for d%d",
-                    path, stbuf->st_ino);
-            giga_print_mapping(&rpc_reply.result.giga_result_t_u.bitmap);
-            struct giga_directory *new = new_cache_entry_with_mapping(
-                        &object_id, &rpc_reply.result.giga_result_t_u.bitmap);
-            new->mapping.zeroth_server = rpc_reply.zeroth_server;
-            *ret_zeroth_server = new->mapping.zeroth_server;
-            cache_insert(&object_id, new);
-            cache_release(new);
+            struct giga_directory *next_dir = cache_lookup(&object_id);
+            if (next_dir == NULL) {
+                LOG_MSG("GETATTR(%s) returns a directory for d%d",
+                        path, stbuf->st_ino);
+                giga_print_mapping(&rpc_reply.result.giga_result_t_u.bitmap);
+                struct giga_directory *new = new_cache_entry_with_mapping(
+                            &object_id, &rpc_reply.result.giga_result_t_u.bitmap);
+                new->mapping.zeroth_server = rpc_reply.zeroth_server;
+                *ret_zeroth_server = new->mapping.zeroth_server;
+                cache_insert(&object_id, new);
+                cache_release(new);
+            } else {
+                *ret_zeroth_server = next_dir->mapping.zeroth_server;
+                cache_release(next_dir);
+            }
             ret = 0;
         }
         else {
@@ -197,13 +209,16 @@ retry:
                     path, object_id, zeroth_server);
 
             *ret_zeroth_server = zeroth_server;
-            rpc_getpartition(object_id, zeroth_server);
+            struct giga_directory *next_dir =
+                rpc_getpartition(object_id, zeroth_server);
+            cache_release(next_dir);
         }
     }
 
     cache_release(dir);
 
-    LOG_MSG("<<< RPC_getattr(%s): status=[%d]%s", path, ret, strerror(ret));
+    LOG_MSG("<<< RPC_getattr(%d, %s): ret_zeroth_server=[%d] status=[%d]%s",
+             dir_id, path, *ret_zeroth_server, ret, strerror(ret));
 
     return ret;
 }
@@ -243,10 +258,6 @@ retry:
         update_client_mapping(dir, &rpc_reply.giga_result_t_u.bitmap);
         LOG_MSG("bitmap update from s%d -- RETRY ...", server_id); 
         goto retry;
-    } else if (ret < 0) {
-        ;
-    } else {
-        ret = 0;
     }
 
     cache_release(dir);
@@ -457,7 +468,8 @@ scan_list_t rpc_readdir(int dir_id, int zeroth_srv, const char *path, int *num_e
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 
-    struct readdir_args args[max_servers];
+    struct readdir_args* args = (struct readdir_args*)
+        malloc(max_servers * sizeof(struct readdir_args));
 
     void *status;
     int i=0;
@@ -486,6 +498,7 @@ scan_list_t rpc_readdir(int dir_id, int zeroth_srv, const char *path, int *num_e
         LOG_MSG("<<< readdir[%d]: status=[%ld]", i, (long)status);
     }
 
+    free(args);
     cache_release(dir);
 
     LOG_MSG("<<< RPC_readdir(%s): return", path);

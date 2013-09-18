@@ -140,6 +140,7 @@ int lookup_dir(const char* path, int* ret_zeroth_server) {
   size_t path_len = strlen(path);
   if (path_len < 2)
     return ROOT_DIR_ID;
+  LOG_MSG("lookup_dir(%s): pathlen(%d)", path, path_len);
 
   const char* lpos = path;
   const char* rpos;
@@ -157,6 +158,7 @@ int lookup_dir(const char* path, int* ret_zeroth_server) {
     }
     if (rpos - lpos > 1) {
       strncpy(dirname, lpos+1, rpos-lpos-1);
+      dirname[rpos-lpos-1] = '\0';
       int next_dir_id = fuse_cache_lookup(dir_id, dirname,
                                           &prev_ts, &zeroth_server);
       LOG_MSG("lookup_dir(%d, %s): %d %d",
@@ -967,6 +969,7 @@ int GIGAcreate(const char *path, mode_t mode, struct fuse_file_info *fi)
     char dir[PATH_MAX] = {0};
     int fd = 0;
     rpc_leveldb_fh_t* fh;
+
 
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:

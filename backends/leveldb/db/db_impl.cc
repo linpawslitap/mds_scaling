@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The LevelDB Authors. All rights reserved.
+
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 
@@ -1291,11 +1291,11 @@ Status DBImpl::MakeRoomForWrite(bool force) {
       // We have filled up the current memtable, but the previous
       // one is still being compacted, so we wait.
       bg_cv_.Wait();
-    } else if (versions_->NumLevelFiles(0) >= config::kL0_StopWritesTrigger) {
+    } /*else if (versions_->NumLevelFiles(0) >= config::kL0_StopWritesTrigger) {
       // There are too many level-0 files.
       Log(options_.info_log, "waiting...\n");
       bg_cv_.Wait();
-    } else {
+    }*/ else {
       // Attempt to switch to a new memtable and trigger compaction of old
       assert(versions_->PrevLogNumber() == 0);
       uint64_t new_log_number = versions_->NewFileNumber();
@@ -1694,8 +1694,6 @@ Status DBImpl::BulkInsert(const WriteOptions& write_opt,
 
       if (w.new_sequence > versions_->LastSequence())
         versions_->SetLastSequence(w.new_sequence);
-
-      s = env_->DeleteDir(dirname);
     }
   } else {
     s = Status::IOError("Deleting DB during sstable bulk-insertion");
@@ -1706,6 +1704,8 @@ Status DBImpl::BulkInsert(const WriteOptions& write_opt,
   if (!writers_.empty()) {
     writers_.front()->cv.Signal();
   }
+  bg_cv_.SignalAll();
+
   return s;
 }
 

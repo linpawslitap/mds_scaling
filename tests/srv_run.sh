@@ -58,7 +58,7 @@ n) # normal server execution
    #
 echo "lauch giga_server $PWD"
 export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/lib64/openmpi/lib/:/usr/libexec/dropbox/
-../giga_server &
+../giga_server > /tmp/server.log &
 ;;
 
 u)

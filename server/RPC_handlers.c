@@ -5,7 +5,7 @@
 #include "common/options.h"
 #include "common/rpc_giga.h"
 #include "common/giga_index.h"
-
+#include "common/hash.h"
 #include "backends/operations.h"
 
 #include "server.h"
@@ -21,12 +21,16 @@
 #define LOG_MSG(format, ...) \
     logMessage(_LEVEL_, __func__, format, __VA_ARGS__);
 
+#define DEBUG_MSG(format, ...) \
+    logMessage(LOG_ERR, __func__, format, __VA_ARGS__);
+
 static
 int check_split_eligibility(struct giga_directory *dir, int index)
 {
     if ((dir->partition_size[index] >= giga_options_t.split_threshold) &&
         (dir->split_flag == 0) &&
-        (giga_is_splittable(&dir->mapping, index) == 1)) {
+        (giga_is_splittable(&dir->mapping, index) == 1) &&
+        (get_num_split_tasks_in_progress() == 0)) {
         return true;
     }
 
@@ -88,12 +92,11 @@ struct giga_directory* fetch_dir_mapping(giga_dir_id dir_id)
         if (metadb_read_bitmap(ldb_mds, dir_id, -1, NULL, &new->mapping) != 0) {
             LOG_ERR("ERR_fetching(d=%d): LDB_miss!", dir_id);
             return NULL;
-            //exit(1);
         }
 
         cache_insert(&dir_id, new);
 
-        assert(new);
+        //assert(new);
         LOG_MSG("SUCCESS_fetching(d=%d): sending mapping", dir_id);
         return new;
     }
@@ -110,8 +113,19 @@ void release_dir_mapping(struct giga_directory *dir)
 }
 
 static
-int get_server_for_new_inode() {
-    return rand() %  giga_options_t.num_servers;
+int get_server_for_new_inode(giga_dir_id dir_id, char* path) {
+    /*
+    zeroth_server_assigner++;
+    if (zeroth_server_assigner >= giga_options_t.num_servers)
+      zeroth_server_assigner = 0;
+    return zeroth_server_assigner;
+    */
+    /*
+    return rand() % giga_options_t.num_servers;
+    */
+    (void) dir_id;
+    uint32_t hash = getStrHash(path, strlen(path), 0);
+    return hash % giga_options_t.num_servers;
 }
 
 bool_t giga_rpc_init_1_svc(int rpc_req,
@@ -127,14 +141,11 @@ bool_t giga_rpc_init_1_svc(int rpc_req,
     //
     int dir_id = 0;
     struct giga_directory *dir = fetch_dir_mapping(dir_id);
-    /*
-    struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
-        rpc_reply->errnum = -EIO;
-        LOG_MSG("ERR_cache: dir(%d) missing", dir_id);
-        return true;
+      rpc_reply->errnum = -ENOENT;
+      return true;
     }
-    */
+
     rpc_reply->errnum = -EAGAIN;
     memcpy(&(rpc_reply->giga_result_t_u.bitmap), &dir->mapping, sizeof(dir->mapping));
 
@@ -172,24 +183,16 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
     bzero(rpc_reply, sizeof(giga_getattr_reply_t));
 
     struct giga_directory *dir = fetch_dir_mapping(dir_id);
-    /*
-    struct giga_directory *dir = cache_lookup(&dir_id);
     if (dir == NULL) {
-
-        int zeroth_srv = 0;
-        struct giga_directory *new = new_cache_entry(&dir_id, zeroth_srv);
-        if (metadb_read_bitmap(ldb_mds, dir_id, -1, NULL, &new->mapping) != 0) {
-        //rpc_reply->result.errnum = -EIO;
-        //LOG_MSG("ERR_cache: dir(%d) missing", dir_id);
-        //return true;
+      rpc_reply->result.errnum = -ENOENT;
+      return true;
     }
-    */
 
     // check for giga specific addressing checks.
     //
     int index = check_giga_addressing(dir, path, NULL, rpc_reply);
     if (index < 0)
-        return true;
+        goto exit_func;
 
     char path_name[PATH_MAX];
 
@@ -220,16 +223,17 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
                                       &tmp->mapping) != 0) {
                     LOG_ERR("mdb_read(%s): error reading dir=%d bitmap.",
                             path, dir_id);
-                    exit(1);
-                }
-
-                rpc_reply->zeroth_server = tmp->mapping.zeroth_server;
-                if (rpc_reply->zeroth_server == giga_options_t.serverID) {
-                    memcpy(&(rpc_reply->result.giga_result_t_u.bitmap),
-                           &tmp->mapping, sizeof(tmp->mapping));
-                    giga_print_mapping(
-                        &rpc_reply->result.giga_result_t_u.bitmap);
-                    rpc_reply->result.errnum = -EAGAIN;
+                    rpc_reply->result.errnum = -ENOENT;
+                    goto exit_func;
+                } else {
+                  rpc_reply->zeroth_server = tmp->mapping.zeroth_server;
+                  if (rpc_reply->zeroth_server == giga_options_t.serverID) {
+                      memcpy(&(rpc_reply->result.giga_result_t_u.bitmap),
+                             &tmp->mapping, sizeof(tmp->mapping));
+                      giga_print_mapping(
+                          &rpc_reply->result.giga_result_t_u.bitmap);
+                      rpc_reply->result.errnum = -EAGAIN;
+                  }
                 }
             }
             rpc_reply->file_size = rpc_reply->statbuf.st_size;
@@ -238,6 +242,8 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
         default:
             break;
     }
+
+exit_func:
 
     release_dir_mapping(dir);
 
@@ -251,21 +257,22 @@ bool_t giga_rpc_getmapping_1_svc(giga_dir_id dir_id,
                                  struct svc_req *rqstp) {
     (void) rqstp;
     bzero(rpc_reply, sizeof(giga_result_t));
+    LOG_MSG(">>> RPC_getmapping(d=%d)", dir_id);
 
-    struct giga_mapping_t *mapping =
-      (struct giga_mapping_t*) malloc(sizeof(struct giga_mapping_t));
-
-    if (metadb_read_bitmap(ldb_mds, dir_id, -1, NULL,
-                           mapping) != 0) {
-        LOG_ERR("mdb_read_bitmap: error reading dir=%d bitmap.", dir_id);
-        exit(1);
+    struct giga_directory *dir = fetch_dir_mapping(dir_id);
+    if (dir == NULL) {
+      rpc_reply->errnum = -ENOENT;
+      return true;
     }
 
     rpc_reply->errnum = -EAGAIN;
     memcpy(&(rpc_reply->giga_result_t_u.bitmap),
-           mapping, sizeof(struct giga_mapping_t));
-    giga_print_mapping(mapping);
+           &(dir->mapping), sizeof(struct giga_mapping_t));
 
+    release_dir_mapping(dir);
+
+    LOG_MSG("<<< RPC_getmapping(d=%d): status=[%d]",
+            dir_id, rpc_reply->errnum);
     return true;
 }
 
@@ -284,6 +291,10 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
     bzero(rpc_reply, sizeof(giga_result_t));
 
     struct giga_directory *dir = fetch_dir_mapping(dir_id);
+    if (dir == NULL) {
+      rpc_reply->errnum = -ENOENT;
+      return true;
+    }
 
     int index = 0;
 
@@ -291,7 +302,7 @@ start:
     // check for giga specific addressing checks.
     //
     if ((index = check_giga_addressing(dir, path, rpc_reply, NULL)) < 0)
-        return true;
+        goto exit_func_release;
 
     ACQUIRE_MUTEX(&dir->partition_mtx[index], "mknod(%s)", path);
 
@@ -367,6 +378,7 @@ exit_func:
 
     RELEASE_MUTEX(&dir->partition_mtx[index], "mknod(%s)", path);
 
+exit_func_release:
     release_dir_mapping(dir);
 
     LOG_MSG("<<< RPC_mknod(d=%d,p=%s): status=[%d]", dir_id, path,
@@ -388,7 +400,6 @@ bool_t giga_rpc_readdir_serial_1_svc(scan_args_t args,
     struct giga_directory *dir = fetch_dir_mapping(dir_id);
     if (dir == NULL) {
         rpc_reply->errnum = ENOENT;
-        //rpc_reply->readdir_return_t_u.result.num_entries = 0;
         LOG_MSG("ERR_mdb_readdir: d%d no present at this server.", dir_id);
         return true;
     }
@@ -605,14 +616,6 @@ bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id,
 
     bzero(rpc_reply, sizeof(giga_result_t));
     struct giga_directory *dir = fetch_dir_mapping(dir_id);
-    /*
-    struct giga_directory *dir = cache_lookup(&dir_id);
-    if (dir == NULL) {
-        rpc_reply->errnum = -EIO;
-        LOG_MSG("ERR_cache: dir(%d) missing", dir_id);
-        return true;
-    }
-    */
 
     int index = 0;
 
@@ -620,7 +623,7 @@ start:
     // check for giga specific addressing checks.
     //
     if ((index = check_giga_addressing(dir, path, rpc_reply, NULL)) < 0)
-        return true;
+        goto exit_func_release;
 
     ACQUIRE_MUTEX(&dir->partition_mtx[index], "mkdir(%s)", path);
 
@@ -649,7 +652,7 @@ start:
             memcpy(&(rpc_reply->giga_result_t_u.bitmap),
                    &dir->mapping, sizeof(dir->mapping));
             if (metadb_write_bitmap(ldb_mds, dir_id, -1, NULL, &dir->mapping) != 0) {
-                LOG_ERR("mdb_write_bitmap(d%d): error reading bitmap.", dir_id);
+                LOG_ERR("mdb_write_bitmap(d%d): error write bitmap.", dir_id);
                 exit(1);
             }
             giga_print_mapping(&dir->mapping);
@@ -678,11 +681,16 @@ start:
             // and create partition entry for this object
 
             int object_id = metadb_get_next_inode_count(ldb_mds);
-            int zeroth_server = get_server_for_new_inode();
+            int zeroth_server = get_server_for_new_inode(dir_id, path);
             struct giga_directory *new_dir =
               new_cache_entry(&object_id, zeroth_server);
 
-            LOG_MSG("d=%d,p=%d,o=%d,p=%s", dir_id, index, object_id, path);
+            LOG_MSG("d=%d,p=%d,o=%d,path=%s,zeroth_srv=%d",
+                    dir_id, index, object_id, path, zeroth_server);
+
+
+            //TODO: DEBUG ONLY
+            assert(new_dir->mapping.id == object_id);
 
             //TODO: no need to copy mapping?
             rpc_reply->errnum = metadb_create_dir(ldb_mds, dir_id, index,
@@ -715,15 +723,18 @@ start:
                     */
                 }
             }
+            free(new_dir);
     }
 
 exit_func:
 
     RELEASE_MUTEX(&dir->partition_mtx[index], "mkdir(%s)", path);
 
+exit_func_release:
+
     release_dir_mapping(dir);
 
-    LOG_MSG("<<< RPC_mkdir(d=%d,p=%d): status=[%d]",
+    LOG_MSG("<<< RPC_mkdir(d=%d,p=%s): status=[%d]",
             dir_id, path, rpc_reply->errnum);
 
     return true;
@@ -734,10 +745,14 @@ bool_t giga_rpc_mkzeroth_1_svc(giga_dir_id dir_id,
                                struct svc_req *rqstp) {
     //TODO: missing locks?
     (void) rqstp;
+    LOG_MSG(">>> RPC_mkzeroth(d=%d)", dir_id);
 
     int zeroth_server = giga_options_t.serverID;
 
     struct giga_directory *new_dir = new_cache_entry(&dir_id, zeroth_server);
+
+    //TODO: DEBUG ONLY
+    assert(dir_id == new_dir->mapping.id);
 
     LOG_MSG("mkzeroth(d=%d)", dir_id);
     rpc_reply->errnum = metadb_create_dir(ldb_mds, dir_id, -1, NULL,
@@ -745,9 +760,14 @@ bool_t giga_rpc_mkzeroth_1_svc(giga_dir_id dir_id,
     if (rpc_reply->errnum < 0)
         LOG_ERR("ERR_mdb_mkzeroth(%d)", dir_id);
 
+    cache_insert(&dir_id, new_dir);
+    cache_release(new_dir);
+
     /*
     create_dir_in_storage(dir_id);
     */
+    LOG_MSG("<<< RPC_mkzeroth(d=%d): status=[%d]",
+            dir_id, rpc_reply->errnum);
 
     return true;
 }
@@ -769,12 +789,17 @@ bool_t giga_rpc_read_1_svc(giga_dir_id dir_id, giga_pathname path,
     bzero(rpc_reply, sizeof(giga_read_reply_t));
 
     struct giga_directory *dir = fetch_dir_mapping(dir_id);
+    if (dir == NULL) {
+      rpc_reply->result.errnum = -ENOENT;
+      return true;
+    }
+
     // check for giga specific addressing checks.
     //
     int index = check_giga_addressing(dir, path, &(rpc_reply->result), NULL);
     if (index < 0) {
         rpc_reply->result.errnum = 1;
-        return true;
+        goto exit_func;
     }
 
     int state;
@@ -823,6 +848,8 @@ bool_t giga_rpc_read_1_svc(giga_dir_id dir_id, giga_pathname path,
             break;
     }
 
+exit_func:
+
     release_dir_mapping(dir);
 
     LOG_MSG("<<< RPC_read(d=%d,p=%s): state=[%d],status=[%d]",
@@ -863,6 +890,11 @@ bool_t giga_rpc_write_1_svc(giga_dir_id dir_id, giga_pathname path,
 
     bzero(rpc_reply, sizeof(giga_write_reply_t));
     struct giga_directory *dir = fetch_dir_mapping(dir_id);
+    if (dir == NULL) {
+      rpc_reply->result.errnum = -ENOENT;
+      return true;
+    }
+
     int index;
 
 start:
@@ -970,12 +1002,17 @@ bool_t giga_rpc_fetch_1_svc(giga_dir_id dir_id, giga_pathname path,
     bzero(rpc_reply, sizeof(giga_fetch_reply_t));
 
     struct giga_directory *dir = fetch_dir_mapping(dir_id);
+    if (dir == NULL) {
+      rpc_reply->result.errnum = -ENOENT;
+      return true;
+    }
+
     // check for giga specific addressing checks.
     //
     int index = check_giga_addressing(dir, path, &(rpc_reply->result), NULL);
     if (index < 0) {
         rpc_reply->result.errnum = 1;
-        return true;
+        goto exit_func;
     }
 
     int state;
@@ -1017,6 +1054,7 @@ bool_t giga_rpc_fetch_1_svc(giga_dir_id dir_id, giga_pathname path,
             break;
     }
 
+exit_func:
     release_dir_mapping(dir);
 
     LOG_MSG("<<< RPC_fetch(d=%d,p=%s): state=[%d], status=[%d]",
@@ -1041,6 +1079,11 @@ bool_t giga_rpc_updatelink_1_svc(giga_dir_id dir_id,
 
     bzero(rpc_reply, sizeof(giga_result_t));
     struct giga_directory *dir = fetch_dir_mapping(dir_id);
+    if (dir == NULL) {
+      rpc_reply->errnum = -ENOENT;
+      return true;
+    }
+
     int index;
 
 start:
@@ -1084,12 +1127,17 @@ bool_t giga_rpc_open_1_svc(giga_dir_id dir_id, giga_pathname path, int mode,
     bzero(rpc_reply, sizeof(giga_open_reply_t));
 
     struct giga_directory *dir = fetch_dir_mapping(dir_id);
+    if (dir == NULL) {
+      rpc_reply->result.errnum = -ENOENT;
+      return true;
+    }
+
     // check for giga specific addressing checks.
     //
     int index = check_giga_addressing(dir, path, &(rpc_reply->result), NULL);
     if (index < 0) {
         rpc_reply->link = strdup("");
-        return true;
+        goto exit_func;
     }
 
     int state;
@@ -1115,6 +1163,7 @@ bool_t giga_rpc_open_1_svc(giga_dir_id dir_id, giga_pathname path, int mode,
             break;
     }
 
+exit_func:
     release_dir_mapping(dir);
 
     LOG_MSG("<<< RPC_open(d=%d,p=%s): state=[%d], link=[%s], status=[%d]",
@@ -1134,21 +1183,19 @@ bool_t giga_rpc_close_1_svc(giga_dir_id dir_id, giga_pathname path,
     LOG_MSG(">>> RPC_close(d=%d,p=%s)", dir_id, path);
     bzero(rpc_reply, sizeof(giga_result_t));
 
-    /*
-    rpc_reply->errnum = 0;
-
-    return true;
-    */
     struct giga_directory *dir = fetch_dir_mapping(dir_id);
+    if (dir == NULL) {
+      rpc_reply->errnum = -ENOENT;
+      return true;
+    }
+
     int index;
 
 start:
     // check for giga specific addressing checks.
     //
     if ((index=check_giga_addressing(dir, path, rpc_reply, NULL)) < 0)
-    {
-        return true;
-    }
+        goto exit_func;
 
     ACQUIRE_MUTEX(&dir->partition_mtx[index], "close(%s)", path);
 
@@ -1183,6 +1230,7 @@ start:
             break;
     }
 
+exit_func:
     RELEASE_MUTEX(&dir->partition_mtx[index], "close(%s)", path);
 
     release_dir_mapping(dir);

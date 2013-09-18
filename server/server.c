@@ -96,11 +96,14 @@ int main(int argc, char **argv)
 
     server_socket();        // start server socket(s).
 
+    (void) split_tid;
+    /*
     if (pthread_create(&split_tid, 0, split_thread, NULL) < 0)
         LOG_ERR("ERR_pthread_create(): split_thread(%d)", split_tid);
 
     if (pthread_detach(split_tid) < 0)
         LOG_ERR("ERR_pthread_detach(): split_thread(%d)", split_tid);
+    */
 
     // FIXME: we sleep 15 seconds here to let the other servers startup.  This
     // mechanism needs to be replaced by an intelligent reconnection system.
@@ -111,6 +114,8 @@ int main(int argc, char **argv)
     }
 
     LOG_ERR("### server[%d] up ...\n", giga_options_t.serverID);
+    zeroth_server_assigner = giga_options_t.serverID;
+    srand(zeroth_server_assigner);
 
     void *retval;
 

@@ -4,6 +4,7 @@
 #include <fuse.h>
 #include "common/rpc_giga.h"
 
+
 void* GIGAinit(struct fuse_conn_info *conn);
 void GIGAdestroy(void *unused);
 

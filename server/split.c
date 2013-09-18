@@ -32,6 +32,8 @@ struct split_task {
 struct split_task *queue = NULL;
 pthread_cond_t queue_cond = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t split_counter_mutex = PTHREAD_MUTEX_INITIALIZER;
+static int num_split_task = 0;
 
 static int split_in_localFS(struct giga_directory *dir,
                             int parent_index, int parent_srv,
@@ -42,9 +44,30 @@ static int split_in_levelDB(struct giga_directory *dir,
                             int child_index, int child_srv);
 
 
+int get_num_split_tasks_in_progress() {
+    pthread_mutex_lock(&split_counter_mutex);
+    int ret = num_split_task;
+    pthread_mutex_unlock(&split_counter_mutex);
+    return ret;
+}
+
+void add_split_task() {
+    pthread_mutex_lock(&split_counter_mutex);
+    num_split_task++;
+    pthread_mutex_unlock(&split_counter_mutex);
+}
+
+void remove_split_task() {
+    pthread_mutex_lock(&split_counter_mutex);
+    num_split_task--;
+    pthread_mutex_unlock(&split_counter_mutex);
+}
+
 int split_bucket(struct giga_directory *dir, int partition_to_split)
 {
     int ret = -1;
+
+    add_split_task();
 
     int parent = partition_to_split;
     int parent_srv = giga_options_t.serverID;
@@ -100,6 +123,8 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
     }
 
     metadb_extract_clean(ldb_mds);
+
+    remove_split_task();
 
     return ret;
 }
@@ -257,8 +282,9 @@ int split_in_levelDB(struct giga_directory *dir,
 
     char split_dir_path[PATH_MAX] = {0};
     snprintf(split_dir_path, sizeof(split_dir_path),
-             "%s/sst-d%d-p%dp%d",
-             giga_options_t.split_dir, dir->handle, parent_index, child_index);
+             "%s/sst-d%d-p%dp%d-s%ds%d",
+             giga_options_t.split_dir, dir->handle, parent_index, child_index,
+             parent_srv, child_srv);
 
     // TODO: should we even do this for local splitting?? move to remote
     // split??
@@ -268,7 +294,7 @@ int split_in_levelDB(struct giga_directory *dir,
     LOG_MSG("ldb_extract: (for d%d, p%d-->p%d) in (%s)",
             dir->handle, parent_index, child_index, split_dir_path);
 
-    //ACQUIRE_MUTEX(&ldb_mds.mtx_extract, "extract(%s)", split_dir_path);
+    ACQUIRE_MUTEX(&(ldb_mds->mtx_extract), "extract(%s)", split_dir_path);
     mdb_seq_num_t min, max = 0;
 
     ret = metadb_extract_do(ldb_mds, dir->handle,
@@ -320,7 +346,7 @@ int split_in_levelDB(struct giga_directory *dir,
     metadb_extract_clean(ldb_mds);
 
 exit_func:
-    //RELEASE_MUTEX(&ldb_mds.mtx_extract, "extract(%d,%d)", min, max);
+    RELEASE_MUTEX(&(ldb_mds->mtx_extract), "extract(%d,%d)", min, max);
 
     return ret;
 }

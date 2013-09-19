@@ -32,7 +32,7 @@
 #include "util/coding.h"
 #include "util/logging.h"
 #include "util/mutexlock.h"
-
+#include "util/socket.h"
 namespace leveldb {
 
 // Information kept for every waiting writer
@@ -848,6 +848,28 @@ Status DBImpl::InstallCompactionResults(CompactionState* compact) {
   return versions_->LogAndApply(compact->compaction->edit(), &mutex_);
 }
 
+void DBImpl::SendMetrics() {
+  int now_time = (int) time(NULL);
+  char metricString[256];
+
+  sprintf(metricString,
+          "compaction_num %d %ld\n"
+          "compaction_time %d %ld\n"
+          "compaction_bytes_read %d %ld\n"
+          "compaction_bytes_written %d %ld\n",
+          now_time, sum_stats_.counter,
+          now_time, sum_stats_.micros,
+          now_time, sum_stats_.bytes_read,
+          now_time, sum_stats_.bytes_written);
+
+  UDPSocket sock;
+  try {
+      sock.sendTo(metricString, strlen(metricString),
+                  std::string("127.0.0.1"), 10600);
+  } catch (SocketException &e) {
+  }
+}
+
 Status DBImpl::DoCompactionWork(CompactionState* compact) {
   const uint64_t start_micros = env_->NowMicros();
   int64_t imm_micros = 0;  // Micros spent doing imm_ compactions
@@ -997,6 +1019,9 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
 
   mutex_.Lock();
   stats_[compact->compaction->level() + 1].Add(stats);
+  sum_stats_.Add(stats);
+
+  SendMetrics();
 
   if (status.ok()) {
     status = InstallCompactionResults(compact);

@@ -24,6 +24,7 @@ all:
 #	gcc $(OPT) -o ./ldb_hdfs_test ./ldb_hdfs_test.c  $(LIBS) $(LDFLAGS) $(HADOOP_LDFLAGS)
 #	gcc $(OPT) -o ./random_test ./random_test.c  $(LIBS) $(LDFLAGS) $(HADOOP_LDFLAGS) -I..
 	gcc $(OPT) -o ./tree_select_test ./tree_select_test.c -I.. ../libgiga_client.a $(LIBS) $(LDFLAGS) $(HADOOP_LDFLAGS) -I..
+	gcc $(OPT) -o ./tree_debug ./tree_debug.c -I.. ../libgiga_client.a $(LIBS) $(LDFLAGS) $(HADOOP_LDFLAGS) -I..
 
 clean:
 	rm mknod_test stat_test smallfile_test mkdir_lib_test mknod_lib_test smallfile_lib_test ldb_hdfs_test crash_test mix_test

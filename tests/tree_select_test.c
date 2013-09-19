@@ -127,20 +127,40 @@ static void mknod_from_list() {
     finish_measure();
 }
 
-static void getattr_from_list(const char *filename) {
+static void getattr_from_list() {
+    char p[512] = {0};
+    start_measure();
+    int errcount = 0;
     for (curr = 0; curr< num_files; ++curr) {
-        int dir_id = rand() % num_dirs;
-        char p[512] = {0};
-        snprintf(p, sizeof(p), "%s%s_p%d_f%d",
-                 dirnames[dir_id], hostname, pid, curr);
+        pick_file(p);
+        start_op();
         struct stat buf;
         if (gigaGetAttr(p, &buf) < 0) {
-              printf ("ERROR during mknod(%s): %s\n", p, strerror(errno));
+          errcount++;
+        }
+        finish_op();
+    }
+    finish_measure();
+    printf("errcount:%d\n", errcount);
+}
+/*
+static void chmod_from_list(const char *filename) {
+    char p[512] = {0};
+    start_measure();
+    for (curr = 0; curr< num_files; ++curr) {
+        pick_file(p);
+        start_op();
+        struct stat buf;
+        if (gigaGetAttr(p, &buf) < 0) {
+              printf("ERROR during getattr(%s): %s\n",
+                      p, strerror(errno));
               return;
         }
+        finish_op();
     }
+    finish_measure();
 }
-
+*/
 void launch_timer_thread() {
     pthread_t tid;
     int ret;
@@ -159,19 +179,19 @@ void launch_timer_thread() {
 
 int main(int argc, char **argv)
 {
-    if (argc != 5) {
+    if (argc != 6) {
         fprintf(stdout, "*** ERROR: insufficient parameters ... \n\n");
-        fprintf(stdout, "USAGE: %s <dirfilename> <oplist> <num_files> <seed>\n", argv[0]);
+        fprintf(stdout, "USAGE: %s <type> <dirfilename> <oplist> <num_files> <seed>\n", argv[0]);
         fprintf(stdout, "\n");
         return -1;
     }
 
     setvbuf(stdout,NULL,_IONBF,0);
     pid = (int)getpid();
-    num_files = atoi(argv[3]);
-    read_dir_list(argv[1]);
-    read_op_list(argv[2]);
-    seed = atoi(argv[4]);
+    num_files = atoi(argv[4]);
+    read_dir_list(argv[2]);
+    read_op_list(argv[3]);
+    seed = atoi(argv[5]);
     srand(seed);
 
     if (num_dirs <= 0) {
@@ -192,7 +212,10 @@ int main(int argc, char **argv)
     launch_timer_thread();
 
     start_exp = time(NULL);
-    mknod_from_list();
+    if (strcmp(argv[1], "mknod") == 0)
+        mknod_from_list();
+    if (strcmp(argv[1], "getattr") == 0)
+        getattr_from_list();
     end_exp = time(NULL);
 
     errors = 100;

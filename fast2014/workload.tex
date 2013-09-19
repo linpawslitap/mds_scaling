@@ -44,7 +44,7 @@ should support a large amount of small objects, as well as
 efficient distribution of large directory for concurrent access.
 
 
-\begin{figure}[!ht]
+\begin{figure}[hb]
 \center
 \includegraphics[scale=0.5]{figs/directory_size}
 \caption{\textit{The median, 90-percentile,
@@ -72,18 +72,29 @@ We conjecture that
 \begin{figure}[!ht]
 \center
 \includegraphics[scale=0.4]{figs/directory_depth}
-\caption{}
+\caption{\textit{The distribution of directory depth of
+collected file systems traces.}}
 \label{fig:directory_depth}
 \end{figure}
 
-\subsection{Highly-Skewed File System Operations}
+\subsection{Skewed Distribution of Operations}
 
-%\subsection{Small Files are Popular}
+We also studied the dynamic statistics of two Hadoop clusters:
+LinkedIn and OpenCloud. The number of individual file system
+metadata operations are counted over the entire traces.
+Figure \ref{fig:operation} shows the fraction of each type
+of metadata operation. It is pronounced that in both traces,
+one or two operations dominate the entire traces.
+\textit{open()} is the most prevalent metadata operation,
+and the next one is \textit{readdir()}.
+The skewed distribution of file operations motivates us to
+explore different design choices that favor some types
+of metadata operations.
+
 \begin{figure}[!ht]
 \center
 \includegraphics[scale=0.5]{figs/operation_distribution}
-\caption{}
+\caption{\textit{Distribution of file system operations in
+LinkedIn and OpenCloud traces}}
 \label{fig:operation}
 \end{figure}
-
-

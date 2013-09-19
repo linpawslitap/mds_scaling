@@ -12,7 +12,8 @@ TEXFILE = abstract.tex \
 					relatedwork.tex\
 					tablefs.tex\
 					giga.tex\
-					summary.tex
+					summary.tex \
+					workload.tex
 
 $(PAPER).pdf: $(PAPER).tex $(TEXFILE) reference.bib
 	pdflatex $(PAPER).tex

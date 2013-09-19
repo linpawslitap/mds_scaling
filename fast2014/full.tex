@@ -16,20 +16,6 @@ For a fair comparison, we compare \psys with native PanFS that creates 1 million
 files in 5 different directories owned by 5 different metadata servers.
 
 \begin{figure}[t]  %%%%%%%%%%%%%%%%%%%%%%%
-\centerline{\includegraphics[scale=0.6]{./figs/zero_file_creation_on_panfs}}
-\vspace{10pt}
-\caption{
-\textit{Average throughput during creating five million zero-length files
-in one empty directory with different number of clients per test node.
-Running 32 and more clients per test node is able to saturate \psys
-and original PanFS}
-}
-%\vspace{10pt}
-\hrule
-\label{graph:creation_clients}
-\end{figure}       %%%%%%%%%%%%%%%%%%%%%%%
-
-\begin{figure}[t]  %%%%%%%%%%%%%%%%%%%%%%%
 \centerline{\includegraphics[scale=0.6]{./figs/mdtest}}
 \vspace{10pt}
 \caption{

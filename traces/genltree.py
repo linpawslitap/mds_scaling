@@ -31,15 +31,15 @@ def gentree(cur, ndepth, f1, f2):
 
 option = {
   'fnlen' : 12,
-  'maxdepth' : 15,
-  'width' : 2,
-  'lastwidth': 2,
+  'maxdepth' : 1,
+  'width' : 1,
+  'lastwidth': 12800,
 }
 
-f1 = open("tree6.log", "w")
-f2 = open("alltree6.log", "w")
-f1.write("%d\n"%(math.pow(option['width'], option['maxdepth']-1)*option['lastwidth']))
-f2.write("%d\n"%((math.pow(option['width'],option['maxdepth']+1)-option['width'])/(option['width']-1)))
+f1 = open("tree7.log", "w")
+f2 = open("alltree7.log", "w")
+#f1.write("%d\n"%(math.pow(option['width'], option['maxdepth']-1)*option['lastwidth']))
+#f2.write("%d\n"%((math.pow(option['width'],option['maxdepth']+1)-option['width'])/(option['width']-1)))
 gentree("", 1, f1, f2)
 f1.close()
 f2.close()

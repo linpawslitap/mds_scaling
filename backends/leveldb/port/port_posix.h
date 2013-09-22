@@ -81,6 +81,7 @@ class CondVar {
   explicit CondVar(Mutex* mu);
   ~CondVar();
   void Wait();
+  void TimedWait(uint64_t sec, uint64_t tv_nsec);
   void Signal();
   void SignalAll();
  private:

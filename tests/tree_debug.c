@@ -56,7 +56,7 @@ void *timer_thread(void *unused)
     struct sockaddr_in recv_addr;
     bzero(&recv_addr, sizeof(recv_addr));
     recv_addr.sin_family = AF_INET;
-    recv_addr.sin_port = htons(10600);
+    recv_addr.sin_port = htons(10601);
     int fd = -1;
     if (inet_aton("127.0.0.1", &recv_addr.sin_addr) != 0) {
       fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -79,12 +79,15 @@ top:
     if (fd > 0) {
       time_t now_time = time(NULL);
       snprintf(message, 256,
-              "client_ops %ld %d\n",
+              "test_ops %ld %d\n",
               now_time, now);
-      sendto(fd, message, strlen(message), 0, (struct sockaddr *) &recv_addr,
-             sizeof(recv_addr));
+      if (sendto(fd, message, strlen(message), 0, &recv_addr, sizeof(recv_addr))
+          < 0) {
+        printf("Sending messages failed\n");
+      } else {
+        printf("Sending message successfully\n");
+      }
     }
-
     if (errors > 50)
         return NULL;
     else
@@ -133,6 +136,7 @@ void pick_file(char* p) {
     }
 }
 
+/*
 static void mknod_from_list() {
     char p[512] = {0};
     start_measure();
@@ -149,39 +153,30 @@ static void mknod_from_list() {
 }
 
 static void getattr_from_list() {
-    char p[512] = {0};
-    start_measure();
-    int errcount = 0;
-    for (curr = 0; curr< num_files; ++curr) {
-        pick_file(p);
-        start_op();
-        struct stat buf;
-        if (gigaGetAttr(p, &buf) < 0) {
-          errcount++;
-        }
-        finish_op();
+    struct stat buf;
+    char p[1024] = "/bmdkugyjxwaf/ibkmlegrgqgv/yuespiycvmkj/qffuuayktyzq/rydvdlgoarhr/rtwmeourvwhh/pbbpszcmfpnb/dpmtvbzgucqf/2334";
+    if (gigaGetAttr(p, &buf) < 0) {
+          printf("ERROR during getattr(%s): %s\n",
+                  p, strerror(errno));
+          return;
     }
-    finish_measure();
-    printf("errcount:%d\n", errcount);
-}
-/*
-static void chmod_from_list(const char *filename) {
-    char p[512] = {0};
-    start_measure();
-    for (curr = 0; curr< num_files; ++curr) {
-        pick_file(p);
-        start_op();
-        struct stat buf;
-        if (gigaGetAttr(p, &buf) < 0) {
-              printf("ERROR during getattr(%s): %s\n",
-                      p, strerror(errno));
-              return;
-        }
-        finish_op();
-    }
-    finish_measure();
 }
 */
+
+static void test() {
+    struct timespec ts;
+    ts.tv_sec = sampling;
+    ts.tv_nsec = 0;
+
+    struct timespec rem;
+
+    for (curr = 0; curr < 1000000; ++curr) {
+      if (curr % 1000 == 0) {
+          nanosleep(&ts, &rem);
+      }
+    }
+}
+
 void launch_timer_thread() {
     pthread_t tid;
     int ret;
@@ -199,26 +194,27 @@ void launch_timer_thread() {
 }
 
 int main(int argc, char **argv)
-{
+{   /*
     if (argc != 6) {
         fprintf(stdout, "*** ERROR: insufficient parameters ... \n\n");
         fprintf(stdout, "USAGE: %s <type> <dirfilename> <oplist> <num_files> <seed>\n", argv[0]);
         fprintf(stdout, "\n");
         return -1;
     }
-
+    */
     setvbuf(stdout,NULL,_IONBF,0);
     pid = (int)getpid();
-    num_files = atoi(argv[4]);
+    num_files = atoi(argv[1]);
+    /*
     read_dir_list(argv[2]);
     read_op_list(argv[3]);
     seed = atoi(argv[5]);
     srand(seed);
-
     if (num_dirs <= 0) {
       printf("Not directory names listed in %s\n", argv[1]);
       return -1;
     }
+    */
 
     if (gethostname(hostname, sizeof(hostname)) < 0) {
         printf("ERROR during gethostname(): %s", strerror(errno));
@@ -233,10 +229,7 @@ int main(int argc, char **argv)
     launch_timer_thread();
 
     start_exp = time(NULL);
-    if (strcmp(argv[1], "mknod") == 0)
-        mknod_from_list();
-    if (strcmp(argv[1], "getattr") == 0)
-        getattr_from_list();
+    test();
     end_exp = time(NULL);
 
     errors = 100;

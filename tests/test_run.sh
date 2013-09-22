@@ -22,10 +22,11 @@ then
     exit
 fi
 
-echo $1 $2 $3 $4
+echo $1 $2 $3 $4 $5
 apps=$2
 cli=$3
-id=$4
+treeid=$4
+id=$5
 
 files=$(( $1/$(( $apps*$cli)) ))
 
@@ -42,14 +43,9 @@ do
         then
             dir=${MNT}/${i}
         fi
-#        ./smallfile_lib_test / 1 $files > ~/_perf/$host.$i.$j 2>&1 &
-#        ./mknod_lib_test / $files > ~/_perf/$host.$i.$j 2>&1 &
-#        ./mkdir_lib_test / $files > ~/_perf/$host.$i.$j 2>&1 &
-#        ./tree_test ../traces/tree3.log $files $id > ~/_perf/$host.$i.$j 2>&1
-        ./tree_select_test ../traces/tree3/tree3.log \
-        ../traces/tree3/tree.client.$id.dat $files $id \
+        ./tree_select_test mknod ../traces/tree$treeid/tree$treeid.log \
+        ../traces/tree$treeid/tree.client.$id.dat $files $id \
         > ~/_perf/$host.$i.$j 2>&1
-#        gdb --args ./tree_test ../traces/tree1.log $files $id
 
         #( time ./mknod_test ${dir} $files ) > ~/_perf/$host.$i.$j 2>&1 &
 

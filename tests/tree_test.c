@@ -1,5 +1,4 @@
 #include "client/libclient.h"
-#include "common/measure.h"
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -14,8 +13,6 @@
 #include <signal.h>
 #include <time.h>
 #include <pthread.h>
-#include <arpa/inet.h>
-#include <netinet/tcp.h>
 
 #define USER_RW         (S_IRUSR | S_IWUSR)
 #define GRP_RW          (S_IRGRP | S_IWGRP)
@@ -26,20 +23,13 @@
 static char hostname[64];
 static int pid;
 
-typedef struct {
-  int dirno;
-  int min;
-  int max;
-} op_t;
-
 volatile int curr;
 volatile int lastfile;
 int errors;
 time_t start_exp, end_exp;
 const int sampling = 1;
-int num_dirs, num_files, num_ops;
+int num_dirs, num_files;
 char** dirnames;
-op_t* oplist;
 int seed;
 
 void *timer_thread(void *unused)
@@ -53,16 +43,6 @@ void *timer_thread(void *unused)
 
     struct timespec rem;
 
-    struct sockaddr_in recv_addr;
-    bzero(&recv_addr, sizeof(recv_addr));
-    recv_addr.sin_family = AF_INET;
-    recv_addr.sin_port = htons(10600);
-    int fd = -1;
-    if (inet_aton("127.0.0.1", &recv_addr.sin_addr) != 0) {
-      fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    }
-    char message[256];
-
 top:
     now = curr;
     printf("%d\n", now - lastfile);
@@ -74,15 +54,6 @@ top:
             nanosleep(&rem, NULL);
         else
             errors++;
-    }
-
-    if (fd > 0) {
-      time_t now_time = time(NULL);
-      snprintf(message, 256,
-              "client_ops %ld %d\n",
-              now_time, now);
-      sendto(fd, message, strlen(message), 0, (struct sockaddr *) &recv_addr,
-             sizeof(recv_addr));
     }
 
     if (errors > 50)
@@ -108,80 +79,33 @@ void read_dir_list(const char *filename) {
     fclose(file);
 }
 
-void read_op_list(const char *filename) {
-    FILE* file = fopen(filename, "r");
-    if (file == NULL)
-      return;
-    fscanf(file, "%d", &num_ops);
-    oplist = (op_t *) malloc(sizeof(op_t) * num_ops);
-    int i = 0;
-    for (i=0; i < num_ops; ++i) {
-      oplist[i].dirno = i;
-      fscanf(file,"%d %d", &(oplist[i].min), &(oplist[i].max));
-    }
-    fclose(file);
-}
-
-void pick_file(char* p) {
-    int op_id = rand() % num_ops;
-    sprintf(p, "%s/%d\0",
-             dirnames[oplist[op_id].dirno], oplist[op_id].min);
-    oplist[op_id].min ++;
-    if (oplist[op_id].min == oplist[op_id].max) {
-      oplist[op_id] = oplist[num_ops-1];
-      --num_ops;
-    }
-}
-
 static void mknod_from_list() {
-    char p[512] = {0};
-    start_measure();
     for (curr = 0; curr< num_files; ++curr) {
-        pick_file(p);
-        start_op();
+        int dir_id = rand() % num_dirs;
+        char p[512] = {0};
+        snprintf(p, sizeof(p), "%s/%s_f%d",
+                 dirnames[dir_id], hostname, curr);
         if (gigaMknod(p, CREATE_MODE) < 0) {
               printf ("ERROR during mknod(%s): %s\n", p, strerror(errno));
               return;
         }
-        finish_op();
     }
-    finish_measure();
 }
 
-static void getattr_from_list() {
-    char p[512] = {0};
-    start_measure();
-    int errcount = 0;
+static void getattr_from_list(const char *filename) {
     for (curr = 0; curr< num_files; ++curr) {
-        pick_file(p);
-        start_op();
+        int dir_id = rand() % num_dirs;
+        char p[512] = {0};
+        snprintf(p, sizeof(p), "%s%s_p%d_f%d",
+                 dirnames[dir_id], hostname, pid, curr);
         struct stat buf;
         if (gigaGetAttr(p, &buf) < 0) {
-          errcount++;
-        }
-        finish_op();
-    }
-    finish_measure();
-    printf("errcount:%d\n", errcount);
-}
-/*
-static void chmod_from_list(const char *filename) {
-    char p[512] = {0};
-    start_measure();
-    for (curr = 0; curr< num_files; ++curr) {
-        pick_file(p);
-        start_op();
-        struct stat buf;
-        if (gigaGetAttr(p, &buf) < 0) {
-              printf("ERROR during getattr(%s): %s\n",
-                      p, strerror(errno));
+              printf ("ERROR during mknod(%s): %s\n", p, strerror(errno));
               return;
         }
-        finish_op();
     }
-    finish_measure();
 }
-*/
+
 void launch_timer_thread() {
     pthread_t tid;
     int ret;
@@ -200,19 +124,18 @@ void launch_timer_thread() {
 
 int main(int argc, char **argv)
 {
-    if (argc != 6) {
+    if (argc != 4) {
         fprintf(stdout, "*** ERROR: insufficient parameters ... \n\n");
-        fprintf(stdout, "USAGE: %s <type> <dirfilename> <oplist> <num_files> <seed>\n", argv[0]);
+        fprintf(stdout, "USAGE: %s <filename> <num_files> <seed>\n", argv[0]);
         fprintf(stdout, "\n");
         return -1;
     }
 
     setvbuf(stdout,NULL,_IONBF,0);
     pid = (int)getpid();
-    num_files = atoi(argv[4]);
-    read_dir_list(argv[2]);
-    read_op_list(argv[3]);
-    seed = atoi(argv[5]);
+    num_files = atoi(argv[2]);
+    read_dir_list(argv[1]);
+    seed = atoi(argv[3]);
     srand(seed);
 
     if (num_dirs <= 0) {
@@ -233,10 +156,7 @@ int main(int argc, char **argv)
     launch_timer_thread();
 
     start_exp = time(NULL);
-    if (strcmp(argv[1], "mknod") == 0)
-        mknod_from_list();
-    if (strcmp(argv[1], "getattr") == 0)
-        getattr_from_list();
+    mknod_from_list();
     end_exp = time(NULL);
 
     errors = 100;

@@ -35,6 +35,8 @@
 #include "util/socket.h"
 namespace leveldb {
 
+bool DBImpl::db_impl_closed_ = false;
+
 // Information kept for every waiting writer
 struct DBImpl::Writer {
   Status status;
@@ -137,7 +139,7 @@ Options SanitizeOptions(const std::string& dbname,
     }
   }
   if (result.block_cache == NULL) {
-    result.block_cache = NewLRUCache(8 << 20);
+    result.block_cache = NewLRUCache(512 << 20);
   }
   return result;
 }
@@ -154,6 +156,7 @@ DBImpl::DBImpl(const Options& options, const std::string& dbname)
       db_lock_(NULL),
       shutting_down_(NULL),
       bg_cv_(&mutex_),
+      mt_cv_(&mt_mutex_),
       mem_(new MemTable(internal_comparator_)),
       imm_(NULL),
       logfile_(NULL),
@@ -161,6 +164,7 @@ DBImpl::DBImpl(const Options& options, const std::string& dbname)
       log_(NULL),
       tmp_batch_(new WriteBatch),
       bg_compaction_scheduled_(false),
+      bg_monitor_in_loop_(true),
       manual_compaction_(NULL) {
   mem_->Ref();
   has_imm_.Release_Store(NULL);
@@ -171,6 +175,12 @@ DBImpl::DBImpl(const Options& options, const std::string& dbname)
 
   versions_ = new VersionSet(dbname_, &options_, table_cache_,
                              &internal_comparator_);
+
+  mt_mutex_.Lock();
+  db_impl_closed_ = false;
+  mt_mutex_.Unlock();
+
+  env_->StartThread(MonitorThread, this);
 }
 
 DBImpl::~DBImpl() {
@@ -181,6 +191,13 @@ DBImpl::~DBImpl() {
     bg_cv_.Wait();
   }
   mutex_.Unlock();
+
+  mt_mutex_.Lock();
+  db_impl_closed_ = true;
+  while (bg_monitor_in_loop_) {
+    mt_cv_.Wait();
+  }
+  mt_mutex_.Unlock();
 
   if (db_lock_ != NULL) {
     env_->UnlockFile(db_lock_);
@@ -868,6 +885,20 @@ void DBImpl::SendMetrics() {
                   std::string("127.0.0.1"), 10600);
   } catch (SocketException &e) {
   }
+}
+
+void DBImpl::MonitorThread(void* db) {
+  DBImpl* mdb = reinterpret_cast<DBImpl*>(db);
+  mdb->mt_mutex_.Lock();
+  while (!db_impl_closed_) {
+      mdb->SendMetrics();
+      mdb->mt_mutex_.Unlock();
+      mdb->env_->SleepForMicroseconds(5000000);
+      mdb->mt_mutex_.Lock();
+  }
+  mdb->bg_monitor_in_loop_ = false;
+  mdb->mt_cv_.SignalAll();
+  mdb->mt_mutex_.Unlock();
 }
 
 Status DBImpl::DoCompactionWork(CompactionState* compact) {

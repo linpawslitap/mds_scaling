@@ -20,7 +20,7 @@
 
 namespace leveldb {
 
-static const int kTargetFileSize = 16 * 1048576;
+static const int kTargetFileSize = 40 * 1048576;
 
 // Maximum bytes of overlaps in grandparent (i.e., level+2) before we
 // stop building a single file in a level->level+1 compaction.
@@ -36,7 +36,7 @@ static double MaxBytesForLevel(int level) {
   // the level-0 compaction threshold based on number of files.
   double result = kTargetFileSize * 5.0;  // Result for both level-0 and level-1
   while (level > 1) {
-    result *= 10;
+    result *= 5;
     level--;
   }
   return result;

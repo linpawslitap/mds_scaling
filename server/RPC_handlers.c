@@ -16,6 +16,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdbool.h>
+#include <arpa/inet.h>
 
 #define _LEVEL_     LOG_DEBUG
 
@@ -26,6 +27,7 @@
     logMessage(LOG_ERR, __func__, format, __VA_ARGS__);
 
 static measurement_t measurement;
+static measurement_t split_measurement;
 static int zeroth_server_assigner;
 static int stop_monitor_thread;
 
@@ -140,12 +142,16 @@ void *monitor_thread(void *unused)
     struct sockaddr_in recv_addr;
     bzero(&recv_addr, sizeof(recv_addr));
     recv_addr.sin_family = AF_INET;
-    recv_addr.sin_port = 10600;
-    recv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-
-    int fd;
-    if ((fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
+    recv_addr.sin_port = htons(10600);
+    if ((inet_aton("127.0.0.1", &recv_addr.sin_addr)) == 0) {
+      printf("failed to setup monitor thread\n");
       return NULL;
+    }
+    int fd;
+    if ((fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
+      printf("failed to setup monitor socket\n");
+      return NULL;
+    }
 
     struct timespec ts;
     ts.tv_sec = 5;
@@ -156,22 +162,30 @@ void *monitor_thread(void *unused)
     measurement_clear(&last_measure);
 
     char message[256];
+
     while (stop_monitor_thread == 0) {
         int ret = nanosleep(&ts, &rem);
         if (ret == -1){
             if (errno == EINTR)
                 nanosleep(&rem, NULL);
         }
+
         double delta_num = measurement.num_ - last_measure.num_;
         double delta_sum = measurement.sum_ - last_measure.sum_;
-        double avg_latency = delta_sum / delta_num;
+        last_measure = measurement;
+        double avg_latency = (delta_num > 0) ? delta_sum / delta_num : 0.0;
         time_t now_time = time(NULL);
         snprintf(message, 256,
                 "giga_server_ops %ld %.0f\n"
-                "giga_server_avg_latency %ld %.3f\n",
-                now_time, delta_num,
-                now_time, avg_latency);
-        sendto(fd, message, 256, 0, &recv_addr, sizeof(recv_addr));
+                "giga_server_avg_latency %ld %.3f\n"
+                "giga_server_split_ops %ld %.0f\n"
+                "giga_server_split_time %ld %.0f\n",
+                now_time, last_measure.num_,
+                now_time, avg_latency,
+                now_time, split_measurement.num_,
+                now_time, split_measurement.sum_);
+        sendto(fd, message, strlen(message), 0,
+               (struct sockaddr *) &recv_addr, sizeof(recv_addr));
     }
     return NULL;
 }
@@ -180,6 +194,8 @@ void init_rpc_handlers() {
     zeroth_server_assigner = giga_options_t.serverID;
     srand(zeroth_server_assigner);
     measurement_clear(&measurement);
+    measurement_clear(&split_measurement);
+
     pthread_t tid;
     int ret = pthread_create(&tid, NULL, monitor_thread, NULL);
     (void) ret;
@@ -394,7 +410,12 @@ start:
         LOG_MSG("SPLIT_p%d[%d entries] caused_by=[%s]",
                 index, dir->partition_size[index], path);
 
+        uint64_t start_split_time = now_micros();
+        measurement_add(&split_measurement, 0);
         rpc_reply->errnum = split_bucket(dir, index);
+        uint64_t split_latency = now_micros() - start_split_time;
+        measurement_add(&split_measurement, split_latency);
+
         if (rpc_reply->errnum == -EAGAIN) {
             LOG_MSG("ERR_retry: split_p%d", index);
         } else if (rpc_reply->errnum < 0) {
@@ -719,7 +740,12 @@ start:
         LOG_MSG("SPLIT_p%d[%d entries] caused_by=[%s]",
                 index, dir->partition_size[index], path);
 
+        uint64_t start_split_time = now_micros();
+        measurement_add(&split_measurement, 0);
         rpc_reply->errnum = split_bucket(dir, index);
+        uint64_t split_latency = now_micros() - start_split_time;
+        measurement_add(&split_measurement, split_latency);
+
         if (rpc_reply->errnum == -EAGAIN) {
             LOG_MSG("ERR_retry: split_p%d", index);
         } else if (rpc_reply->errnum < 0) {

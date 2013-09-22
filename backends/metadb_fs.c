@@ -14,7 +14,7 @@
 
 #define METADB_LOG LOG_DEBUG
 
-#define DEFAULT_LEVELDB_CACHE_SIZE (32 << 20)
+#define DEFAULT_LEVELDB_CACHE_SIZE (512 << 20)
 #define DEFAULT_WRITE_BUFFER_SIZE  (64 << 20)
 #define DEFAULT_MAX_OPEN_FILES     1000
 #define DEFAULT_MAX_BATCH_SIZE     1024
@@ -392,13 +392,15 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name,
     leveldb_options_set_max_open_files(mdb->options, DEFAULT_MAX_OPEN_FILES);
     leveldb_options_set_block_size(mdb->options, DEFAULT_BLOCK_SIZE);
     leveldb_options_set_compression(mdb->options, leveldb_no_compression);
+    /*
     leveldb_options_set_filter_policy(mdb->options,
                         leveldb_filterpolicy_create_bloom(14));
+    */
     mdb->lookup_options = leveldb_readoptions_create();
     leveldb_readoptions_set_fill_cache(mdb->lookup_options, 1);
 
     mdb->scan_options = leveldb_readoptions_create();
-    leveldb_readoptions_set_fill_cache(mdb->scan_options, 0);
+    leveldb_readoptions_set_fill_cache(mdb->scan_options, 1);
 
     mdb->insert_options = leveldb_writeoptions_create();
     leveldb_writeoptions_set_sync(mdb->insert_options, 0);
@@ -1139,7 +1141,9 @@ int metadb_extract_do(struct MetaDB *mdb,
     int ret = 0;
     char* err = NULL;
 
-    time_t extract_start_time = time(NULL);
+    struct timeval start_time;
+    gettimeofday(&start_time, NULL);
+
     ACQUIRE_MUTEX(&(mdb->mtx_leveldb), "metadb_extract(p%d->p%d)",
                     old_partition_id, new_partition_id);
 
@@ -1281,9 +1285,12 @@ int metadb_extract_do(struct MetaDB *mdb,
     RELEASE_MUTEX(&(mdb->mtx_leveldb), "metadb_extract(p%d->p%d)",
                   old_partition_id, new_partition_id);
 
-    time_t extract_finish_time = time(NULL);
+    struct timeval finish_time;
+    gettimeofday(&finish_time, NULL);
     logMessage(LOG_ERR, __func__, "metadata_extract(%ld): duration(%ld)",
-                dir_id, extract_finish_time - extract_start_time);
+                dir_id,
+                (finish_time.tv_sec - start_time.tv_sec)*1000000 +
+                (finish_time.tv_usec - start_time.tv_usec));
 
     /*
     RELEASE_MUTEX(&(mdb->mtx_extload), "metadb_extract(p%d->p%d)",

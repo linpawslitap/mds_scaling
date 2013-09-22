@@ -35,7 +35,7 @@ def gen_ops(bucket, nclient, prefix):
         f.close()
 
 option = {
-    'nclient': 64,
+    'nclient': 128,
     'distribution':'zipfan',
     'nop': 1000000,
     'treefile': 'tree7/tree7.log',

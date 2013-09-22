@@ -14,6 +14,8 @@
 #include <signal.h>
 #include <time.h>
 #include <pthread.h>
+#include <arpa/inet.h>
+#include <netinet/tcp.h>
 
 #define USER_RW         (S_IRUSR | S_IWUSR)
 #define GRP_RW          (S_IRGRP | S_IWGRP)
@@ -51,6 +53,16 @@ void *timer_thread(void *unused)
 
     struct timespec rem;
 
+    struct sockaddr_in recv_addr;
+    bzero(&recv_addr, sizeof(recv_addr));
+    recv_addr.sin_family = AF_INET;
+    recv_addr.sin_port = htons(10600);
+    int fd = -1;
+    if (inet_aton("127.0.0.1", &recv_addr.sin_addr) != 0) {
+      fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    }
+    char message[256];
+
 top:
     now = curr;
     printf("%d\n", now - lastfile);
@@ -62,6 +74,15 @@ top:
             nanosleep(&rem, NULL);
         else
             errors++;
+    }
+
+    if (fd > 0) {
+      time_t now_time = time(NULL);
+      snprintf(message, 256,
+              "client_ops %ld %d\n",
+              now_time, now);
+      sendto(fd, message, strlen(message), 0, (struct sockaddr *) &recv_addr,
+             sizeof(recv_addr));
     }
 
     if (errors > 50)

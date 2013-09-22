@@ -73,10 +73,12 @@ int main(int argc, char **argv)
 
     signal(SIGINT, sig_handler);    // handling SIGINT
     signal(SIGTERM, sig_handler);    // handling SIGTERM
+    /*
     signal(SIGSEGV, sig_handler);    // handling SIGSEGV
     signal(SIGABRT, sig_handler);    // handling SIGABRT
     signal(SIGILL, sig_handler);    // handling SIGILL
     signal(SIGFPE, sig_handler);    // handling SIGFPE
+    */
 
     // initialize logging
     char log_file[PATH_MAX] = {0};
@@ -92,9 +94,13 @@ int main(int argc, char **argv)
     initGIGAsetting(GIGA_SERVER, NULL, CONFIG_FILE);
 
     init_giga_mapping();    // init GIGA+ mapping structure.
+    LOG_ERR("GIGA mapping initialized\n",NULL);
+
     init_root_partition();  // init root partition on each server.
+    LOG_ERR("Root partition initialized\n", NULL);
 
     server_socket();        // start server socket(s).
+    LOG_ERR("Server socket started\n", NULL);
 
     (void) split_tid;
     /*
@@ -108,13 +114,14 @@ int main(int argc, char **argv)
     // FIXME: we sleep 15 seconds here to let the other servers startup.  This
     // mechanism needs to be replaced by an intelligent reconnection system.
     sleep(10);
+    LOG_ERR("Trying to connect other servers\n", NULL);
     if (giga_options_t.num_servers >= 1) {
         rpcInit();          // initialize RPC connections
         rpcConnect();       // try connecting to all servers
     }
 
     LOG_ERR("### server[%d] up ...\n", giga_options_t.serverID);
-
+    init_rpc_handlers();
     void *retval;
 
     pthread_join(listen_tid, &retval);
@@ -131,10 +138,12 @@ static
 void sig_handler(const int sig)
 {
     (void)sig;
+    fprintf(stderr, "SIGINT=%d handled.\n", sig);
+    LOG_ERR("SIGINT=%d handled.\n", sig);
+
     destroy_rpc_handlers();
     metadb_close(ldb_mds);
     free(ldb_mds);
-    LOG_ERR("SIGINT=%d handled.\n", sig);
     exit(1);
 }
 
@@ -365,8 +374,7 @@ void init_root_partition()
         case BACKEND_RPC_LOCALFS:
             snprintf(ldb_name, sizeof(ldb_name), "%s/0/",
                      giga_options_t.mountpoint);
-            if (local_mkdir(ldb_name, DEFAULT_MODE) < 0)
-                exit(1);
+            local_mkdir(ldb_name, DEFAULT_MODE);
             break;
         case BACKEND_RPC_LEVELDB:
             snprintf(ldb_name, sizeof(ldb_name),

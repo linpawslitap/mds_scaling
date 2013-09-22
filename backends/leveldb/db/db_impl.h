@@ -207,6 +207,11 @@ class DBImpl : public DB {
     return internal_comparator_.user_comparator();
   }
 
+  static bool db_impl_closed_;
+  bool bg_monitor_in_loop_;
+  port::Mutex mt_mutex_;
+  port::CondVar mt_cv_;
+  static void MonitorThread(void* db);
   void SendMetrics();
 };
 

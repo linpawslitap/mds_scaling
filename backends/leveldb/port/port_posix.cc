@@ -38,6 +38,13 @@ void CondVar::Wait() {
   PthreadCall("wait", pthread_cond_wait(&cv_, &mu_->mu_));
 }
 
+void CondVar::TimedWait(uint64_t sec, uint64_t nano) {
+  struct timespec wait;
+  wait.tv_sec = sec;
+  wait.tv_nsec = nano;
+  int result = pthread_cond_timedwait(&cv_, &mu_->mu_, &wait);
+}
+
 void CondVar::Signal() {
   PthreadCall("signal", pthread_cond_signal(&cv_));
 }

@@ -1,3 +1,21 @@
+\section{Metadata Distribution Mechanism}
+Metadata operations, especially namespace management, are harder to scale
+because of namespace semantics.
+One challenging and interesting problem for metadata scaling is
+how to partition metadata with balanced load across different servers.
+The problem becomes more difficult for general file system operations
+compared to object storage system,
+because file system namespace is hierarchical and
+some operations require accessing several items in the namespace.
+We propose two representative mechanisms to distribute file system metadata:
+1) \textit{dynamic namespace partitioning},
+and 2) \textit{replicated namespace with shared files}.
+Both mechanisms are based on the observations
+made from previous workload analysis. In the following section,
+we present the two mechanisms in detail, and discuss the design
+trade-offs they made.
+
+\subsection{Dynamic Namespace Partitioning}
 \giga is a distributed hash-based indexing technique that incrementally
 divides each directory into multiple partitions that are spread over multiple
 servers \cite{GIGA11}.
@@ -37,3 +55,5 @@ because addressed servers verify and brief to clients as needed.
 More discussion of the cost-benefit of using
 inconsistent mapping state is not relevant to this work and can be found in
 prior \giga{} literature \cite{GIGA07, GIGA11}.
+
+\subsection{Replicated Namespace with Sharded Files}

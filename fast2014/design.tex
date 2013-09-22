@@ -1,4 +1,4 @@
-\section{Design and implementation}
+\section{System Design}
 
 \begin{figure}[!hb]   %% START_FIGURE
 \centerline{\includegraphics[scale=0.35]{./figs/giga-impl-leveldb-clusterfs}}
@@ -68,18 +68,122 @@ and small files using a single on-disk structure on each server.
 Section \ref{design.integration} focus on the challenges in effectively
 integrating \giga and \tfs to work with existing cluster file systems.
 
-
-\subsection{Distributed Metadata Indexing}
-\label{design.giga}
-\input{giga}
-
-\subsection{Client Caching Protocol}
-
 \subsection{Metadata Storage Backend}
 \label{design.tablefs}
-\input{tablefs}
 
-\subsection{Integrating \giga{} and \tfs{}}
-\label{design.integration}
-\input{integration}
+To effectively build \sys middleware that integrates
+the \giga distribution mechanism and the \tfs metadata representation,
+we have to tackle two main challenges:
+modify \tfs to support for
+migrating directory partitions as required by \giga;
+and decouple metadata and data paths to
+achieve high performance for both paths.
+This section discusses the modifications we made to
+overcome these two challenges.
+
+
+~\\
+\textbf{Metadata representation -- }
+\tfs stores all additional metadata including \giga per-directory hash
+partitions, entries in each hash partition, and \giga
+bootstrapping information such as root partition entry
+and \giga configuration state.
+The general schema used to store all metadata is:
+
+\begin{table}[!htc]
+\center
+\vspace{10pt}
+\begin{tabular}{c|c}
+key & \texttt{parentDirID,gigaPartitionID,hash(dirEntry)} \\
+\midrule \\
+value & \texttt{attributes,[symlink|data|gigaMetaState]} \\
+\end{tabular}
+\label{tab:keyschema}
+\end{table}
+
+The main difference from the \tfs schema described in Section
+\ref{design.tablefs} is the addition of two \giga specific fields:
+\texttt{gigaPartitionID} to identify a
+\giga hash partition within a directory and \texttt{gigaMetaState} to store the
+hash partition related mapping information for directories.
+These \giga related fields are used only
+if a large directory is large enough to be
+distributed over multiple metadata servers.
+\footnote{A optimization is to eliminate \texttt{gigaPartitionID} in the key
+by using the same hash function for both \giga and \tfs keys,
+since the hash of entry name can determine the partition ID.}
+
+~\\
+\textbf{Partition splitting -- }
+Each server's \tfs instance stores metadata,
+including \giga directory partitions and their directory
+entries in \ldb which stores them as
+a set of files (whose format is called SSTable) in a server specific directory
+in the underlying cluster file system.
+Each \giga server process splits a large partition $P$ on
+into itself and another hash partition $P'$ which is managed by a
+different server; this split involves migrating approximately half the entries
+from old partition $P$ to the new partition $P'$ on another server.
+During splitting, the partition in migration is locked against client
+for simplification. We explored several ways
+to perform this cross-server partition split.
+
+A straightforward solution would be to perform a range scan on
+partition $P$, and remove about half the entries
+(that will be migrated to the new partition $P'$) from $P$.
+All removed entries would then be batched together
+and sent in a large RPC message to the server that will manage partition $P'$.
+The split receiver would insert each key in the batch into its own \tfs instance.
+While simplicity of this solution makes it attractive,
+it is slow in practice and vulnerable to failures during splitting.
+
+We have devised a faster and safer technique to
+reduce the time that the splitting range is locked.
+The immutability of SSTables in \ldb makes a fast bulk insert possible --
+an SSTable whose range does not overlap any part of a current LSM tree
+can be added to Level 0 without its data being pushed through the
+write-ahead log and minor compaction process.
+To take advantage of this opportunity, we extended \tfs
+to support a three-phase \giga split operation:
+
+\begin{itemize}
+\item{Phase 1:} The split initiator locks and
+then performs a range scan on its \tfs instance
+to find all entries in the hash-range that needs to be moved to another server.
+Instead of packing these into an RPC message,
+the results of this scan are written in SSTable format to a file in the
+underlying cluster file system.
+
+\item{Phase 2:} The split initiator notifies the split receiver about
+the path to the SSTable-format split file in a much smaller RPC message.
+Since this file is stored in shared storage,
+the split receiver directly inserts this file as a symbolic link
+into the \ldb tree structure without actually copying this file.
+The insertion of this file into the split receiver is the commit
+part of the split transaction.
+
+\item{Phase 3:} The final step is a clean-up phase:
+after the split receiver completes the bulk insert operation, it notifies the
+initiator, who then deletes the migrated key-range from its \tfs instance
+and unlocks the range.
+\footnote{The three phases of splitting can be refined even further:
+Assume that the splitting is initiated at the time $T_{split}$.
+The split initiator can generate SSTables containing entries
+older than $T_{split}$ without locking the hash range.
+When the generation of SSTables with entries older than $T_{split}$ is finished,
+the split initiator can lock the hash range and then write SSTables with
+newly added or updated entries later than $T_{split}$.
+By doing so, the duration of locking splitting hash range can be further reduced.
+However, due to the code complexity of this optimization,
+we left this optimization for future work.}
+
+\end{itemize}
+
+\subsection{Transaction Support}
+
+
+\subsection{Decoupled Data and Metadata Path}
+
+
+\subsection{Fault Tolerance}
 

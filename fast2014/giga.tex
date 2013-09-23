@@ -7,26 +7,40 @@ The problem becomes more difficult for general file system operations
 compared to object storage system,
 because file system namespace is hierarchical and
 some operations require accessing several items in the namespace.
-We propose two representative mechanisms to distribute file system metadata:
+We propose two mechanisms to distribute file system metadata:
 1) \textit{dynamic namespace partitioning},
 and 2) \textit{replicated namespace with shared files}.
-Both mechanisms are based on the observations
+The two mechanisms are based on different observations
 made from previous workload analysis. In the following section,
 we present the two mechanisms in detail, and discuss the design
 trade-offs they made.
 
 \subsection{Dynamic Namespace Partitioning}
-\giga is a distributed hash-based indexing technique that incrementally
-divides each directory into multiple partitions that are spread over multiple
-servers \cite{GIGA11}.
-Each filename stored in a directory entry is hashed and mapped to a partition
-using a per-directory index.
-\giga selects a hash partition such that for any distribution of unique filenames,
-the hash values of these filenames will be uniformly distributed in the hash space.
-This makes load balancing much easier.
-In addition to load-balanced distribution, \giga also grows the directory
-index incrementally, i.e. all directories start small on a single server, and
-then expand to more servers as they grow in number of entries.
+We present a mechanism that utilize a dynamic
+namespace partitioning strategy to distribute metadata.
+The namespace partitioning is operated at the granularity of directory.
+Each directory is assigned to an initial metadata server when it is created.
+The initial assignment can be a randomly picked server or
+a hashing of its unique identifier (inode number and its pathname).
+Its file entires and their attributes are stored together within the same server.
+Based on previous workload analysis, most directories are small.
+Therefore storing file entries with its parent directory can preserve
+locality that is good for $readdir()$ operations.
+And random assignment of small directory can ensure the load balance
+of directories across metadata servers.
+
+
+On the other hand, there also exists a few very large directories.
+To load balance these large directories, we adopt an distribute indexing mechanism
+called \giga \cite{GIGA11}.
+\giga incrementally splits a directory according to the directory size.
+Each file entry and its associated attributes stored in a directory is
+hashed and uniformly mapped into a hashing range using a distributed index.
+When splitting a directory, \giga halves the hashing range,
+migrate one half of the hash range as a new directory partition
+into another metadata server.
+Each directory partition can be further split if it grows
+until the directory expands to all the metadata servers.
 
 A core scalability idea in \giga is parallel splitting: each server splits
 without system-wide serialization or synchronization.
@@ -42,18 +56,21 @@ a directory's partitions.
 The full per-directory \giga index is
 a transitive closure of the split history on each
 server and represents the lineage of the directory's partitioning.
-
-The full index (and split history) of a directory
-is also not maintained synchronously by any client.
-\giga clients can search through the partitions of a directory by traversing
-its split histories starting with the first partition that was created during
-\texttt{mkdir} and clients can cache what they learn.
-However, such an opportunistically cached index by a client may be
-incomplete or stale at any time, particularly for rapidly mutating directories.
-\giga allows clients to keep using stale mapping information
-because addressed servers verify and brief to clients as needed.
 More discussion of the cost-benefit of using
-inconsistent mapping state is not relevant to this work and can be found in
-prior \giga{} literature \cite{GIGA07, GIGA11}.
+the lineage to locate directory entries is not relevant
+to this work and can be found in prior \giga{} literature \cite{GIGA07, GIGA11}.
+
+However, this distribution mechanism eliminates hierarchical locality to
+some degree. To access a file or directory, it requires clients to
+traverse ancestor directories that may be stored on different metadata servers.
+To reduce the number of RPCs, clients can cache the information of
+directories in the top part of the namespace.
+Each cached directory entry has a time-based lease.
+When the lease expired, client needs to contact the metadata server
+to get updated information of the directory entry if needed.
+Such lease-based caching mechanism will delay operations that
+mutate the directory tree or permissions (e.g. $rename()$,
+$setOwner()$ and $setPermission()$).
+These operations need to wait until all clients' leases expire.
 
 \subsection{Replicated Namespace with Sharded Files}

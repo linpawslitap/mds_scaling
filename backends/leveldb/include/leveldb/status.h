@@ -47,6 +47,9 @@ class Status {
   static Status IOError(const Slice& msg, const Slice& msg2 = Slice()) {
     return Status(kIOError, msg, msg2);
   }
+  static Status BufferFull(const Slice& msg, const Slice& msg2 = Slice()) {
+    return Status(kBufferFull, msg, msg2);
+  }
 
   // Returns true iff the status indicates success.
   bool ok() const { return (state_ == NULL); }
@@ -59,6 +62,9 @@ class Status {
 
   // Returns true iff the status indicates an IOError.
   bool IsIOError() const { return code() == kIOError; }
+
+  // Returns true iff the status indicates an BufferFull.
+  bool IsBufferFull() const { return code() == kBufferFull; }
 
   // Return a string representation of this status suitable for printing.
   // Returns the string "OK" for success.
@@ -78,7 +84,8 @@ class Status {
     kCorruption = 2,
     kNotSupported = 3,
     kInvalidArgument = 4,
-    kIOError = 5
+    kIOError = 5,
+    kBufferFull = 6,
   };
 
   Code code() const {

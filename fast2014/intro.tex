@@ -59,10 +59,10 @@ and HDFS) use in-memory metadata service which limit the number
 of objects supported by the file system.
 The need for a new representation of directory entries led us to develop
 of a out-of-core metadata representation by using
-Log-structure Merge tree (LSM-tree) \cite{ONeil1996}.
-We use LSM tree approach to pack all file system metadata
-(including directories, i-node attributes) and small files,
-into many fewer, large, flat files.
+log-structured approach \cite{ONeil1996, LFS}.
+All file system metadata (including directories, i-node attributes) and small files,
+are packed into many fewer log files,
+and fine-grained indexing are used to speed up lookup and scan operation.
 This organization facilitates high-speed metadata creation, lookups and scans,
 even in a single computer local disk configuration \cite{TableFS}.
 
@@ -70,8 +70,8 @@ To demonstrate the feasibility of our idea,
 we implemented a prototype middleware service that
 combines distribution mechanisms and on-disk metadata representation.
 We evaluated the prototype on a Hadoop HDFS cluster \cite{HDFS} consisting of 256 
-old machines with dual core CPU.
+aged machines with dual core CPU.
 Our results show promising scalability and performance:
-our solution layering on top of HDFS (\psys) can scale almost linearly
+our solution layering on top of HDFS can scale almost linearly
 to 256 nodes and performs 2000 to 3000 operations per second
-per node.
+per machine.

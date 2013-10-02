@@ -189,7 +189,45 @@ and unlocks the range.
 \subsection{Decoupled Data and Metadata Path}
 \label{design.decouple}
 
-\subsection{Transaction Support}
-
 \subsection{Fault Tolerance}
+\label{design.fault}
 
+The middleware design and techniques used for scaling the performance
+of our metadata service does not impose any major
+new challenges for handling failures.
+The primary functions required for fault tolerance include
+replication of the metadata server's write-ahead logging for file system
+state changes into the storage of another machine,
+detection of server failure, failover to a backup server,
+and replaying of the replicated write-ahead log.
+These are all standard techniques found in previous distributed file systems.
+The replication of the write-ahead log may not even be necessary
+when our middleware is layered on a full-featured file system such as HDFS and PanFS,
+and its write-ahead log is RAIDed or replicated by the underlying file system.
+
+Both distribution mechanisms  
+For directory partition splitting and other operations requiring
+distributed transactions (e.g.\texttt{ hardlink} and \texttt{rename}),
+these are implemented as three-phase operations with failure protection
+from write-ahead logging in source and destination server
+and eventual garbaging collection of incorrupted, hidden, interrupted states.
+\ldb also implements write-ahead logging and atomic batching operation
+which is used as primitives for fault tolerance by \tfs.
+
+\delete{
+The library version of the \sys client does not bring any new failure properties
+either.
+Directory-specific client state recovery is naturally supported by the GIGA+
+protocal, which tolerates incomplete or stale state by
+re-fetching the current server list and
+rebuilding its directory index cache each time it contact specific servers.
+For most operations except \texttt{open} and \texttt{close},
+the \sys server does not need to keep state about its clients.
+Revoking the \texttt{open} reference count for a large file can be achieved by
+maintaining renewable lease on the server side,
+or by polling the state if the file in the underlying file system
+using proprietary APIs, if at all.
+The migration of small files from \tfs to the underlying file system is
+handled by the \sys server, and is protected by its write-ahead logging
+and server failure protocol.
+}

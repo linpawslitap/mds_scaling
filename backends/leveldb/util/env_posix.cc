@@ -106,9 +106,12 @@ class PosixMmapReadableFile: public RandomAccessFile {
   virtual Status Read(uint64_t offset, size_t n, Slice* result,
                       char* scratch) const {
     Status s;
-    if (offset + n > length_) {
-      *result = Slice();
+    if (offset >= length_) {
       s = IOError(filename_, EINVAL);
+    } else
+    if (offset + n > length_) {
+      *result = Slice(reinterpret_cast<char*>(mmapped_region_) + offset,
+                      length_ - offset);
     } else {
       *result = Slice(reinterpret_cast<char*>(mmapped_region_) + offset, n);
     }

@@ -60,7 +60,7 @@ class MemTableIterator: public Iterator {
   virtual void Prev() { iter_.Prev(); }
   virtual Slice internalkey() const { return iter_.key(); }
   virtual Slice key() const { return GetLengthPrefixedSlice(iter_.key()); }
-  virtual Slice value() const {
+  virtual Slice value() {
     Slice key_slice = GetLengthPrefixedSlice(iter_.key());
     return GetLengthPrefixedSlice(key_slice.data() + key_slice.size());
   }

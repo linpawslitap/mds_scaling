@@ -38,6 +38,8 @@ static const int kL0_StopWritesTrigger = 20;
 // space if the same key space is being repeatedly overwritten.
 static const int kMaxMemCompactLevel = 2;
 
+static const int kBufSize = 1024;
+
 }  // namespace config
 
 class InternalKey;

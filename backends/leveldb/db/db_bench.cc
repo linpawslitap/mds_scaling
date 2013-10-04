@@ -697,8 +697,8 @@ class Benchmark {
     options.block_cache = cache_;
     options.write_buffer_size = FLAGS_write_buffer_size;
     options.filter_policy = filter_policy_;
-    Status s = DB::Open(options, FLAGS_db, &db_);
-    //db_ = new ColumnDB(options, FLAGS_db);
+    //Status s = DB::Open(options, FLAGS_db, &db_);
+    db_ = new ColumnDB(options, FLAGS_db);
     /*
     if (!s.ok()) {
       fprintf(stderr, "open error: %s\n", s.ToString().c_str());

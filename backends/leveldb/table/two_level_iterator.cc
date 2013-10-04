@@ -42,7 +42,7 @@ class TwoLevelIterator: public Iterator {
     assert(Valid());
     return data_iter_.key();
   }
-  virtual Slice value() const {
+  virtual Slice value() {
     assert(Valid());
     return data_iter_.value();
   }

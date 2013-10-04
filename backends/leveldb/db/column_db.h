@@ -14,6 +14,8 @@
 
 namespace leveldb {
 
+class ColumnDBIter;
+
 class ColumnDB : public DB {
  public:
   ColumnDB(const Options& options, const std::string& dbname);
@@ -40,7 +42,10 @@ class ColumnDB : public DB {
                             uint64_t min_sequence_number,
                             uint64_t max_sequence_number);
 
+  friend class ColumnDBIter;
+
  private:
+
   Env* const env_;
   const Options options_;  // options_.comparator == &internal_comparator_
   const std::string dbname_;
@@ -66,6 +71,8 @@ class ColumnDB : public DB {
   }
 
   Status NewDataFile();
+  Status InternalGet(const ReadOptions& options, uint64_t file_number,
+                     char* scratch, Slice* result);
 
   // No copying allowed
   ColumnDB(const ColumnDB&);

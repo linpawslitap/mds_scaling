@@ -50,7 +50,7 @@ class EmptyIterator : public Iterator {
   virtual void Prev() { assert(false); }
   Slice internalkey() const { assert(false); return Slice(); }
   Slice key() const { assert(false); return Slice(); }
-  Slice value() const { assert(false); return Slice(); }
+  Slice value() { assert(false); return Slice(); }
   virtual Status status() const { return status_; }
  private:
   Status status_;

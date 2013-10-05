@@ -157,7 +157,8 @@ class HDFSRandomAccessFile: public RandomAccessFile {
       : filename_(filename), hdfs_fs_(hdfs_fs), file_(file) {
   }
   virtual ~HDFSRandomAccessFile() {
-    hdfsCloseFile(hdfs_fs_, file_);
+    if (hdfs_fs_ != NULL && file_ != NULL)
+        hdfsCloseFile(hdfs_fs_, file_);
   }
 
   virtual Status Read(uint64_t offset, size_t n, Slice* result,

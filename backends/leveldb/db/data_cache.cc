@@ -12,13 +12,15 @@ namespace leveldb {
 
 static void DeleteEntry(const Slice& key, void* value) {
   RandomAccessFile* tf = reinterpret_cast<RandomAccessFile*>(value);
-  delete tf;
+  if (tf != NULL)
+    delete tf;
 }
 
 static void UnrefEntry(void* arg1, void* arg2) {
   Cache* cache = reinterpret_cast<Cache*>(arg1);
   Cache::Handle* h = reinterpret_cast<Cache::Handle*>(arg2);
-  cache->Release(h);
+  if (cache != NULL && h != NULL)
+    cache->Release(h);
 }
 
 DataCache::DataCache(const std::string& dbname,

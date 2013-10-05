@@ -29,7 +29,7 @@ def gen_bucket(nbucket, nop, distribution):
 def gen_ops(bucket, nclient, prefix):
     for i in range(nclient):
         f = open(prefix+"."+str(i)+".dat", "w")
-        f.write("%d\n"%(len(bucket)))
+        f.write("%d 1\n"%(len(bucket)))
         for j in range(len(bucket)):
            f.write("%d %d\n"%(bucket[j]*i, bucket[j]*(i+1)))
         f.close()
@@ -38,8 +38,8 @@ option = {
     'nclient': 128,
     'distribution':'zipfan',
     'nop': 1000000,
-    'treefile': 'tree7/tree7.log',
-    'prefix': 'tree7/tree.client'
+    'treefile': 'tree5/tree5.log',
+    'prefix': 'tree5/tree.client'
 }
 
 f = open(option['treefile'], 'r')

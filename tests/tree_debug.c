@@ -16,6 +16,7 @@
 #include <pthread.h>
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
+#include "common/cache.h"
 
 #define USER_RW         (S_IRUSR | S_IWUSR)
 #define GRP_RW          (S_IRGRP | S_IWGRP)
@@ -194,27 +195,16 @@ void launch_timer_thread() {
 }
 
 int main(int argc, char **argv)
-{   /*
-    if (argc != 6) {
-        fprintf(stdout, "*** ERROR: insufficient parameters ... \n\n");
-        fprintf(stdout, "USAGE: %s <type> <dirfilename> <oplist> <num_files> <seed>\n", argv[0]);
-        fprintf(stdout, "\n");
-        return -1;
-    }
-    */
+{
+
+    printf("Size: %d\n", sizeof(struct giga_directory));
+    printf("MAX_NUM: %d\n", MAX_NUM);
+    printf("pthread_mutex_t: %d\n", sizeof(pthread_mutex_t));
+
+    return 0;
     setvbuf(stdout,NULL,_IONBF,0);
     pid = (int)getpid();
     num_files = atoi(argv[1]);
-    /*
-    read_dir_list(argv[2]);
-    read_op_list(argv[3]);
-    seed = atoi(argv[5]);
-    srand(seed);
-    if (num_dirs <= 0) {
-      printf("Not directory names listed in %s\n", argv[1]);
-      return -1;
-    }
-    */
 
     if (gethostname(hostname, sizeof(hostname)) < 0) {
         printf("ERROR during gethostname(): %s", strerror(errno));

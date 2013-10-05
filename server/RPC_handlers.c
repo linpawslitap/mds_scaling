@@ -34,7 +34,7 @@ static int stop_monitor_thread;
 static
 int check_split_eligibility(struct giga_directory *dir, int index)
 {
-    if ((dir->partition_size[index] >= giga_options_t.split_threshold) &&
+    if ((dir->partition_size >= giga_options_t.split_threshold) &&
         (dir->split_flag == 0) &&
         (giga_is_splittable(&dir->mapping, index) == 1) &&
         (get_num_split_tasks_in_progress() == 0)) {
@@ -127,12 +127,14 @@ int get_server_for_new_inode(giga_dir_id dir_id, char* path) {
       zeroth_server_assigner = 0;
     return zeroth_server_assigner;
     */
-    /*
+    (void) dir_id;
+    (void) path;
     return rand() % giga_options_t.num_servers;
-    */
+    /*
     (void) dir_id;
     uint32_t hash = getStrHash(path, strlen(path), 0);
     return hash % giga_options_t.num_servers;
+    */
 }
 
 void *monitor_thread(void *unused)
@@ -296,21 +298,15 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
                 LOG_MSG("rpc_getattr(%s) returns a directory for d%d",
                         path, rpc_reply->statbuf.st_ino);
 
-                struct giga_directory *tmp =
-                  (struct giga_directory*)malloc(sizeof(struct giga_directory));
                 if (metadb_read_bitmap(ldb_mds, dir_id, index, path,
-                                      &tmp->mapping) != 0) {
+                                       &rpc_reply->result.giga_result_t_u.bitmap) != 0) {
                     LOG_ERR("mdb_read(%s): error reading dir=%d bitmap.",
                             path, dir_id);
                     rpc_reply->result.errnum = -ENOENT;
                     goto exit_func;
                 } else {
-                  rpc_reply->zeroth_server = tmp->mapping.zeroth_server;
+                  rpc_reply->zeroth_server = rpc_reply->result.giga_result_t_u.bitmap.zeroth_server;
                   if (rpc_reply->zeroth_server == giga_options_t.serverID) {
-                      memcpy(&(rpc_reply->result.giga_result_t_u.bitmap),
-                             &tmp->mapping, sizeof(tmp->mapping));
-                      giga_print_mapping(
-                          &rpc_reply->result.giga_result_t_u.bitmap);
                       rpc_reply->result.errnum = -EAGAIN;
                   }
                 }
@@ -393,10 +389,10 @@ start:
     if ((index = check_giga_addressing(dir, path, rpc_reply, NULL)) < 0)
         goto exit_func_release;
 
-    ACQUIRE_MUTEX(&dir->partition_mtx[index], "mknod(%s)", path);
+    ACQUIRE_MUTEX(&dir->partition_mtx, "mknod(%s)", path);
 
     if(check_giga_addressing(dir, path, rpc_reply, NULL) != index) {
-        RELEASE_MUTEX(&dir->partition_mtx[index], "mknod(%s)", path);
+        RELEASE_MUTEX(&dir->partition_mtx, "mknod(%s)", path);
         LOG_MSG("RECOMPUTE_INDEX: mknod(%s) for p(%d) changed.", path, index);
         goto start;
     }
@@ -408,7 +404,7 @@ start:
         RELEASE_MUTEX(&dir->split_mtx, "set_split(p%d)", index);
 
         LOG_MSG("SPLIT_p%d[%d entries] caused_by=[%s]",
-                index, dir->partition_size[index], path);
+                index, dir->partition_size, path);
 
         uint64_t start_split_time = now_micros();
         measurement_add(&split_measurement, 0);
@@ -451,7 +447,7 @@ start:
                 LOG_ERR("ERR_mknod(%s): [%s]",
                         path_name, strerror(rpc_reply->errnum));
             else
-                dir->partition_size[index] += 1;
+                dir->partition_size += 1;
             break;
         case BACKEND_RPC_LEVELDB:
 
@@ -462,7 +458,7 @@ start:
             if (rpc_reply->errnum < 0)
                 LOG_ERR("ERR_mdb_create(%s): p%d of d%d", path, index, dir_id);
             else
-                dir->partition_size[index] += 1;
+                dir->partition_size += 1;
             break;
         default:
             break;
@@ -470,7 +466,7 @@ start:
 
 exit_func:
 
-    RELEASE_MUTEX(&dir->partition_mtx[index], "mknod(%s)", path);
+    RELEASE_MUTEX(&dir->partition_mtx, "mknod(%s)", path);
 
 exit_func_release:
     release_dir_mapping(dir);
@@ -723,10 +719,10 @@ start:
     if ((index = check_giga_addressing(dir, path, rpc_reply, NULL)) < 0)
         goto exit_func_release;
 
-    ACQUIRE_MUTEX(&dir->partition_mtx[index], "mkdir(%s)", path);
+    ACQUIRE_MUTEX(&dir->partition_mtx, "mkdir(%s)", path);
 
     if(check_giga_addressing(dir, path, rpc_reply, NULL) != index) {
-        RELEASE_MUTEX(&dir->partition_mtx[index], "mkdir(%s)", path);
+        RELEASE_MUTEX(&dir->partition_mtx, "mkdir(%s)", path);
         LOG_MSG("RECOMPUTE_INDEX: mkdir(%s) for p(%d) changed.", path, index);
         goto start;
     }
@@ -738,7 +734,7 @@ start:
         RELEASE_MUTEX(&dir->split_mtx, "set_split(p%d)", index);
 
         LOG_MSG("SPLIT_p%d[%d entries] caused_by=[%s]",
-                index, dir->partition_size[index], path);
+                index, dir->partition_size, path);
 
         uint64_t start_split_time = now_micros();
         measurement_add(&split_measurement, 0);
@@ -802,7 +798,7 @@ start:
                 LOG_ERR("ERR_mdb_create(%s): p%d of d%d", path, index, dir_id);
             else {
 
-                dir->partition_size[index] += 1;
+                dir->partition_size += 1;
 
                 if (zeroth_server != giga_options_t.serverID) {
                     giga_result_t rpc_mkzeroth_reply;
@@ -831,7 +827,7 @@ start:
 
 exit_func:
 
-    RELEASE_MUTEX(&dir->partition_mtx[index], "mkdir(%s)", path);
+    RELEASE_MUTEX(&dir->partition_mtx, "mkdir(%s)", path);
 
 exit_func_release:
 
@@ -875,6 +871,66 @@ bool_t giga_rpc_mkzeroth_1_svc(giga_dir_id dir_id,
     LOG_MSG("<<< RPC_mkzeroth(d=%d): status=[%d]",
             dir_id, rpc_reply->errnum);
 
+    return true;
+}
+
+bool_t giga_rpc_chmod_1_svc(giga_dir_id dir_id,
+                            giga_pathname path, mode_t mode,
+                            giga_result_t *rpc_reply,
+                            struct svc_req *rqstp) {
+
+    (void)rqstp;
+    assert(rpc_reply);
+    assert(path);
+
+    uint64_t start_time = now_micros();
+
+    LOG_MSG(">>> RPC_chmod(d=%d,p=%s): m=[0%3o]", dir_id, path, mode);
+
+    bzero(rpc_reply, sizeof(giga_result_t));
+
+    struct giga_directory *dir = fetch_dir_mapping(dir_id);
+    if (dir == NULL) {
+      rpc_reply->errnum = -ENOENT;
+      return true;
+    }
+
+    int index = 0;
+start:
+    // check for giga specific addressing checks.
+    //
+    if ((index = check_giga_addressing(dir, path, rpc_reply, NULL)) < 0)
+        goto exit_func_release;
+
+    ACQUIRE_MUTEX(&dir->partition_mtx, "mkdir(%s)", path);
+
+    if(check_giga_addressing(dir, path, rpc_reply, NULL) != index) {
+        RELEASE_MUTEX(&dir->partition_mtx, "mkdir(%s)", path);
+        LOG_MSG("RECOMPUTE_INDEX: mkdir(%s) for p(%d) changed.", path, index);
+        goto start;
+    }
+
+    switch (giga_options_t.backend_type) {
+        case BACKEND_RPC_LEVELDB:
+            rpc_reply->errnum = metadb_chmod(ldb_mds, dir_id, index, path,
+                                             mode);
+            if (rpc_reply->errnum < 0)
+                LOG_ERR("ERR_mdb_chmod(%s): p%d of d%d", path, index, dir_id);
+            break;
+        default:
+            break;
+    }
+
+    RELEASE_MUTEX(&dir->partition_mtx, "mknod(%s)", path);
+
+exit_func_release:
+    release_dir_mapping(dir);
+
+    uint64_t latency = now_micros() - start_time;
+    measurement_add(&measurement, latency);
+
+    LOG_MSG("<<< RPC_chmod(d=%d,p=%s): status=[%d]", dir_id, path,
+            rpc_reply->errnum);
     return true;
 }
 
@@ -1012,10 +1068,10 @@ start:
         return true;
     }
 
-    ACQUIRE_MUTEX(&dir->partition_mtx[index], "write(%s)", path);
+    ACQUIRE_MUTEX(&dir->partition_mtx, "write(%s)", path);
 
     if (check_giga_addressing(dir, path, &(rpc_reply->result), NULL) != index) {
-        RELEASE_MUTEX(&dir->partition_mtx[index], "write(%s)", path);
+        RELEASE_MUTEX(&dir->partition_mtx, "write(%s)", path);
         LOG_MSG("RECOMPUTE_INDEX: write(%s) for p(%d) changed.", path, index);
         goto start;
     }
@@ -1084,7 +1140,7 @@ start:
             break;
     }
 
-    RELEASE_MUTEX(&dir->partition_mtx[index], "write(%s)", path);
+    RELEASE_MUTEX(&dir->partition_mtx, "write(%s)", path);
 
     release_dir_mapping(dir);
 
@@ -1200,17 +1256,17 @@ start:
         return true;
     }
 
-    ACQUIRE_MUTEX(&dir->partition_mtx[index], "updatelink(%s)", path);
+    ACQUIRE_MUTEX(&dir->partition_mtx, "updatelink(%s)", path);
 
     if (check_giga_addressing(dir, path, rpc_reply, NULL) != index) {
-        RELEASE_MUTEX(&dir->partition_mtx[index], "updatelink(%s)", path);
+        RELEASE_MUTEX(&dir->partition_mtx, "updatelink(%s)", path);
         LOG_MSG("RECOMPUTE_INDEX: updatelink(%s) for p(%d) changed.", path, index);
         goto start;
     }
 
     rpc_reply->errnum = metadb_write_link(ldb_mds, dir_id, index, path, link);
 
-    RELEASE_MUTEX(&dir->partition_mtx[index], "updatelink(%s)", path);
+    RELEASE_MUTEX(&dir->partition_mtx, "updatelink(%s)", path);
 
     release_dir_mapping(dir);
 
@@ -1303,10 +1359,10 @@ start:
     if ((index=check_giga_addressing(dir, path, rpc_reply, NULL)) < 0)
         goto exit_func;
 
-    ACQUIRE_MUTEX(&dir->partition_mtx[index], "close(%s)", path);
+    ACQUIRE_MUTEX(&dir->partition_mtx, "close(%s)", path);
 
     if(check_giga_addressing(dir, path, rpc_reply, NULL) != index) {
-        RELEASE_MUTEX(&dir->partition_mtx[index], "close(%s)", path);
+        RELEASE_MUTEX(&dir->partition_mtx, "close(%s)", path);
         LOG_MSG("RECOMPUTE_INDEX: write(%s) for p(%d) changed.", path, index);
         goto start;
     }
@@ -1337,7 +1393,7 @@ start:
     }
 
 exit_func:
-    RELEASE_MUTEX(&dir->partition_mtx[index], "close(%s)", path);
+    RELEASE_MUTEX(&dir->partition_mtx, "close(%s)", path);
 
     release_dir_mapping(dir);
 

@@ -6,7 +6,6 @@
 #include "backends/operations.h"
 #include "common/options.h"
 #include "common/cache.h"
-#include "server/fhlist.h"
 
 #define NUM_BACKLOG_CONN 128
 

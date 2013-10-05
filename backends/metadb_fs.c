@@ -14,8 +14,8 @@
 
 #define METADB_LOG LOG_DEBUG
 
-#define DEFAULT_LEVELDB_CACHE_SIZE (512 << 20)
-#define DEFAULT_WRITE_BUFFER_SIZE  (64 << 20)
+#define DEFAULT_LEVELDB_CACHE_SIZE (64 << 20)
+#define DEFAULT_WRITE_BUFFER_SIZE  (16 << 20)
 #define DEFAULT_MAX_OPEN_FILES     1000
 #define DEFAULT_MAX_BATCH_SIZE     1024
 #define DEFAULT_BLOCK_SIZE         (64 << 10)
@@ -514,13 +514,9 @@ int metadb_create(struct MetaDB *mdb,
 
     //ACQUIRE_RWLOCK_READ(&(mdb->rwlock_extract), "metadb_create(%s)", path);
 
-    ACQUIRE_MUTEX(&(mdb->mtx_leveldb), "metadb_create(%s)", path);
-
     leveldb_put(mdb->db, mdb->insert_options,
                 (const char*) &mobj_key, METADB_KEY_LEN,
                 mobj_val.value, mobj_val.size, &err);
-
-    RELEASE_MUTEX(&(mdb->mtx_leveldb), "metadb_create(%s)", path);
 
     //RELEASE_RWLOCK(&(mdb->rwlock_extract), "metadb_create(%s)", path);
 
@@ -557,13 +553,9 @@ int metadb_create_dir(struct MetaDB *mdb,
     logMessage(METADB_LOG, __func__, "create_dir(%s) in (partition=%d,dirid=%d): (%d, %08x)",
                path, partition_id, dir_id, mobj_val.size, mobj_val.value);
 
-    ACQUIRE_MUTEX(&(mdb->mtx_leveldb), "metadb_create_dir(%s)", path);
-
     leveldb_put(mdb->db, mdb->insert_options,
                 (const char*) &mobj_key, METADB_KEY_LEN,
                 mobj_val.value, mobj_val.size, &err);
-
-    RELEASE_MUTEX(&(mdb->mtx_leveldb), "metadb_create_dir(%s)", path);
 
     free_metadb_val(&mobj_val);
 
@@ -588,13 +580,9 @@ metadb_val_t metadb_lookup_internal(struct MetaDB *mdb,
 
     init_meta_obj_key(&mobj_key, dir_id, partition_id, path);
 
-    ACQUIRE_MUTEX(&(mdb->mtx_leveldb), "metadb_lookup_internal(%s)", path);
-
     mobj_val.value = leveldb_get(mdb->db, mdb->lookup_options,
                                  (const char*) &mobj_key, METADB_KEY_LEN,
                                  &mobj_val.size, &err);
-
-    RELEASE_MUTEX(&(mdb->mtx_leveldb), "metadb_lookup_internal(%s)", path);
 
     if (err != NULL || mobj_val.value == NULL) {
         logMessage(METADB_LOG, __func__,
@@ -631,8 +619,6 @@ int metadb_update_internal(struct MetaDB *mdb,
 
     init_meta_obj_key(&mobj_key, dir_id, partition_id, path);
 
-    ACQUIRE_MUTEX(&(mdb->mtx_leveldb), "metadb_update_internal(%s)", path);
-
     mobj_val.value = leveldb_get(mdb->db, mdb->lookup_options,
                                 (const char*) &mobj_key, METADB_KEY_LEN,
                                 &mobj_val.size, &err);
@@ -657,7 +643,6 @@ int metadb_update_internal(struct MetaDB *mdb,
         ret = ENOENT;
     }
 
-    RELEASE_MUTEX(&(mdb->mtx_leveldb), "metadb_update_internal(%s)", path);
     logMessage(METADB_LOG, __func__,
                "update_internal (%s) ret (%d).", path, ret);
 
@@ -921,12 +906,11 @@ int metadb_remove(struct MetaDB *mdb,
 
     init_meta_obj_key(&mobj_key, dir_id, partition_id, path);
 
-    ACQUIRE_MUTEX(&(mdb->mtx_leveldb), "metadb_remove(%s)", path);
+
     leveldb_delete(mdb->db, mdb->insert_options,
             (char *) &mobj_key, METADB_KEY_LEN,
             &err);
 
-    RELEASE_MUTEX(&(mdb->mtx_leveldb), "metadb_remove(%s)", path);
     if (err == NULL) {
         return 0;
     } else {
@@ -1040,9 +1024,6 @@ int metadb_readdir(struct MetaDB *mdb,
         init_meta_obj_seek_key(&mobj_key, dir_id, *partition_id, start_key);
     }
 
-    ACQUIRE_MUTEX(&(mdb->mtx_leveldb),
-                "metadb_readdir(p[%d])", *partition_id);
-
     leveldb_iterator_t* iter =
         leveldb_create_iterator(mdb->db, mdb->scan_options);
     leveldb_iter_seek(iter, (char *) &mobj_key, METADB_KEY_LEN);
@@ -1089,8 +1070,6 @@ int metadb_readdir(struct MetaDB *mdb,
     }
     leveldb_iter_destroy(iter);
 
-    RELEASE_MUTEX(&(mdb->mtx_leveldb),
-                "metadb_readdir(p[%d])", *partition_id);
     *num_entries = entry_count;
     return ret;
 }
@@ -1184,6 +1163,7 @@ int metadb_extract_do(struct MetaDB *mdb,
     init_meta_obj_seek_key(&mobj_key, dir_id, old_partition_id, NULL);
 
     int num_new_sstable = 0;
+    int num_scanned_entries = 0;
     int num_migrated_entries = 0;
     char sstable_filename[MAX_FILENAME_LEN];
     char new_internal_key[METADB_INTERNAL_KEY_LEN];
@@ -1208,7 +1188,7 @@ int metadb_extract_do(struct MetaDB *mdb,
             size_t klen;
             const char* iter_ori_key = leveldb_iter_key(iter, &klen);
             metadb_key_t* iter_key = (metadb_key_t*) iter_ori_key;
-
+            ++num_scanned_entries;
 
             if (iter_key->parent_id == dir_id &&
                 iter_key->partition_id == old_partition_id) {
@@ -1287,10 +1267,11 @@ int metadb_extract_do(struct MetaDB *mdb,
 
     struct timeval finish_time;
     gettimeofday(&finish_time, NULL);
-    logMessage(LOG_ERR, __func__, "metadata_extract(%ld): duration(%ld)",
-                dir_id,
-                (finish_time.tv_sec - start_time.tv_sec)*1000000 +
-                (finish_time.tv_usec - start_time.tv_usec));
+    logMessage(LOG_ERR, __func__,
+               "metadata_extract(%ld): entries(%d/%d), duration(%ld)",
+               dir_id, num_migrated_entries, num_scanned_entries,
+               (finish_time.tv_sec - start_time.tv_sec)*1000000 +
+               (finish_time.tv_usec - start_time.tv_usec));
 
     /*
     RELEASE_MUTEX(&(mdb->mtx_extload), "metadb_extract(p%d->p%d)",

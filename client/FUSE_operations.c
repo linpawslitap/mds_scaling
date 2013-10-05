@@ -131,9 +131,8 @@ void GIGAdestroy(void * unused)
     //rpc_disconnect();
 }
 
-int get_expiration(const char* path) {
-  (void) path;
-  return 30;
+int get_expiration(int depth) {
+  return 30 / depth;
 }
 
 int lookup_dir(const char* path, int* ret_zeroth_server) {
@@ -151,12 +150,14 @@ int lookup_dir(const char* path, int* ret_zeroth_server) {
   int prev_zeroth_server = 0;
   int dir_id = ROOT_DIR_ID;
   char dirname[PATH_MAX];
+  int depth = 0;
   do {
     rpos = strchr(lpos+1, '/');
     if (rpos == NULL) {
       rpos = end_path;
     }
     if (rpos - lpos > 1) {
+      depth += 1;
       strncpy(dirname, lpos+1, rpos-lpos-1);
       dirname[rpos-lpos-1] = '\0';
       int next_dir_id = fuse_cache_lookup(dir_id, dirname,
@@ -164,7 +165,7 @@ int lookup_dir(const char* path, int* ret_zeroth_server) {
       LOG_MSG("lookup_dir(%d, %s): %d %d",
               dir_id, dirname, next_dir_id, zeroth_server);
 
-      if (next_dir_id < 0 || current_ts-prev_ts > get_expiration(path)) {
+      if (next_dir_id < 0 || current_ts-prev_ts > get_expiration(depth)) {
           struct stat statbuf;
           int ret = rpc_getattr(dir_id, prev_zeroth_server, dirname,
                                 &statbuf, &zeroth_server);
@@ -529,12 +530,21 @@ int GIGAchmod(const char *path, mode_t mode)
 
     int ret = 0;
     char fpath[PATH_MAX] = {0};
+    char dir[PATH_MAX] = {0};
+    char file[PATH_MAX] = {0};
+    int dir_id = 0;
+    int zeroth_srv = 0;
 
     switch (giga_options_t.backend_type) {
         case BACKEND_LOCAL_FS:
             get_full_path(fpath, path);
             if ((ret = chmod(fpath, mode)) < 0)
                 ret = errno;
+            break;
+        case BACKEND_RPC_LEVELDB:
+            dir_id = lookup_parent_dir(path, file, dir, &zeroth_srv);
+            ret = rpc_chmod(dir_id, zeroth_srv, file, mode);
+            ret = FUSE_ERROR(ret);
             break;
         default:
             ret = ENOTSUP;

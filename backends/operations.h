@@ -52,6 +52,8 @@ int rpc_mknod(int dir_ID, int zeroth_server,
               const char *path, mode_t mode, dev_t dev);
 int rpc_create(int dir_id, int zeroth_server,
                const char *path, mode_t mode);
+int rpc_chmod(int dir_id, int zeroth_server,
+              const char *path, mode_t mode);
 scan_list_t rpc_readdir(int dir_id, int zeroth_server,
                         const char *path, int *num_entries);
 int rpc_opendir(int dir_id, int zeroth_server, const char *path);

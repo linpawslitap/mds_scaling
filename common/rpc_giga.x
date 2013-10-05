@@ -164,6 +164,8 @@ version GIGA_RPC_VERSION {          /* version number */
         giga_result_t GIGA_RPC_MKNOD(giga_dir_id, giga_pathname,
                                      mode_t, short) = 301;
 
+        giga_result_t GIGA_RPC_CHMOD(giga_dir_id, giga_pathname, mode_t) = 302;
+
         /*
         readdir_result_t GIGA_RPC_READDIR(giga_dir_id, int) = 501;
         readdir_return_t GIGA_RPC_READDIR_REQ(giga_dir_id, int, scan_key) = 502;

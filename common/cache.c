@@ -35,7 +35,7 @@ typedef struct ShardCache {
 } shard_cache_t;
 
 static shard_cache_t my_dircache;
-
+static size_t dir_count;
 
 void double_list_remove(struct giga_directory* entry) {
     entry->next->prev = entry->prev;
@@ -55,6 +55,7 @@ void lru_cache_unref(struct giga_directory* entry) {
     --entry->refcount;
     if (entry->refcount <= 0) {
         logMessage(LOG_DEBUG, __func__, "entry(%d)", entry->handle);
+        dir_count --;
         free(entry);
     }
 }
@@ -236,10 +237,9 @@ void cache_destory() {
 struct giga_directory* new_cache_entry_with_mapping(DIR_handle_t *handle,
                                           struct giga_mapping_t* mapping)
 {
-    int i = 0;
-
     struct giga_directory *d =
         (struct giga_directory*) malloc(sizeof(struct giga_directory));
+    dir_count ++;
     if (d == NULL) {
         logMessage(LOG_FATAL, __func__, "malloc_err: %s", strerror(errno));
         exit(1);
@@ -255,10 +255,8 @@ struct giga_directory* new_cache_entry_with_mapping(DIR_handle_t *handle,
     pthread_mutex_init(&d->split_mtx, NULL);
 
     logMessage(CACHE_LOG, __func__, "init %d  partitions ...", MAX_NUM);
-    for (i=0; i < MAX_NUM; i++) {
-        d->partition_size[i] = 0;
-        pthread_mutex_init(&d->partition_mtx[i], NULL);
-    }
+    d->partition_size = 0;
+    pthread_mutex_init(&d->partition_mtx, NULL);
 
     logMessage(CACHE_LOG, __func__, "Cache_CREATE: dir(%d)", d->handle);
 
@@ -277,6 +275,8 @@ struct giga_directory* new_cache_entry(DIR_handle_t *handle, int srv_id)
 int cache_init()
 {
     shard_cache_init(&my_dircache, DEFAULT_DIR_CACHE_SIZE);
+
+    dir_count = 0;
 
     dircache = NULL;
 

@@ -37,7 +37,7 @@ volatile int lastfile;
 int errors;
 time_t start_exp, end_exp;
 const int sampling = 1;
-int num_dirs, num_files, num_ops;
+int num_dirs, num_files, num_ops, num_clients;
 char** dirnames;
 op_t* oplist;
 int seed;
@@ -112,32 +112,46 @@ void read_op_list(const char *filename) {
     FILE* file = fopen(filename, "r");
     if (file == NULL)
       return;
-    fscanf(file, "%d", &num_ops);
+    int type;
+    fscanf(file, "%d %d", &num_ops, &type);
+    printf("%d %d\n", num_ops, type);
     oplist = (op_t *) malloc(sizeof(op_t) * num_ops);
     int i = 0;
     for (i=0; i < num_ops; ++i) {
-      oplist[i].dirno = i;
-      fscanf(file,"%d %d", &(oplist[i].min), &(oplist[i].max));
+      if (type == 1) {
+        oplist[i].dirno = i;
+        fscanf(file,"%d %d", &(oplist[i].min), &(oplist[i].max));
+      } else {
+        fscanf(file,"%d %d %d",
+               &(oplist[i].dirno), &(oplist[i].min), &(oplist[i].max));
+      }
     }
     fclose(file);
 }
 
-void pick_file(char* p) {
+int pick_file(char* p) {
+    if (num_ops == 0) {
+      return -1;
+    }
     int op_id = rand() % num_ops;
-    sprintf(p, "%s/%d\0",
-             dirnames[oplist[op_id].dirno], oplist[op_id].min);
+    //int op_id = 0;
+    sprintf(p, "%s/f%d\0",
+             dirnames[oplist[op_id].dirno],
+             oplist[op_id].min*1000+seed);
     oplist[op_id].min ++;
     if (oplist[op_id].min == oplist[op_id].max) {
       oplist[op_id] = oplist[num_ops-1];
       --num_ops;
     }
+    return 0;
 }
 
 static void mknod_from_list() {
     char p[512] = {0};
     start_measure();
     for (curr = 0; curr< num_files; ++curr) {
-        pick_file(p);
+        if (pick_file(p) != 0)
+          break;
         start_op();
         if (gigaMknod(p, CREATE_MODE) < 0) {
               printf ("ERROR during mknod(%s): %s\n", p, strerror(errno));
@@ -153,7 +167,8 @@ static void getattr_from_list() {
     start_measure();
     int errcount = 0;
     for (curr = 0; curr< num_files; ++curr) {
-        pick_file(p);
+        if (pick_file(p) != 0)
+          break;
         start_op();
         struct stat buf;
         if (gigaGetAttr(p, &buf) < 0) {
@@ -164,6 +179,30 @@ static void getattr_from_list() {
     finish_measure();
     printf("errcount:%d\n", errcount);
 }
+
+static void write_files(int buf_size)
+{
+    printf("Creating %d files from test_%d ... \n", num_files, pid);
+    start_measure();
+    char buf[buf_size];
+    char p[512] = {0};
+    for (curr = 0; curr< num_files; ++curr) {
+        if (pick_file(p) != 0)
+          break;
+        start_op();
+        if (gigaMknod(p, CREATE_MODE) < 0) {
+            printf ("ERROR during mknod(%s): %s\n", p, strerror(errno));
+            return;
+        } else {
+            int f = gigaOpen(p, O_WRONLY);
+            gigaWrite(f, buf, buf_size);
+            gigaClose(f);
+        }
+        finish_op();
+    }
+    finish_measure();
+}
+
 /*
 static void chmod_from_list(const char *filename) {
     char p[512] = {0};
@@ -182,6 +221,43 @@ static void chmod_from_list(const char *filename) {
     finish_measure();
 }
 */
+static void readdir_from_list() {
+    char p[512] = {0};
+    start_measure();
+    int errcount = 0;
+    for (curr = 0; curr < num_files; ++curr) {
+      start_op();
+      int num_entries = 0;
+      int dirid = rand() % num_dirs;
+      gigaListStatus(dirnames[dirid], &num_entries);
+      if (num_entries <= 0) {
+         errcount++;
+      }
+      finish_op();
+    }
+    finish_measure();
+    printf("errcount:%d\n", errcount);
+}
+
+static void circreate_from_list(int tot, int id, int numop) {
+    char p[512] = {0};
+    start_measure();
+    int errcount = 0;
+    int i, j;
+    for (i = 0; i< num_dirs; ++i) {
+      if (i % tot == id) {
+        for (j = 0; j < numop; ++j) {
+          ++curr;
+          sprintf(p, "%s/%d", dirnames[i], j);
+          start_op();
+          gigaMknod(p, CREATE_MODE);
+          finish_op();
+        }
+      }
+    }
+    finish_measure();
+}
+
 void launch_timer_thread() {
     pthread_t tid;
     int ret;
@@ -200,7 +276,7 @@ void launch_timer_thread() {
 
 int main(int argc, char **argv)
 {
-    if (argc != 6) {
+    if (argc < 6) {
         fprintf(stdout, "*** ERROR: insufficient parameters ... \n\n");
         fprintf(stdout, "USAGE: %s <type> <dirfilename> <oplist> <num_files> <seed>\n", argv[0]);
         fprintf(stdout, "\n");
@@ -211,7 +287,8 @@ int main(int argc, char **argv)
     pid = (int)getpid();
     num_files = atoi(argv[4]);
     read_dir_list(argv[2]);
-    read_op_list(argv[3]);
+    if (strcmp(argv[1], "circreate") != 0)
+      read_op_list(argv[3]);
     seed = atoi(argv[5]);
     srand(seed);
 
@@ -237,6 +314,14 @@ int main(int argc, char **argv)
         mknod_from_list();
     if (strcmp(argv[1], "getattr") == 0)
         getattr_from_list();
+    if (strcmp(argv[1], "write") == 0)
+        write_files(atoi(argv[6]));
+    if (strcmp(argv[1], "readdir") == 0)
+        readdir_from_list();
+    if (strcmp(argv[1], "circreate") == 0) {
+        num_clients = atoi(argv[6]);
+        circreate_from_list(num_clients, seed, num_files);
+    }
     end_exp = time(NULL);
 
     errors = 100;

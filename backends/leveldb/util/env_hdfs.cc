@@ -510,10 +510,12 @@ public:
   virtual Status DeleteFile(const std::string& fname) {
     Status result;
     if(onHDFS(fname)) {
+      /*
       std::string filename = getPath(fname);
       if (hdfsDelete(hdfs_primary_fs_, filename.c_str(), 0) != 0) {
         result = IOError(fname, errno);
       }
+      */
     } else {
       if (unlink(fname.c_str()) != 0) {
         result = IOError(fname, errno);

@@ -27,6 +27,7 @@ apps=$2
 cli=$3
 treeid=$4
 id=$5
+echo $id
 
 files=$(( $1/$(( $apps*$cli)) ))
 
@@ -44,10 +45,10 @@ do
             dir=${MNT}/${i}
         fi
         ./tree_select_test mknod ../traces/tree$treeid/tree$treeid.log \
-        ../traces/tree$treeid/tree.client.$id.dat $files $id \
+        ../traces/tree$treeid/tree.client.zipf.log $files $id \
         > ~/_perf/$host.$i.$j 2>&1
 
         #( time ./mknod_test ${dir} $files ) > ~/_perf/$host.$i.$j 2>&1 &
-
+        #./smallfile_lib_test / $filesize $files > ~/_perf/$host.$i.$j 2>&1
     done
 done

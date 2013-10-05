@@ -1628,6 +1628,7 @@ Status DBImpl::MigrateLevel0Table(const std::string& fname,
   Status s;
   std::string new_fname = TableFileName(dbname_, meta.number);
   s = env_->RenameFile(fname, new_fname);
+
   //s = env_->CopyFile(fname, new_fname);
   //s = env_->SymlinkFile(fname, new_fname);
   Log(options_.info_log, "Level-0 table #%llu: %lld migrate bytes by rename file %s to file %s: %s",
@@ -1699,7 +1700,7 @@ Status DBImpl::BulkInsert(const WriteOptions& write_opt,
     return s;
   }
 
-
+  /*
   Writer w(&mutex_);
   w.batch = NULL;
   w.sync = false;
@@ -1714,7 +1715,7 @@ Status DBImpl::BulkInsert(const WriteOptions& write_opt,
   if (w.done) {
       s = Status::IOError("Fail to grep writer lock for bulkinsert");
   }
-
+  */
   MutexLock l(&mutex_);
   if (!shutting_down_.Acquire_Load()) {
     VersionEdit edit;
@@ -1727,7 +1728,8 @@ Status DBImpl::BulkInsert(const WriteOptions& write_opt,
             std::string full_path = dirname + "/" + filenames[i];
             FileMetaData meta;
             env_->GetFileSize(full_path, &meta.file_size);
-            s = MigrateLevel0Table(full_path, meta, &edit, base);
+            if (meta.file_size > 0)
+              s = MigrateLevel0Table(full_path, meta, &edit, base);
         }
     base->Unref();
 
@@ -1748,18 +1750,20 @@ Status DBImpl::BulkInsert(const WriteOptions& write_opt,
           DeleteObsoleteFiles();
       }
 
-      if (w.new_sequence > versions_->LastSequence())
-        versions_->SetLastSequence(w.new_sequence);
+      if (max_sequence_number > versions_->LastSequence())
+        versions_->SetLastSequence(max_sequence_number);
     }
   } else {
     s = Status::IOError("Deleting DB during sstable bulk-insertion");
   }
 
+  /*
   writers_.pop_front();
   // Notify new head of write queue
   if (!writers_.empty()) {
     writers_.front()->cv.Signal();
   }
+  */
   bg_cv_.SignalAll();
 
   return s;

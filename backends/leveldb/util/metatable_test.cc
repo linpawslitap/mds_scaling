@@ -10,6 +10,8 @@
 #include "leveldb/options.h"
 #include <stdio.h>
 #include <vector>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 using namespace leveldb;
 
@@ -18,6 +20,15 @@ typedef struct MetaDB_key {
     long int partition_id;
     char name_hash[128];
 } metadb_key_t;
+
+typedef struct {
+    struct stat statbuf;
+    int state;
+    size_t objname_len;
+    char* objname;
+    size_t realpath_len;
+    char* realpath;
+} metadb_val_header_t;
 
 void FindKey(std::string filename) {
     Options options;
@@ -40,9 +51,13 @@ void FindKey(std::string filename) {
     Iterator* iter = table->NewIterator(ReadOptions());
     for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
       const metadb_key_t* tkey = (const metadb_key_t*) iter->key().data();
-      if (tkey->parent_id == 28678) {
-         printf("%ld %ld\n",
-                tkey->parent_id, tkey->partition_id);
+      const metadb_val_header_t* tval = (const metadb_val_header_t*) iter->value().data();
+
+      if (tkey->parent_id == 0) {
+         printf("%ld %ld %s\n",
+                tkey->parent_id, tkey->partition_id, tkey->name_hash);
+         const char* objname = iter->value().data()+sizeof(metadb_val_header_t);
+         printf("%ld %s\n", tval->statbuf.st_ino, objname);
       }
     }
     delete iter;

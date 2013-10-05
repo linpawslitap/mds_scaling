@@ -98,17 +98,17 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
         //ret = 0;
         //
         LOG_MSG("RETRYING: p%d(%d)-->p%d(%d)",
-                parent, dir->partition_size[parent],
-                child, dir->partition_size[child]);
+                parent, dir->partition_size,
+                child, dir->partition_size);
     } else if (ret < 0) {
         LOG_MSG("FAILURE: p%d(%d)-->p%d(%d)",
-                parent, dir->partition_size[parent],
-                child, dir->partition_size[child]);
+                parent, dir->partition_size,
+                child, dir->partition_size);
     } else {
         // update bitmap and partition size
         giga_update_mapping(&(dir->mapping), child);
 
-        dir->partition_size[parent] -= ret;
+        dir->partition_size -= ret;
 
         if (metadb_write_bitmap(ldb_mds, dir->handle, -1, NULL,
                                 &dir->mapping) != 0) {
@@ -117,7 +117,7 @@ int split_bucket(struct giga_directory *dir, int partition_to_split)
             exit(1);
         }
 
-        LOG_MSG("SUCCESS: p%d(%d)-->p%d(%d)", parent, dir->partition_size[parent],
+        LOG_MSG("SUCCESS: p%d(%d)-->p%d(%d)", parent, dir->partition_size,
                                               child, ret);
         //ret = 0;
     }
@@ -187,7 +187,9 @@ bool_t giga_rpc_split_1_svc(giga_dir_id dir_id,
         // update bitmap and partition size
         giga_update_mapping(&(dir->mapping), child_index);
 
+        /*
         dir->partition_size[child_index] = num_entries;
+        */
 
         if (metadb_write_bitmap(ldb_mds, dir_id, -1, NULL, &dir->mapping) != 0) {
             LOG_ERR("ERR_mdb_write_bitmap(d%d): error writing bitmap.", dir_id);
@@ -197,7 +199,7 @@ bool_t giga_rpc_split_1_svc(giga_dir_id dir_id,
         rpc_reply->errnum = num_entries;
 
         LOG_MSG("p%d: %d entries and updated bitmap.",
-                child_index, dir->partition_size[child_index]);
+                child_index, num_entries);
         giga_print_mapping(&dir->mapping);
 
         //TODO: optimization follows -- exchange bitmap on splits
@@ -282,8 +284,9 @@ int split_in_levelDB(struct giga_directory *dir,
 
     char split_dir_path[PATH_MAX] = {0};
     snprintf(split_dir_path, sizeof(split_dir_path),
-             "%s/sst-d%d-p%dp%d-s%ds%d",
-             giga_options_t.split_dir, dir->handle, parent_index, child_index,
+             "%s%d/sst-d%d-p%dp%d-s%ds%d",
+             giga_options_t.split_dir, dir->handle & 1023,
+             dir->handle, parent_index, child_index,
              parent_srv, child_srv);
 
     // TODO: should we even do this for local splitting?? move to remote
@@ -318,7 +321,7 @@ int split_in_levelDB(struct giga_directory *dir,
             ret = -1;
         }
         else {
-            dir->partition_size[child_index] = ret;
+            dir->partition_size += ret;
         }
 
         RELEASE_MUTEX(&(ldb_mds->mtx_bulkload), "bulkload(%s)", split_dir_path);

@@ -223,6 +223,43 @@ retry:
     return ret;
 }
 
+int rpc_chmod(int dir_id, int zeroth_srv, const char *path, mode_t new_mode)
+{
+    int ret = 0;
+
+    struct giga_directory *dir = cache_lookup(&dir_id);
+    if (dir == NULL) {
+      dir = rpc_getpartition(dir_id, zeroth_srv);
+    }
+    if (dir == NULL) {
+        LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
+        return -EIO;
+    }
+
+    int server_id = 0;
+    giga_result_t rpc_reply;
+
+    server_id = get_server_for_file(dir, path);
+    CLIENT *rpc_clnt = getConnection(server_id);
+
+    LOG_MSG(">>> RPC_chmod(%d, %s): to s[%d]", dir_id, path, server_id);
+
+    if (giga_rpc_chmod_1(dir_id, (char*)path, new_mode, &rpc_reply, rpc_clnt)
+        != RPC_SUCCESS) {
+        LOG_ERR("ERR_rpc_chmod(%s)", clnt_spcreateerror(path));
+        exit(1);
+    }
+
+    ret = rpc_reply.errnum;
+    cache_release(dir);
+
+    LOG_MSG("<<< RPC_chmod(%d, %s): status=[%d]%s",
+             dir_id, path, ret, strerror(ret));
+
+    return ret;
+}
+
+
 int rpc_mkdir(int dir_id, int zeroth_srv, const char *path, mode_t mode)
 {
     int ret = 0;

@@ -84,15 +84,14 @@ class ZigzagFilterPolicy : public FilterPolicy {
 
   virtual void CreateFilter(const Slice* keys, int n, std::string* dst,
                             bool lastLayer) const {
-      /*
       if (!lastLayer) {
         CreateFullIndex(keys, n, dst);
         dst->push_back(static_cast<char>(kFullIndex));
       } else {
-        CreateBloomFilter(keys, n, dst);
+        CreateBloomFilter(keys, n, dst, bits_per_key_);
         dst->push_back(static_cast<char>(kBloomFilter));
       }
-      */
+      /*
       if (!lastLayer) {
         CreateBloomFilter(keys, n, dst, bits_per_key_ + 5);
         dst->push_back(static_cast<char>(kBloomFilter));
@@ -100,6 +99,7 @@ class ZigzagFilterPolicy : public FilterPolicy {
         CreateBloomFilter(keys, n, dst, bits_per_key_ - 1);
         dst->push_back(static_cast<char>(kBloomFilter));
       }
+      */
   }
 
   bool FIKeyMayMatch(const Slice& key, const Slice& full_index) const {
@@ -116,6 +116,8 @@ class ZigzagFilterPolicy : public FilterPolicy {
       if (r == 0) {
         return true;
       } if (r < 0) {
+        if (mid == 0)
+          return false;
         ri = mid - 1;
       } else {
         li = mid + 1;

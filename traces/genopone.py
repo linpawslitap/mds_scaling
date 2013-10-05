@@ -26,24 +26,24 @@ def gen_bucket(nbucket, nop, distribution):
     if distribution == 'zipfan':
         return gen_bucket_zipfan(nbucket, nop)
 
-def gen_ops(bucket, nclient, prefix):
-    for i in range(nclient):
-        f = open(prefix+"."+str(i)+".dat", "w")
-        f.write("%d 1\n"%(len(bucket)))
-        for j in range(len(bucket)):
-           f.write("%d %d\n"%(bucket[j]*i, bucket[j]*(i+1)))
-        f.close()
+def gen_ops(bucket, prefix):
+    f = open(prefix, "w")
+    f.write("%d 1\n"%(len(bucket)))
+    for j in range(len(bucket)):
+       f.write("%d %d\n"%(0, bucket[j]))
+    f.close()
 
+tid=10
 option = {
     'nclient': 128,
-    'distribution':'zipfan',
-    'nop': 1000000,
-    'treefile': 'tree5/tree5.log',
-    'prefix': 'tree5/tree.client'
+    'distribution':'uniform',
+    'nop': 5000000,
+    'treefile': 'tree%d/tree%d.log'%(tid,tid),
+    'prefix': 'tree%d/tree.client.uniform.log'%(tid)
 }
 
 f = open(option['treefile'], 'r')
 nbucket = int(f.readline()[:-1])
 f.close()
 bucket = gen_bucket(nbucket, option['nop'], option['distribution'])
-gen_ops(bucket, option['nclient'], option['prefix'])
+gen_ops(bucket, option['prefix'])

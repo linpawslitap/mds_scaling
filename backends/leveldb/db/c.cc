@@ -18,10 +18,12 @@
 #include "leveldb/table_builder.h"
 #include "leveldb/table.h"
 #include "db/dbformat.h"
+#include "db/column_db.h"
 
 using leveldb::Cache;
 using leveldb::Comparator;
 using leveldb::CompressionType;
+using leveldb::ColumnDB;
 using leveldb::DB;
 using leveldb::Env;
 using leveldb::FileLock;
@@ -164,7 +166,15 @@ leveldb_t* leveldb_open(
     const char* name,
     char** errptr) {
   DB* db;
+  /*
   if (SaveError(errptr, DB::Open(options->rep, std::string(name), &db))) {
+    return NULL;
+  }
+  */
+  Status s;
+  db = new ColumnDB(options->rep, std::string(name), s);
+  if (SaveError(errptr, s)) {
+    delete db;
     return NULL;
   }
   leveldb_t* result = new leveldb_t;
@@ -223,6 +233,22 @@ char* leveldb_get(
     }
   }
   return result;
+}
+
+int leveldb_exists(
+    leveldb_t* db,
+    const leveldb_readoptions_t* options,
+    const char* key, size_t keylen,
+    char** errptr) {
+  Status s = db->rep->Exists(options->rep, Slice(key, keylen));
+  if (s.ok()) {
+    return 1;
+  } else {
+    if (!s.IsNotFound()) {
+      SaveError(errptr, s);
+    }
+    return 0;
+  }
 }
 
 leveldb_iterator_t* leveldb_create_iterator(

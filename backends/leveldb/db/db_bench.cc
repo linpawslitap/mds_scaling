@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "db/db_impl.h"
+#include "db/column_db.h"
 #include "db/version_set.h"
 #include "leveldb/cache.h"
 #include "leveldb/db.h"
@@ -694,7 +695,9 @@ class Benchmark {
     options.block_cache = cache_;
     options.write_buffer_size = FLAGS_write_buffer_size;
     options.filter_policy = filter_policy_;
-    Status s = DB::Open(options, FLAGS_db, &db_);
+    //Status s = DB::Open(options, FLAGS_db, &db_);
+    Status s;
+    db_ = new ColumnDB(options, FLAGS_db, s);
     if (!s.ok()) {
       fprintf(stderr, "open error: %s\n", s.ToString().c_str());
       exit(1);
@@ -721,6 +724,7 @@ class Benchmark {
     Status s;
     int64_t bytes = 0;
     for (int i = 0; i < num_; i += entries_per_batch_) {
+      /*
       batch.Clear();
       for (int j = 0; j < entries_per_batch_; j++) {
         const int k = seq ? i+j : (thread->rand.Next() % FLAGS_num);
@@ -731,6 +735,14 @@ class Benchmark {
         thread->stats.FinishedSingleOp();
       }
       s = db_->Write(write_options_, &batch);
+      */
+      const int k = seq ? i : (thread->rand.Next() % FLAGS_num);
+      char key[100];
+      snprintf(key, sizeof(key), "%016d", k);
+      db_->Put(write_options_, key, gen.Generate(value_size_));
+      bytes += value_size_ + strlen(key);
+      thread->stats.FinishedSingleOp();
+
       if (!s.ok()) {
         fprintf(stderr, "put error: %s\n", s.ToString().c_str());
         exit(1);

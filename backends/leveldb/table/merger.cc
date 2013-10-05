@@ -121,7 +121,7 @@ class MergingIterator : public Iterator {
     return current_->key();
   }
 
-  virtual Slice value() const {
+  virtual Slice value() {
     assert(Valid());
     return current_->value();
   }

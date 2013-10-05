@@ -9,7 +9,9 @@
 
 #include <string>
 #include <stdint.h>
-#include "util/env.h"
+#include "leveldb/env.h"
+#include "leveldb/cache.h"
+#include "leveldb/options.h"
 #include "port/port.h"
 
 namespace leveldb {
@@ -27,7 +29,8 @@ class DataCache {
              uint64_t file_number,
              uint64_t offset,
              uint64_t size,
-             void (*handle_result)(void*, const Slice&, const Slice&));
+             Slice* result,
+             char* scratch);
 
   // Evict any entry for the specified file number
   void Evict(uint64_t file_number);
@@ -37,6 +40,9 @@ class DataCache {
   const std::string dbname_;
   const Options* options_;
   Cache* cache_;
+
+  Status FindTable(uint64_t file_number, Cache::Handle**);
+
 };
 
 }  // namespace leveldb

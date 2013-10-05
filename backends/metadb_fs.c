@@ -14,7 +14,7 @@
 
 #define METADB_LOG LOG_DEBUG
 
-#define DEFAULT_LEVELDB_CACHE_SIZE (64 << 20)
+#define DEFAULT_LEVELDB_CACHE_SIZE (16 << 20)
 #define DEFAULT_WRITE_BUFFER_SIZE  (16 << 20)
 #define DEFAULT_MAX_OPEN_FILES     1000
 #define DEFAULT_MAX_BATCH_SIZE     1024
@@ -392,10 +392,12 @@ int metadb_init(struct MetaDB *mdb, const char *mdb_name,
     leveldb_options_set_max_open_files(mdb->options, DEFAULT_MAX_OPEN_FILES);
     leveldb_options_set_block_size(mdb->options, DEFAULT_BLOCK_SIZE);
     leveldb_options_set_compression(mdb->options, leveldb_no_compression);
+
     /*
     leveldb_options_set_filter_policy(mdb->options,
                         leveldb_filterpolicy_create_bloom(14));
     */
+
     mdb->lookup_options = leveldb_readoptions_create();
     leveldb_readoptions_set_fill_cache(mdb->lookup_options, 1);
 
@@ -504,19 +506,29 @@ int metadb_create(struct MetaDB *mdb,
 
     init_meta_obj_key(&mobj_key, dir_id, partition_id, path);
 
-    mobj_val = init_meta_val(0,
-                             strlen(path), path,
-                             strlen(realpath), realpath,
-                             0, NULL);
-
     logMessage(METADB_LOG, __func__, "create(%s) in (partition=%d,dirid=%d): (%d, %08x)",
                path, partition_id, dir_id, mobj_val.size, mobj_val.value);
 
     //ACQUIRE_RWLOCK_READ(&(mdb->rwlock_extract), "metadb_create(%s)", path);
 
+<<<<<<< HEAD
     leveldb_put(mdb->db, mdb->insert_options,
+=======
+    ACQUIRE_MUTEX(&(mdb->mtx_leveldb), "metadb_create(%s)", path);
+
+    int exists = leveldb_exists(mdb->db, mdb->lookup_options,
+                                 (const char*) &mobj_key, METADB_KEY_LEN, &err);
+
+    if (!exists) {
+        mobj_val = init_meta_val(0,
+                             strlen(path), path,
+                             strlen(realpath), realpath,
+                             0, NULL);
+        leveldb_put(mdb->db, mdb->insert_options,
+>>>>>>> be451d4aa8d149e9a715cce1347915e0d8776718
                 (const char*) &mobj_key, METADB_KEY_LEN,
                 mobj_val.value, mobj_val.size, &err);
+    }
 
     //RELEASE_RWLOCK(&(mdb->rwlock_extract), "metadb_create(%s)", path);
 
@@ -543,19 +555,30 @@ int metadb_create_dir(struct MetaDB *mdb,
     metadb_inode_t inode_id = dir_mapping->id;
     init_meta_obj_key(&mobj_key, dir_id, partition_id, path);
 
-    if (path != NULL) {
-        mobj_val = init_dir_val(inode_id,
-                                strlen(path), path, dir_mapping);
-    } else {
-        mobj_val = init_dir_val(inode_id, 0, NULL, dir_mapping);
-    }
-
     logMessage(METADB_LOG, __func__, "create_dir(%s) in (partition=%d,dirid=%d): (%d, %08x)",
                path, partition_id, dir_id, mobj_val.size, mobj_val.value);
 
+<<<<<<< HEAD
     leveldb_put(mdb->db, mdb->insert_options,
+=======
+    ACQUIRE_MUTEX(&(mdb->mtx_leveldb), "metadb_create_dir(%s)", path);
+
+    int exists = leveldb_exists(mdb->db, mdb->lookup_options,
+                                 (const char*) &mobj_key, METADB_KEY_LEN, &err);
+
+    if (!exists) {
+        if (path != NULL) {
+            mobj_val = init_dir_val(inode_id,
+                                    strlen(path), path, dir_mapping);
+        } else {
+            mobj_val = init_dir_val(inode_id, 0, NULL, dir_mapping);
+        }
+
+        leveldb_put(mdb->db, mdb->insert_options,
+>>>>>>> be451d4aa8d149e9a715cce1347915e0d8776718
                 (const char*) &mobj_key, METADB_KEY_LEN,
                 mobj_val.value, mobj_val.size, &err);
+    }
 
     free_metadb_val(&mobj_val);
 

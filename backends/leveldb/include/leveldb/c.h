@@ -106,6 +106,12 @@ extern char* leveldb_get(
     size_t* vallen,
     char** errptr);
 
+extern int leveldb_exists(
+    leveldb_t* db,
+    const leveldb_readoptions_t* options,
+    const char* key, size_t keylen,
+    char** errptr);
+
 extern leveldb_iterator_t* leveldb_create_iterator(
     leveldb_t* db,
     const leveldb_readoptions_t* options);

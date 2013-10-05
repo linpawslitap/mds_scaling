@@ -64,6 +64,15 @@ std::string OldInfoLogFileName(const std::string& dbname) {
   return dbname + "/LOG.old";
 }
 
+std::string DataFileName(const std::string& dbname, uint64_t number) {
+  assert(number > 0);
+  char buf[100];
+  snprintf(buf, sizeof(buf), "/db%06llu.%s",
+           static_cast<unsigned long long>(number),
+           "dat");
+  return dbname + buf;
+}
+
 
 // Owned filenames have the form:
 //    dbname/CURRENT

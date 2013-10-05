@@ -10,12 +10,15 @@
 
 #include "db/db_impl.h"
 #include "db/membuf.h"
+#include "db/data_cache.h"
 
 namespace leveldb {
 
+class ColumnDBIter;
+
 class ColumnDB : public DB {
  public:
-  ColumnDB(const Options& options, const std::string& dbname);
+  ColumnDB(const Options& options, const std::string& dbname, Status& s);
   virtual ~ColumnDB();
 
   // Implementations of the DB interface
@@ -25,6 +28,8 @@ class ColumnDB : public DB {
   virtual Status Get(const ReadOptions& options,
                      const Slice& key,
                      std::string* value);
+  virtual Status Exists(const ReadOptions& options,
+                        const Slice& key);
   virtual Iterator* NewIterator(const ReadOptions&);
   virtual const Snapshot* GetSnapshot();
   virtual void ReleaseSnapshot(const Snapshot* snapshot);
@@ -39,19 +44,37 @@ class ColumnDB : public DB {
                             uint64_t min_sequence_number,
                             uint64_t max_sequence_number);
 
+  friend class ColumnDBIter;
+
  private:
+
   Env* const env_;
   const Options options_;  // options_.comparator == &internal_comparator_
   const std::string dbname_;
 
-  DB* indexdb;
-  MemBuffer* membuf;
+  DB* indexdb_;
 
   // State below is protected by mutex_
   port::Mutex mutex_;
-  port::AtomicPointer shutting_down_;
-  port::CondVar bg_cv_;          // Signalled when background work finishes
   WritableFile* datafile_;
+  MemBuffer* membuf_;
+  DataCache* data_cache_;
+  uint64_t log_number_;
+  uint64_t current_log_number_;
+
+  uint64_t NewLogNumber() {
+    return ++log_number_;
+  }
+  void SetLogNumber(uint64_t log_number) {
+    current_log_number_ = log_number;
+  }
+  uint64_t GetLogNumber() {
+    return current_log_number_;
+  }
+
+  Status NewDataFile();
+  Status InternalGet(const ReadOptions& options, uint64_t file_number,
+                     char* scratch, Slice* result);
 
   // No copying allowed
   ColumnDB(const ColumnDB&);

@@ -134,7 +134,7 @@ class Block::Iter : public Iterator {
     assert(Valid());
     return key_;
   }
-  virtual Slice value() const {
+  virtual Slice value() {
     assert(Valid());
     return value_;
   }

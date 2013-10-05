@@ -68,7 +68,7 @@ class DBIter: public Iterator {
     assert(valid_);
     return (direction_ == kForward) ? ExtractUserKey(iter_->key()) : saved_key_;
   }
-  virtual Slice value() const {
+  virtual Slice value() {
     assert(valid_);
     return (direction_ == kForward) ? iter_->value() : saved_value_;
   }

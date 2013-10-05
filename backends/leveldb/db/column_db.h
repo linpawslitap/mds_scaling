@@ -18,7 +18,7 @@ class ColumnDBIter;
 
 class ColumnDB : public DB {
  public:
-  ColumnDB(const Options& options, const std::string& dbname);
+  ColumnDB(const Options& options, const std::string& dbname, Status& s);
   virtual ~ColumnDB();
 
   // Implementations of the DB interface
@@ -28,6 +28,8 @@ class ColumnDB : public DB {
   virtual Status Get(const ReadOptions& options,
                      const Slice& key,
                      std::string* value);
+  virtual Status Exists(const ReadOptions& options,
+                        const Slice& key);
   virtual Iterator* NewIterator(const ReadOptions&);
   virtual const Snapshot* GetSnapshot();
   virtual void ReleaseSnapshot(const Snapshot* snapshot);

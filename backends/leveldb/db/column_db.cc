@@ -13,41 +13,47 @@
 #include "db/filename.h"
 #include "db/dbformat.h"
 #include "db/cdb_iter.h"
+#include "util/mutexlock.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 
 namespace leveldb {
 
-ColumnDB::ColumnDB(const Options& options, const std::string& dbname) :
+ColumnDB::ColumnDB(const Options& options, const std::string& dbname,
+                   Status &s) :
   dbname_(dbname), env_(options.env), datafile_(NULL), indexdb_(NULL),
   membuf_(NULL), log_number_(0), current_log_number_(0) {
-  //mutex_.Lock();
-  Status s = DB::Open(options, dbname, &indexdb_);
+  MutexLock mutex_lock(&mutex_);
+  s = DB::Open(options, dbname, &indexdb_);
   if (!s.ok()) {
-    fprintf(stderr, "Open DB Error: %s\n", s.ToString().c_str());
-    exit(-1);
+    printf("%s\n", s.ToString().c_str());
     return;
   }
   s = NewDataFile();
   if (!s.ok()) {
-    fprintf(stderr, "Open DataFile Error: %s\n", s.ToString().c_str());
-    exit(-1);
-
+    printf("%s\n", s.ToString().c_str());
     return;
   }
-  membuf_ = new MemBuffer(options.write_buffer_size);
+  membuf_ = new MemBuffer(63 << 20);
   data_cache_ = new DataCache(dbname, &options, options.max_open_files);
-  //mutex_.Unlock();
 }
 
 ColumnDB::~ColumnDB() {
+  MutexLock mutex_lock(&mutex_);
   if (datafile_ != NULL) {
     datafile_->Close();
     delete datafile_;
   }
-  delete membuf_;
-  delete data_cache_;
-  delete indexdb_;
+  if (membuf_ != NULL) {
+    delete membuf_;
+  }
+  if (data_cache_ != NULL) {
+    delete data_cache_;
+  }
+  if (indexdb_ != NULL) {
+    delete indexdb_;
+  }
 }
 
 Status ColumnDB::NewDataFile() {
@@ -160,6 +166,13 @@ Status ColumnDB::Get(const ReadOptions& options,
     value->assign(result.data(), result.size());
   }
 
+  return s;
+}
+
+Status ColumnDB::Exists(const ReadOptions& options,
+                        const Slice& key) {
+  std::string location_val;
+  Status s = indexdb_->Get(options, key, &location_val);
   return s;
 }
 

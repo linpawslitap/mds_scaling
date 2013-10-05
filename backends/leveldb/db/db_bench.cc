@@ -516,12 +516,10 @@ class Benchmark {
                   name.ToString().c_str());
           method = NULL;
         } else {
-          /*
           delete db_;
           db_ = NULL;
           DestroyDB(FLAGS_db, Options());
           Open();
-          */
         }
       }
 
@@ -698,13 +696,12 @@ class Benchmark {
     options.write_buffer_size = FLAGS_write_buffer_size;
     options.filter_policy = filter_policy_;
     //Status s = DB::Open(options, FLAGS_db, &db_);
-    db_ = new ColumnDB(options, FLAGS_db);
-    /*
+    Status s;
+    db_ = new ColumnDB(options, FLAGS_db, s);
     if (!s.ok()) {
       fprintf(stderr, "open error: %s\n", s.ToString().c_str());
       exit(1);
     }
-    */
   }
 
   void WriteSeq(ThreadState* thread) {

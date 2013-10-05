@@ -511,9 +511,6 @@ int metadb_create(struct MetaDB *mdb,
 
     //ACQUIRE_RWLOCK_READ(&(mdb->rwlock_extract), "metadb_create(%s)", path);
 
-<<<<<<< HEAD
-    leveldb_put(mdb->db, mdb->insert_options,
-=======
     ACQUIRE_MUTEX(&(mdb->mtx_leveldb), "metadb_create(%s)", path);
 
     int exists = leveldb_exists(mdb->db, mdb->lookup_options,
@@ -525,7 +522,6 @@ int metadb_create(struct MetaDB *mdb,
                              strlen(realpath), realpath,
                              0, NULL);
         leveldb_put(mdb->db, mdb->insert_options,
->>>>>>> be451d4aa8d149e9a715cce1347915e0d8776718
                 (const char*) &mobj_key, METADB_KEY_LEN,
                 mobj_val.value, mobj_val.size, &err);
     }
@@ -558,9 +554,6 @@ int metadb_create_dir(struct MetaDB *mdb,
     logMessage(METADB_LOG, __func__, "create_dir(%s) in (partition=%d,dirid=%d): (%d, %08x)",
                path, partition_id, dir_id, mobj_val.size, mobj_val.value);
 
-<<<<<<< HEAD
-    leveldb_put(mdb->db, mdb->insert_options,
-=======
     ACQUIRE_MUTEX(&(mdb->mtx_leveldb), "metadb_create_dir(%s)", path);
 
     int exists = leveldb_exists(mdb->db, mdb->lookup_options,
@@ -575,7 +568,6 @@ int metadb_create_dir(struct MetaDB *mdb,
         }
 
         leveldb_put(mdb->db, mdb->insert_options,
->>>>>>> be451d4aa8d149e9a715cce1347915e0d8776718
                 (const char*) &mobj_key, METADB_KEY_LEN,
                 mobj_val.value, mobj_val.size, &err);
     }

@@ -33,13 +33,13 @@ def gen_ops(bucket, prefix):
        f.write("%d %d\n"%(0, bucket[j]))
     f.close()
 
-tid=10
+tid=11
 option = {
     'nclient': 128,
     'distribution':'uniform',
-    'nop': 5000000,
+    'nop': 2000000,
     'treefile': 'tree%d/tree%d.log'%(tid,tid),
-    'prefix': 'tree%d/tree.client.uniform.log'%(tid)
+    'prefix': 'tree%d/tree.client.zipf.log'%(tid)
 }
 
 f = open(option['treefile'], 'r')

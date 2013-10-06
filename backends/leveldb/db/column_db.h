@@ -73,8 +73,19 @@ class ColumnDB : public DB {
   }
 
   Status NewDataFile();
-  Status InternalGet(const ReadOptions& options, uint64_t file_number,
+  Status InternalGet(const ReadOptions& options,
+                     uint64_t file_number,
+                     uint64_t offset,
+                     uint64_t buf_size,
                      char* scratch, Slice* result);
+
+  void DecodeFileLoc(uint64_t file_loc, uint64_t* file_number,
+                     uint64_t* offset, uint64_t* buf_size) {
+    *file_number = file_loc >> 42;
+    file_loc = file_loc & ((1L<<42)-1);
+    *offset = file_loc >> 10;
+    *buf_size = (file_loc & 1023) * 1024;
+  }
 
   // No copying allowed
   ColumnDB(const ColumnDB&);

@@ -20,6 +20,8 @@
 
 namespace leveldb {
 
+static const uint64_t kColumnMagicNumber = 0x18ca;
+
 ColumnDB::ColumnDB(const Options& options, const std::string& dbname,
                    Status &s) :
   dbname_(dbname), env_(options.env), datafile_(NULL), indexdb_(NULL),
@@ -77,7 +79,8 @@ Status ColumnDB::Put(const WriteOptions& opt, const Slice& key,
                      const Slice& value) {
   Status s;
   mutex_.Lock();
-  if (!membuf_->HasEnough(sizeof(uint64_t)+key.size()+value.size())) {
+  uint64_t total_size = sizeof(uint64_t)+key.size()+value.size();
+  if (!membuf_->HasEnough(total_size)) {
     s = NewDataFile();
     if (!s.ok())
       return s;
@@ -87,7 +90,8 @@ Status ColumnDB::Put(const WriteOptions& opt, const Slice& key,
   //Put header
   size_t location;
   char buf[sizeof(uint64_t)];
-  EncodeFixed64(buf, (key.size()<<32)+(value.size()));
+  // magic number--16b key size--28b  value size--20b
+  EncodeFixed64(buf, (kColumnMagicNumber<<48)+(key.size()<<20)+(value.size()));
   membuf_->Append(Slice(buf, sizeof(buf)), location);
   datafile_->Append(Slice(buf, sizeof(buf)));
 
@@ -103,7 +107,9 @@ Status ColumnDB::Put(const WriteOptions& opt, const Slice& key,
     datafile_->Flush();
   mutex_.Unlock();
 
-  EncodeFixed64(buf, (GetLogNumber()<<32)+location);
+  // lognumber--22b location--32b  value size/1KB--10b
+  EncodeFixed64(buf, (GetLogNumber()<<42)+(location<<10)+
+                     ((total_size+1023)/1024));
   indexdb_->Put(opt, key, Slice(buf, sizeof(buf)));
 
   return Status::OK();
@@ -118,35 +124,40 @@ Status ColumnDB::Write(const WriteOptions& options, WriteBatch* updates) {
 }
 
 Status ColumnDB::InternalGet(const ReadOptions& options,
-                             uint64_t file_loc, char* buf, Slice* result) {
+                             uint64_t file_number, uint64_t offset,
+                             uint64_t buf_size, char* buf,
+                             Slice* result) {
   Status s;
 
-  uint64_t file_number = file_loc >> 32;
-  uint64_t offset = file_loc & (0xFFFFFFFFL);
   if (file_number == GetLogNumber()) {
     mutex_.Lock();
     if (file_number == GetLogNumber()) {
-      s = membuf_->Get(offset, config::kBufSize, result, buf);
+      s = membuf_->Get(offset, buf_size, result, buf);
       mutex_.Unlock();
     } else {
       mutex_.Unlock();
-      s = data_cache_->Get(options, file_number, offset, config::kBufSize,
+      s = data_cache_->Get(options, file_number, offset, buf_size,
                            result, buf);
     }
   } else {
-    s = data_cache_->Get(options, file_number, offset, config::kBufSize,
+    s = data_cache_->Get(options, file_number, offset, buf_size,
                          result, buf);
   }
   if (!s.ok())
     return s;
 
-  uint64_t kv_size = DecodeFixed64(buf);
-  uint64_t key_size = kv_size >> 32;
-  uint64_t val_size = kv_size & (0xFFFFFFFFL);
-  if (key_size + val_size + sizeof(kv_size) > result->size()) {
+  uint64_t header = DecodeFixed64(result->data());
+  uint64_t magic_number = header >> 48;
+  if (magic_number != kColumnMagicNumber) {
+    return Status::IOError("Magic Number Not Match");
+  }
+  header = header & ((1L<<48)-1);
+  uint64_t key_size = header >> 20;
+  uint64_t val_size = header & ((1L<<20)-1);
+  if (key_size + val_size + sizeof(header) > result->size()) {
     return Status::IOError("Failed to read a full key value pair.");
   }
-  *result = Slice(buf+sizeof(uint64_t)+key_size, val_size);
+  *result = Slice(result->data()+sizeof(uint64_t)+key_size, val_size);
   return s;
 }
 
@@ -158,9 +169,11 @@ Status ColumnDB::Get(const ReadOptions& options,
   if (!s.ok()) return s;
 
   uint64_t file_loc = DecodeFixed64(location_val.c_str());
-  char buf[config::kBufSize];
+  uint64_t file_number, offset, buf_size;
+  DecodeFileLoc(file_loc, &file_number, &offset, &buf_size);
+  char buf[buf_size];
   Slice result;
-  s = InternalGet(options, file_loc, buf, &result);
+  s = InternalGet(options, file_number, offset, buf_size, buf, &result);
 
   if (s.ok()) {
     value->assign(result.data(), result.size());

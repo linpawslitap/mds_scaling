@@ -49,7 +49,8 @@ int check_split_eligibility(struct giga_directory *dir, int index)
 static
 int check_giga_addressing(struct giga_directory *dir, giga_pathname path,
                           giga_result_t *rpc_reply,
-                          giga_getattr_reply_t *stat_rpc_reply)
+                          giga_getattr_reply_t *stat_rpc_reply,
+                          giga_lookup_t *lookup_reply)
 {
     int index, server = 0;
 
@@ -74,7 +75,12 @@ int check_giga_addressing(struct giga_directory *dir, giga_pathname path,
                    &dir->mapping, sizeof(dir->mapping));
             stat_rpc_reply->result.errnum = -EAGAIN;
         }
-
+        else if (lookup_reply != NULL) {
+            assert (lookup_reply == NULL);
+            memcpy(&(lookup_reply->giga_lookup_t_u.bitmap),
+                   &dir->mapping, sizeof(dir->mapping));
+            lookup_reply->errnum = -EAGAIN;
+        }
         LOG_MSG("ERR_redirect: to s%d, not me(s%d)",
                 server, giga_options_t.serverID);
         index = -1;
@@ -271,7 +277,7 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
 
     // check for giga specific addressing checks.
     //
-    int index = check_giga_addressing(dir, path, NULL, rpc_reply);
+    int index = check_giga_addressing(dir, path, NULL, rpc_reply, NULL);
     if (index < 0)
         goto exit_func;
 
@@ -299,16 +305,20 @@ bool_t giga_rpc_getattr_1_svc(giga_dir_id dir_id, giga_pathname path,
                         path, rpc_reply->statbuf.st_ino);
 
                 if (metadb_read_bitmap(ldb_mds, dir_id, index, path,
-                                       &rpc_reply->result.giga_result_t_u.bitmap) != 0) {
+                                &rpc_reply->result.giga_result_t_u.bitmap) != 0) {
                     LOG_ERR("mdb_read(%s): error reading dir=%d bitmap.",
                             path, dir_id);
                     rpc_reply->result.errnum = -ENOENT;
                     goto exit_func;
                 } else {
-                  rpc_reply->zeroth_server = rpc_reply->result.giga_result_t_u.bitmap.zeroth_server;
+                  rpc_reply->zeroth_server =
+                    rpc_reply->result.giga_result_t_u.bitmap.zeroth_server;
                   if (rpc_reply->zeroth_server == giga_options_t.serverID) {
                       rpc_reply->result.errnum = -EAGAIN;
                   }
+                  fuse_cache_insert(dir_id, path,
+                                    rpc_reply->statbuf.st_ino,
+                                    rpc_reply->zeroth_server);
                 }
             }
             rpc_reply->file_size = rpc_reply->statbuf.st_size;
@@ -327,6 +337,75 @@ exit_func:
 
     LOG_MSG("<<< RPC_getattr(d=%d,p=%s): status=[%d]",
             dir_id, path, rpc_reply->result.errnum);
+    return true;
+}
+
+bool_t giga_rpc_lookup_1_svc(giga_dir_id dir_id, giga_pathname path,
+                             giga_lookup_t *rpc_reply,
+                             struct svc_req *rqstp)
+{
+    (void)rqstp;
+
+    assert(rpc_reply);
+    assert(path);
+
+    LOG_MSG(">>> RPC_lookup(d=%d,p=%s)", dir_id, path);
+
+    uint64_t start_time = now_micros();
+
+    bzero(rpc_reply, sizeof(giga_lookup_t));
+
+    struct giga_directory *dir = fetch_dir_mapping(dir_id);
+    if (dir == NULL) {
+      rpc_reply->errnum = -ENOENT;
+      return true;
+    }
+
+    // check for giga specific addressing checks.
+    //
+    int index = check_giga_addressing(dir, path, NULL, NULL, rpc_reply);
+    if (index < 0)
+        goto exit_func;
+
+    time_t tmp_time;
+    giga_dir_id ret_dir_id;
+    int ret_zeroth_server;
+    if ((ret_dir_id = fuse_cache_lookup(dir_id, path, &tmp_time,
+                                        &ret_zeroth_server)) != -1) {
+        rpc_reply->giga_lookup_t_u.result.dir_id = ret_dir_id;
+        rpc_reply->giga_lookup_t_u.result.zeroth_server = ret_zeroth_server;
+    } else {
+        struct stat statbuf;
+        rpc_reply->errnum = metadb_lookup(ldb_mds,
+                                          dir_id, index, path,
+                                          &statbuf);
+        if (S_ISDIR(statbuf.st_mode)) {
+            struct giga_mapping_t mapping;
+            if (metadb_read_bitmap(ldb_mds, dir_id, index, path,
+                                   &mapping) != 0) {
+                rpc_reply->errnum = -ENOENT;
+                goto exit_func;
+            } else {
+              rpc_reply->giga_lookup_t_u.result.dir_id = statbuf.st_ino;
+              rpc_reply->giga_lookup_t_u.result.zeroth_server =
+                                                  mapping.zeroth_server;
+
+              fuse_cache_insert(dir_id, path,
+                                statbuf.st_ino,
+                                mapping.zeroth_server);
+            }
+        }
+    }
+
+exit_func:
+
+    release_dir_mapping(dir);
+
+    uint64_t latency = now_micros() - start_time;
+    measurement_add(&measurement, latency);
+
+    LOG_MSG("<<< RPC_lookup(d=%d,p=%s): status=[%d]",
+            dir_id, path, rpc_reply->errnum);
     return true;
 }
 
@@ -386,12 +465,12 @@ bool_t giga_rpc_mknod_1_svc(giga_dir_id dir_id,
 start:
     // check for giga specific addressing checks.
     //
-    if ((index = check_giga_addressing(dir, path, rpc_reply, NULL)) < 0)
+    if ((index = check_giga_addressing(dir, path, rpc_reply, NULL, NULL)) < 0)
         goto exit_func_release;
 
     ACQUIRE_MUTEX(&dir->partition_mtx, "mknod(%s)", path);
 
-    if(check_giga_addressing(dir, path, rpc_reply, NULL) != index) {
+    if(check_giga_addressing(dir, path, rpc_reply, NULL, NULL) != index) {
         RELEASE_MUTEX(&dir->partition_mtx, "mknod(%s)", path);
         LOG_MSG("RECOMPUTE_INDEX: mknod(%s) for p(%d) changed.", path, index);
         goto start;
@@ -716,12 +795,12 @@ bool_t giga_rpc_mkdir_1_svc(giga_dir_id dir_id,
 start:
     // check for giga specific addressing checks.
     //
-    if ((index = check_giga_addressing(dir, path, rpc_reply, NULL)) < 0)
+    if ((index = check_giga_addressing(dir, path, rpc_reply, NULL, NULL)) < 0)
         goto exit_func_release;
 
     ACQUIRE_MUTEX(&dir->partition_mtx, "mkdir(%s)", path);
 
-    if(check_giga_addressing(dir, path, rpc_reply, NULL) != index) {
+    if(check_giga_addressing(dir, path, rpc_reply, NULL, NULL) != index) {
         RELEASE_MUTEX(&dir->partition_mtx, "mkdir(%s)", path);
         LOG_MSG("RECOMPUTE_INDEX: mkdir(%s) for p(%d) changed.", path, index);
         goto start;
@@ -899,12 +978,12 @@ bool_t giga_rpc_chmod_1_svc(giga_dir_id dir_id,
 start:
     // check for giga specific addressing checks.
     //
-    if ((index = check_giga_addressing(dir, path, rpc_reply, NULL)) < 0)
+    if ((index = check_giga_addressing(dir, path, rpc_reply, NULL, NULL)) < 0)
         goto exit_func_release;
 
     ACQUIRE_MUTEX(&dir->partition_mtx, "mkdir(%s)", path);
 
-    if(check_giga_addressing(dir, path, rpc_reply, NULL) != index) {
+    if(check_giga_addressing(dir, path, rpc_reply, NULL, NULL) != index) {
         RELEASE_MUTEX(&dir->partition_mtx, "mkdir(%s)", path);
         LOG_MSG("RECOMPUTE_INDEX: mkdir(%s) for p(%d) changed.", path, index);
         goto start;
@@ -958,7 +1037,7 @@ bool_t giga_rpc_read_1_svc(giga_dir_id dir_id, giga_pathname path,
 
     // check for giga specific addressing checks.
     //
-    int index = check_giga_addressing(dir, path, &(rpc_reply->result), NULL);
+    int index = check_giga_addressing(dir, path, &(rpc_reply->result), NULL, NULL);
     if (index < 0) {
         rpc_reply->result.errnum = 1;
         goto exit_func;
@@ -1062,7 +1141,8 @@ bool_t giga_rpc_write_1_svc(giga_dir_id dir_id, giga_pathname path,
 start:
     // check for giga specific addressing checks.
     //
-    if ((index=check_giga_addressing(dir, path, &(rpc_reply->result), NULL))<0)
+    if ((index=check_giga_addressing(dir, path, &(rpc_reply->result),
+                                     NULL, NULL))<0)
     {
         rpc_reply->link = strdup("");
         return true;
@@ -1070,7 +1150,8 @@ start:
 
     ACQUIRE_MUTEX(&dir->partition_mtx, "write(%s)", path);
 
-    if (check_giga_addressing(dir, path, &(rpc_reply->result), NULL) != index) {
+    if (check_giga_addressing(dir, path, &(rpc_reply->result),
+                              NULL, NULL) != index) {
         RELEASE_MUTEX(&dir->partition_mtx, "write(%s)", path);
         LOG_MSG("RECOMPUTE_INDEX: write(%s) for p(%d) changed.", path, index);
         goto start;
@@ -1171,7 +1252,8 @@ bool_t giga_rpc_fetch_1_svc(giga_dir_id dir_id, giga_pathname path,
 
     // check for giga specific addressing checks.
     //
-    int index = check_giga_addressing(dir, path, &(rpc_reply->result), NULL);
+    int index = check_giga_addressing(dir, path, &(rpc_reply->result),
+                                      NULL, NULL);
     if (index < 0) {
         rpc_reply->result.errnum = 1;
         goto exit_func;
@@ -1251,16 +1333,17 @@ bool_t giga_rpc_updatelink_1_svc(giga_dir_id dir_id,
 start:
     // check for giga specific addressing checks.
     //
-    if ((index=check_giga_addressing(dir, path, rpc_reply, NULL))<0)
+    if ((index=check_giga_addressing(dir, path, rpc_reply, NULL, NULL))<0)
     {
         return true;
     }
 
     ACQUIRE_MUTEX(&dir->partition_mtx, "updatelink(%s)", path);
 
-    if (check_giga_addressing(dir, path, rpc_reply, NULL) != index) {
+    if (check_giga_addressing(dir, path, rpc_reply, NULL, NULL) != index) {
         RELEASE_MUTEX(&dir->partition_mtx, "updatelink(%s)", path);
-        LOG_MSG("RECOMPUTE_INDEX: updatelink(%s) for p(%d) changed.", path, index);
+        LOG_MSG("RECOMPUTE_INDEX: updatelink(%s) for p(%d) changed.",
+                path, index);
         goto start;
     }
 
@@ -1296,7 +1379,8 @@ bool_t giga_rpc_open_1_svc(giga_dir_id dir_id, giga_pathname path, int mode,
 
     // check for giga specific addressing checks.
     //
-    int index = check_giga_addressing(dir, path, &(rpc_reply->result), NULL);
+    int index = check_giga_addressing(dir, path, &(rpc_reply->result),
+                                      NULL, NULL);
     if (index < 0) {
         rpc_reply->link = strdup("");
         goto exit_func;
@@ -1356,12 +1440,12 @@ bool_t giga_rpc_close_1_svc(giga_dir_id dir_id, giga_pathname path,
 start:
     // check for giga specific addressing checks.
     //
-    if ((index=check_giga_addressing(dir, path, rpc_reply, NULL)) < 0)
+    if ((index=check_giga_addressing(dir, path, rpc_reply, NULL, NULL)) < 0)
         goto exit_func;
 
     ACQUIRE_MUTEX(&dir->partition_mtx, "close(%s)", path);
 
-    if(check_giga_addressing(dir, path, rpc_reply, NULL) != index) {
+    if(check_giga_addressing(dir, path, rpc_reply, NULL, NULL) != index) {
         RELEASE_MUTEX(&dir->partition_mtx, "close(%s)", path);
         LOG_MSG("RECOMPUTE_INDEX: write(%s) for p(%d) changed.", path, index);
         goto start;

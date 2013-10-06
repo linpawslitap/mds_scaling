@@ -64,6 +64,8 @@ static const char* FLAGS_benchmarks =
 // Number of key/values to place in database
 static int FLAGS_num = 1000000;
 
+static int FLAGS_dbtype = 2;
+
 // Number of read operations to do.  If negative, do FLAGS_num reads.
 static int FLAGS_reads = -1;
 
@@ -315,6 +317,11 @@ class Benchmark {
   void PrintHeader() {
     const int kKeySize = 16;
     PrintEnvironment();
+    if (FLAGS_dbtype == 1) {
+      fprintf(stdout, "Database:   Normal LevelDB\n");
+    } else {
+      fprintf(stdout, "Database:   Column LevelDB\n");
+    }
     fprintf(stdout, "Keys:       %d bytes each\n", kKeySize);
     fprintf(stdout, "Values:     %d bytes each (%d bytes after compression)\n",
             FLAGS_value_size,
@@ -695,9 +702,12 @@ class Benchmark {
     options.block_cache = cache_;
     options.write_buffer_size = FLAGS_write_buffer_size;
     options.filter_policy = filter_policy_;
-    //Status s = DB::Open(options, FLAGS_db, &db_);
     Status s;
-    db_ = new ColumnDB(options, FLAGS_db, s);
+    if (FLAGS_dbtype == 1) {
+      s = DB::Open(options, FLAGS_db, &db_);
+    } else {
+      db_ = new ColumnDB(options, FLAGS_db, s);
+    }
     if (!s.ok()) {
       fprintf(stderr, "open error: %s\n", s.ToString().c_str());
       exit(1);
@@ -954,6 +964,8 @@ int main(int argc, char** argv) {
       FLAGS_use_existing_db = n;
     } else if (sscanf(argv[i], "--num=%d%c", &n, &junk) == 1) {
       FLAGS_num = n;
+    } else if (sscanf(argv[i], "--dbtype=%d%c", &n, &junk) == 1) {
+      FLAGS_dbtype = n;
     } else if (sscanf(argv[i], "--reads=%d%c", &n, &junk) == 1) {
       FLAGS_reads = n;
     } else if (sscanf(argv[i], "--threads=%d%c", &n, &junk) == 1) {

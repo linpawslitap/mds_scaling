@@ -14,8 +14,8 @@
 
 #define METADB_LOG LOG_DEBUG
 
-#define DEFAULT_LEVELDB_CACHE_SIZE (16 << 20)
-#define DEFAULT_WRITE_BUFFER_SIZE  (16 << 20)
+#define DEFAULT_LEVELDB_CACHE_SIZE (512 << 20)
+#define DEFAULT_WRITE_BUFFER_SIZE  (60 << 20)
 #define DEFAULT_MAX_OPEN_FILES     1000
 #define DEFAULT_MAX_BATCH_SIZE     1024
 #define DEFAULT_BLOCK_SIZE         (64 << 10)
@@ -502,6 +502,8 @@ int metadb_create(struct MetaDB *mdb,
     int ret = 0;
     metadb_key_t mobj_key;
     metadb_val_t mobj_val;
+    mobj_val.value = NULL;
+
     char* err = NULL;
 
     init_meta_obj_key(&mobj_key, dir_id, partition_id, path);
@@ -511,12 +513,12 @@ int metadb_create(struct MetaDB *mdb,
 
     //ACQUIRE_RWLOCK_READ(&(mdb->rwlock_extract), "metadb_create(%s)", path);
 
-    ACQUIRE_MUTEX(&(mdb->mtx_leveldb), "metadb_create(%s)", path);
-
+    /*
     int exists = leveldb_exists(mdb->db, mdb->lookup_options,
                                  (const char*) &mobj_key, METADB_KEY_LEN, &err);
 
     if (!exists) {
+    */
         mobj_val = init_meta_val(0,
                              strlen(path), path,
                              strlen(realpath), realpath,
@@ -524,7 +526,7 @@ int metadb_create(struct MetaDB *mdb,
         leveldb_put(mdb->db, mdb->insert_options,
                 (const char*) &mobj_key, METADB_KEY_LEN,
                 mobj_val.value, mobj_val.size, &err);
-    }
+    //}
 
     //RELEASE_RWLOCK(&(mdb->rwlock_extract), "metadb_create(%s)", path);
 
@@ -546,6 +548,7 @@ int metadb_create_dir(struct MetaDB *mdb,
     int ret = 0;
     metadb_key_t mobj_key;
     metadb_val_t mobj_val;
+    mobj_val.value = NULL;
     char* err = NULL;
 
     metadb_inode_t inode_id = dir_mapping->id;
@@ -554,12 +557,12 @@ int metadb_create_dir(struct MetaDB *mdb,
     logMessage(METADB_LOG, __func__, "create_dir(%s) in (partition=%d,dirid=%d): (%d, %08x)",
                path, partition_id, dir_id, mobj_val.size, mobj_val.value);
 
-    ACQUIRE_MUTEX(&(mdb->mtx_leveldb), "metadb_create_dir(%s)", path);
-
+    /*
     int exists = leveldb_exists(mdb->db, mdb->lookup_options,
                                  (const char*) &mobj_key, METADB_KEY_LEN, &err);
 
     if (!exists) {
+    */
         if (path != NULL) {
             mobj_val = init_dir_val(inode_id,
                                     strlen(path), path, dir_mapping);
@@ -570,7 +573,7 @@ int metadb_create_dir(struct MetaDB *mdb,
         leveldb_put(mdb->db, mdb->insert_options,
                 (const char*) &mobj_key, METADB_KEY_LEN,
                 mobj_val.value, mobj_val.size, &err);
-    }
+    //}
 
     free_metadb_val(&mobj_val);
 

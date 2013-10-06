@@ -90,9 +90,14 @@ union giga_result_t switch (int errnum) {
         void;
 };
 
+struct giga_lookup_result_t {
+    giga_dir_id dir_id;
+    int zeroth_server;
+};
+
 union giga_lookup_t switch (int errnum) {
     case 0:
-        giga_dir_id dir_id;
+        giga_lookup_result_t result;
     case -EAGAIN:
         giga_bitmap bitmap;
     default:
@@ -157,6 +162,8 @@ version GIGA_RPC_VERSION {          /* version number */
 
         giga_result_t GIGA_RPC_GETMAPPING(giga_dir_id) = 102;
 
+        giga_lookup_t GIGA_RPC_LOOKUP(giga_dir_id, giga_pathname) = 103;
+
         giga_result_t GIGA_RPC_MKDIR(giga_dir_id, giga_pathname, mode_t) = 201;
 
         giga_result_t GIGA_RPC_MKZEROTH(giga_dir_id) = 202;
@@ -197,8 +204,6 @@ version GIGA_RPC_VERSION {          /* version number */
         giga_result_t GIGA_RPC_CLOSE(giga_dir_id, giga_pathname) = 901;
 
 
-        /* CLIENT API */
-        /*giga_lookup_t RPC_CREATE(giga_dir_id, giga_pathname, mode_t) = 101;*/
 
   } = 1;
 } = 522222; /* FIXME: Is this a okay value for program number? */

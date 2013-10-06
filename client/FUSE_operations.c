@@ -132,7 +132,8 @@ void GIGAdestroy(void * unused)
 }
 
 int get_expiration(int depth) {
-  return 30 / depth;
+  (void) depth;
+  return 30;
 }
 
 int lookup_dir(const char* path, int* ret_zeroth_server) {

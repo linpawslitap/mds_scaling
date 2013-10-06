@@ -17,9 +17,12 @@ class ColumnDBIter: public Iterator {
         db_(db),
         iter_(iter),
         is_result_loaded_(false) {
+      buf_ = new char[config::kBufSize];
+      current_buf_size_ = config::kBufSize;
   }
   virtual ~ColumnDBIter() {
     delete iter_;
+    delete [] buf_;
   }
   virtual bool Valid() const { return iter_->Valid(); }
   virtual Slice internalkey() const {
@@ -68,7 +71,8 @@ class ColumnDBIter: public Iterator {
  private:
   ColumnDB* const db_;
   Iterator* const iter_;
-  char buf[config::kBufSize];
+  char* buf_;
+  size_t current_buf_size_;
   ReadOptions options_;
   Slice saved_result_;
   bool is_result_loaded_;
@@ -76,11 +80,23 @@ class ColumnDBIter: public Iterator {
 
   void LoadResult() {
     uint64_t file_loc_val = DecodeFixed64(iter_->value().data());
-    Status s = db_->InternalGet(options_, file_loc_val, buf, &saved_result_);
+    uint64_t file_number, offset, buf_size;
+    db_->DecodeFileLoc(file_loc_val, &file_number, &offset, &buf_size);
+    Reallocate(buf_size);
+    Status s = db_->InternalGet(options_, file_number, offset, buf_size, buf_,
+                                &saved_result_);
     if (!s.ok()) {
       saved_result_ = Slice(NULL, 0);
     }
     is_result_loaded_ = true;
+  }
+
+  void Reallocate(uint64_t buf_size) {
+    if (buf_size > current_buf_size_) {
+      delete [] buf_;
+      buf_ = new char[buf_size];
+      current_buf_size_ = buf_size;
+    }
   }
 
   // No copying allowed

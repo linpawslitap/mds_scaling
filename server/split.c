@@ -283,9 +283,16 @@ int split_in_levelDB(struct giga_directory *dir,
     int ret = -1;
 
     char split_dir_path[PATH_MAX] = {0};
+    /*
     snprintf(split_dir_path, sizeof(split_dir_path),
              "%s%d/sst-d%d-p%dp%d-s%ds%d",
              giga_options_t.split_dir, dir->handle & 1023,
+             dir->handle, parent_index, child_index,
+             parent_srv, child_srv);
+    */
+    snprintf(split_dir_path, sizeof(split_dir_path),
+             "%ssst-d%d-p%dp%d-s%ds%d",
+             giga_options_t.split_dir,
              dir->handle, parent_index, child_index,
              parent_srv, child_srv);
 

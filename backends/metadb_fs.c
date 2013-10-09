@@ -579,6 +579,33 @@ int metadb_create_dir(struct MetaDB *mdb,
     return ret;
 }
 
+int metadb_insert_inode(struct MetaDB *mdb,
+                      const metadb_inode_t dir_id, const int partition_id,
+                      const char *path,
+                      metadb_val_t* mobj_val)
+{
+    int ret = 0;
+    metadb_key_t mobj_key;
+    char* err = NULL;
+
+    init_meta_obj_key(&mobj_key, dir_id, partition_id, path);
+
+    int exists = leveldb_exists(mdb->db, mdb->lookup_options,
+                                 (const char*) &mobj_key, METADB_KEY_LEN, &err);
+
+    if (!exists) {
+        leveldb_put(mdb->db, mdb->insert_options,
+                (const char*) &mobj_key, METADB_KEY_LEN,
+                mobj_val->value, mobj_val->size, &err);
+    }
+
+    if (err != NULL)
+      ret = -1;
+
+    return ret;
+}
+
+
 static
 metadb_val_t metadb_lookup_internal(struct MetaDB *mdb,
                                     const metadb_inode_t dir_id,
@@ -683,6 +710,29 @@ int metadb_lookup(struct MetaDB *mdb,
     free_metadb_val(&mobj_val);
     return ret;
 }
+
+int metadb_get_val(struct MetaDB *mdb,
+                   const metadb_inode_t dir_id, const int partition_id,
+                   const char *path, char* buf, int *buf_len)
+{
+    int ret = 0;
+    metadb_val_t mobj_val;
+
+    mobj_val = metadb_lookup_internal(mdb, dir_id, partition_id, path);
+
+    if (mobj_val.size != 0) {
+        *buf_len = mobj_val.size;
+        memcpy(buf, mobj_val.value, *buf_len);
+        logMessage(METADB_LOG, __func__, "lookup found entry(%s).", path);
+    } else {
+        logMessage(METADB_LOG, __func__, "entry(%s) not found.", path);
+        ret = ENOENT;
+    }
+
+    free_metadb_val(&mobj_val);
+    return ret;
+}
+
 
 int metadb_get_file(struct MetaDB *mdb,
                     const metadb_inode_t dir_id, const int partition_id,

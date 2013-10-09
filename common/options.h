@@ -13,7 +13,7 @@ typedef enum backends {
     BACKEND_RPC_LEVELDB         // LevelDB mounted on networked config
 } backend_t;
 
-#define HDFS
+#define NFS
 
 #ifdef  LOCAL_FS    /* LocalFS */
 #define DEFAULT_BACKEND_TYPE    BACKEND_LOCAL_FS
@@ -41,7 +41,7 @@ typedef enum backends {
 #define DEFAULT_BACKEND_TYPE    BACKEND_RPC_LEVELDB
 #define DEFAULT_SRV_BACKEND     "/l0/giga_srv/"
 #define DEFAULT_LEVELDB_DIR     "/l0/giga_ldb/"
-#define DEFAULT_SPLIT_DIR       "/users/kair/splits/"
+#define DEFAULT_SPLIT_DIR       "/proj/ScalableHDFS/splits/"
 #define DEFAULT_FILE_VOL        "/users/kair/store/"
 #endif
 
@@ -74,7 +74,7 @@ typedef enum backends {
 
 #define MAX_SERVERS     256             // MAX number of GIGA+ servers
 #define DEFAULT_PORT    45678           // Default port used by GIGA+ servers
-#define SPLIT_THRESH    8000            // Default directory split theshold
+#define SPLIT_THRESH    300000000       // Default directory split theshold
 #define CONFIG_FILE     "/tmp/.giga"    // Default config file location
 
 #define ROOT_DIR_ID     0

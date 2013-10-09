@@ -27,6 +27,7 @@ all:
 	gcc $(OPT) -o ./tree_select_test ./tree_select_test.c -I.. ../libgiga_client.a $(LIBS) $(LDFLAGS) $(HADOOP_LDFLAGS) -I..
 	gcc $(OPT) -o ./tree_select_test_debug ./tree_select_test_debug.c -I.. ../libgiga_client.a $(LIBS) $(LDFLAGS) $(HADOOP_LDFLAGS) -I..
 	gcc $(OPT) -o ./tree_select_test_multi ./tree_select_test_multi.c -I.. ../libgiga_client.a $(LIBS) $(LDFLAGS) $(HADOOP_LDFLAGS) -I..
+	gcc $(OPT) -o ./replay ./replay.c -I.. ../libgiga_client.a $(LIBS) $(LDFLAGS) $(HADOOP_LDFLAGS) -I..
 	gcc $(OPT) -o ./tree_debug ./tree_debug.c -I.. ../libgiga_client.a $(LIBS) $(LDFLAGS) $(HADOOP_LDFLAGS) -I..
 
 clean:

@@ -33,6 +33,7 @@ void gigaCleanStatusList(scan_list_t ptr);
 
 int gigaOpen(const char *path, int flags);
 int gigaCreate(const char *path, mode_t mode);
+int gigaChmod(const char *path, mode_t mode);
 
 int gigaUpdateLink(const char *path, const char *updatelink);
 int gigaFetch(const char *path, char* buf,

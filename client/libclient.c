@@ -104,6 +104,10 @@ int gigaRecMkdir(const char *path, mode_t mode)
   return GIGArecmkdir(path, mode);
 }
 
+int gigaChmod(const char *path, mode_t mode)
+{
+  return GIGAchmod(path, mode);
+}
 
 int gigaRmdir(const char *path)
 {

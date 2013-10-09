@@ -173,6 +173,8 @@ version GIGA_RPC_VERSION {          /* version number */
 
         giga_result_t GIGA_RPC_CHMOD(giga_dir_id, giga_pathname, mode_t) = 302;
 
+        giga_result_t GIGA_RPC_REMOVE(giga_dir_id, giga_pathname, mode_t) = 303;
+
         /*
         readdir_result_t GIGA_RPC_READDIR(giga_dir_id, int) = 501;
         readdir_return_t GIGA_RPC_READDIR_REQ(giga_dir_id, int, scan_key) = 502;
@@ -200,6 +202,11 @@ version GIGA_RPC_VERSION {          /* version number */
                                         int mode ) = 801;
 
         giga_fetch_reply_t GIGA_RPC_FETCH(giga_dir_id, giga_pathname) = 802;
+
+        giga_fetch_reply_t GIGA_RPC_GETVAL(giga_dir_id, giga_pathname) = 803;
+
+        giga_result_t GIGA_RPC_PUTVAL(giga_dir_id, giga_pathname,
+                                      giga_file_data data, int size) = 804;
 
         giga_result_t GIGA_RPC_CLOSE(giga_dir_id, giga_pathname) = 901;
 

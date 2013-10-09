@@ -1401,3 +1401,119 @@ exit_func:
             dir_id, path, rpc_reply->errnum);
     return true;
 }
+
+bool_t giga_rpc_getval_1_svc(giga_dir_id dir_id, giga_pathname path,
+                             giga_fetch_reply_t *reply, struct svc_req *clnt) {
+  (void) dir_id;
+  (void) path;
+  (void) reply;
+  (void) clnt;
+
+  return true;
+}
+
+bool_t giga_rpc_putval_1_svc(giga_dir_id dir_id, giga_pathname path,
+                             giga_file_data data, int size,
+                             giga_result_t *reply, struct svc_req *clnt) {
+    (void)rqstp;
+    assert(rpc_reply);
+    assert(path);
+
+    uint64_t start_time = now_micros();
+
+    LOG_MSG(">>> RPC_putval(d=%d,p=%s)", dir_id, path);
+
+    bzero(rpc_reply, sizeof(giga_result_t));
+
+    struct giga_directory *dir = fetch_dir_mapping(dir_id);
+    if (dir == NULL) {
+      rpc_reply->errnum = -ENOENT;
+      return true;
+    }
+
+    int index = 0;
+start:
+    // check for giga specific addressing checks.
+    //
+    if ((index = check_giga_addressing(dir, path, rpc_reply, NULL)) < 0)
+        goto exit_func_release;
+
+    ACQUIRE_MUTEX(&dir->partition_mtx, "putval(%s)", path);
+
+    if(check_giga_addressing(dir, path, rpc_reply, NULL) != index) {
+        RELEASE_MUTEX(&dir->partition_mtx, "mkdir(%s)", path);
+        LOG_MSG("RECOMPUTE_INDEX: mkdir(%s) for p(%d) changed.", path, index);
+        goto start;
+    }
+
+    rpc_reply->errnum = metadb_put(ldb_mds, dir_id, index, path);
+    if (rpc_reply->errnum < 0)
+        LOG_ERR("ERR_mdb_putval(%s): p%d of d%d", path, index, dir_id);
+
+    RELEASE_MUTEX(&dir->partition_mtx, "putval(%s)", path);
+
+exit_func_release:
+    release_dir_mapping(dir);
+
+    uint64_t latency = now_micros() - start_time;
+    measurement_add(&measurement, latency);
+
+    LOG_MSG("<<< RPC_remove(d=%d,p=%s): status=[%d]", dir_id, path,
+            rpc_reply->errnum);
+
+  return true;
+}
+
+bool_t giga_rpc_remove_1_svc(giga_dir_id dir_id,
+                             giga_pathname path,
+                             giga_result_t *rpc_reply,
+                             struct svc_req *rqstp) {
+    (void)rqstp;
+    assert(rpc_reply);
+    assert(path);
+
+    uint64_t start_time = now_micros();
+
+    LOG_MSG(">>> RPC_remove(d=%d,p=%s)", dir_id, path);
+
+    bzero(rpc_reply, sizeof(giga_result_t));
+
+    struct giga_directory *dir = fetch_dir_mapping(dir_id);
+    if (dir == NULL) {
+      rpc_reply->errnum = -ENOENT;
+      return true;
+    }
+
+    int index = 0;
+start:
+    // check for giga specific addressing checks.
+    //
+    if ((index = check_giga_addressing(dir, path, rpc_reply, NULL)) < 0)
+        goto exit_func_release;
+
+    ACQUIRE_MUTEX(&dir->partition_mtx, "remove(%s)", path);
+
+    if(check_giga_addressing(dir, path, rpc_reply, NULL) != index) {
+        RELEASE_MUTEX(&dir->partition_mtx, "mkdir(%s)", path);
+        LOG_MSG("RECOMPUTE_INDEX: mkdir(%s) for p(%d) changed.", path, index);
+        goto start;
+    }
+
+    rpc_reply->errnum = metadb_remove(ldb_mds, dir_id, index, path);
+    if (rpc_reply->errnum < 0)
+        LOG_ERR("ERR_mdb_remove(%s): p%d of d%d", path, index, dir_id);
+
+    RELEASE_MUTEX(&dir->partition_mtx, "remove(%s)", path);
+
+exit_func_release:
+    release_dir_mapping(dir);
+
+    uint64_t latency = now_micros() - start_time;
+    measurement_add(&measurement, latency);
+
+    LOG_MSG("<<< RPC_remove(d=%d,p=%s): status=[%d]", dir_id, path,
+            rpc_reply->errnum);
+    return true;
+}
+
+

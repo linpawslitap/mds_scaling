@@ -168,7 +168,7 @@ int lookup_dir(const char* path, int* ret_zeroth_server) {
               dir_id, dirname, next_dir_id, zeroth_server);
       (void) current_ts;
       (void) prev_ts;
-      if (next_dir_id < 0) { //|| current_ts-prev_ts > get_expiration(depth)) {
+      if (next_dir_id < 0 || current_ts-prev_ts > get_expiration(depth)) {
           struct stat statbuf;
           int ret = rpc_getattr(dir_id, prev_zeroth_server, dirname,
                                 &statbuf, &zeroth_server);

@@ -205,6 +205,11 @@ int metadb_create_dir(struct MetaDB *mdb,
                       const char *objname,
                       metadb_val_dir_t* dir_mapping);
 
+int metadb_insert_inode(struct MetaDB *mdb,
+                        const metadb_inode_t dir_id, const int partition_id,
+                        const char *path,
+                        metadb_val_t* mobj_val);
+
 // Returns "0" if MDB removes the file successfully, otherwise "-1" on error.
 int metadb_remove(struct MetaDB *mdb,
                   const metadb_inode_t dir_id,
@@ -262,6 +267,12 @@ int metadb_write_bitmap(struct MetaDB *mdb,
                         const int partition_id,
                         const char* objname,
                         struct giga_mapping_t* map_val);
+
+int metadb_get_val(struct MetaDB *mdb,
+                   const metadb_inode_t dir_id,
+                   const int partition_id,
+                   const char* objname,
+                   char* buf, int* buf_len);
 
 
 int metadb_get_file(struct MetaDB *mdb,

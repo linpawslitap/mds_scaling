@@ -34,6 +34,7 @@ files=$(( $1/$(( $apps*$cli)) ))
 #if [ $cli -gt 1 ]
 #then
 echo "creating $apps benchmarks on $cli FUSE instances"
+count=0
 for (( i=1; i<=$cli; i++))
 do
     for ((j=1; j<=$apps; j++))
@@ -44,9 +45,10 @@ do
         then
             dir=${MNT}/${i}
         fi
+        count=$(($count+1))
         ./tree_select_test mknod ../traces/tree$treeid/tree$treeid.log \
-        ../traces/tree$treeid/tree.client.zipf.log $files $id \
-        > ~/_perf/$host.$i.$j 2>&1
+        ../traces/tree$treeid/tree.client.$id.dat $files $id $count \
+        > ~/_perf/$host.$i.$j 2>&1 &
 
         #( time ./mknod_test ${dir} $files ) > ~/_perf/$host.$i.$j 2>&1 &
         #./smallfile_lib_test / $filesize $files > ~/_perf/$host.$i.$j 2>&1

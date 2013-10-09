@@ -21,6 +21,9 @@ int gigaMknod(const char *path, mode_t mode);
 int gigaMkdir(const char *path, mode_t mode);
 int gigaRmdir(const char *path);
 
+int gigaRecMknod(const char *path, mode_t mode);
+int gigaRecMkdir(const char *path, mode_t mode);
+
 scan_list_t gigaListStatus(const char *path, int* num_entries);
 void gigaStatusInfo(scan_list_t ptr, struct info_t* buf);
 char* gigaStatusName(scan_list_t ptr, int* name_len);

@@ -18,6 +18,9 @@ int GIGAopen(const char *path, struct fuse_file_info *fi);
 int GIGAmknod(const char *path, mode_t mode, dev_t dev);
 int GIGAmkdir(const char *path, mode_t mode);
 
+int GIGArecmknod(const char *path, mode_t mode, dev_t dev);
+int GIGArecmkdir(const char *path, mode_t mode);
+
 int GIGAunlink(const char *path);
 int GIGArmdir(const char *path);
 int GIGArename(const char *path, const char *newpath);

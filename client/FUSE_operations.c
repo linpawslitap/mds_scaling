@@ -152,6 +152,77 @@ int lookup_dir(const char* path, int* ret_zeroth_server) {
   int dir_id = ROOT_DIR_ID;
   char dirname[PATH_MAX];
   int depth = 0;
+  int rpc_count = 0;
+  do {
+    rpos = strchr(lpos+1, '/');
+    if (rpos == NULL) {
+      rpos = end_path;
+    }
+    if (rpos - lpos > 1) {
+      depth += 1;
+      strncpy(dirname, lpos+1, rpos-lpos-1);
+      dirname[rpos-lpos-1] = '\0';
+      int next_dir_id = fuse_cache_lookup(dir_id, dirname,
+                                          &prev_ts, &zeroth_server);
+      LOG_MSG("lookup_dir(%d, %s): %d %d",
+              dir_id, dirname, next_dir_id, zeroth_server);
+      (void) current_ts;
+      (void) prev_ts;
+      if (next_dir_id < 0) { //|| current_ts-prev_ts > get_expiration(depth)) {
+          struct stat statbuf;
+          int ret = rpc_getattr(dir_id, prev_zeroth_server, dirname,
+                                &statbuf, &zeroth_server);
+          rpc_count++;
+          if (ret < 0) {
+              return -1;
+          }
+          if (S_ISDIR(statbuf.st_mode)) {
+              if (next_dir_id < 0)
+                  fuse_cache_insert(dir_id, dirname,
+                                    statbuf.st_ino, zeroth_server);
+              else
+                  fuse_cache_update(dir_id, dirname,
+                                    statbuf.st_ino, zeroth_server);
+          }
+          next_dir_id = statbuf.st_ino;
+      }
+      dir_id = next_dir_id;
+      prev_zeroth_server = zeroth_server;
+    }
+    lpos = rpos;
+  } while (lpos != end_path);
+  /*
+  if (rpc_count > 1) {
+    printf("rpc_count=%d path=%s\n", rpc_count, path);
+  }
+  */
+  *ret_zeroth_server = prev_zeroth_server;
+  assert(prev_zeroth_server < giga_options_t.num_servers);
+  return dir_id;
+}
+
+int lookup_parent_dir(const char* path, char* file, char* dir,
+                      int *zeroth_server) {
+    parse_path_components(path, file, dir);
+    return lookup_dir(dir, zeroth_server);
+}
+
+int recursive_create_dir(const char* path, int* ret_zeroth_server) {
+  size_t path_len = strlen(path);
+  if (path_len < 2)
+    return ROOT_DIR_ID;
+  LOG_MSG("recursive_create_dir(%s): pathlen(%d)", path, path_len);
+
+  const char* lpos = path;
+  const char* rpos;
+  const char* end_path = path + path_len;
+  time_t current_ts = time(NULL);
+  time_t prev_ts;
+  int zeroth_server;
+  int prev_zeroth_server = 0;
+  int dir_id = ROOT_DIR_ID;
+  char dirname[PATH_MAX];
+  int depth = 0;
   do {
     rpos = strchr(lpos+1, '/');
     if (rpos == NULL) {
@@ -171,7 +242,13 @@ int lookup_dir(const char* path, int* ret_zeroth_server) {
           int ret = rpc_getattr(dir_id, prev_zeroth_server, dirname,
                                 &statbuf, &zeroth_server);
           if (ret < 0) {
-              return -1;
+              ret = rpc_mkdir(dir_id, prev_zeroth_server, dirname, CREATE_MODE);
+              if (ret >= 0) {
+                    ret = rpc_getattr(dir_id, prev_zeroth_server, dirname,
+                                      &statbuf, &zeroth_server);
+              }
+              if (ret < 0)
+                return -1;
           }
           if (S_ISDIR(statbuf.st_mode)) {
               if (next_dir_id < 0)
@@ -193,11 +270,6 @@ int lookup_dir(const char* path, int* ret_zeroth_server) {
   return dir_id;
 }
 
-int lookup_parent_dir(const char* path, char* file, char* dir,
-                      int *zeroth_server) {
-    parse_path_components(path, file, dir);
-    return lookup_dir(dir, zeroth_server);
-}
 
 int GIGAgetattr(const char *path, struct stat *statbuf)
 {
@@ -267,6 +339,37 @@ int GIGAmkdir(const char *path, mode_t mode)
     return ret;
 }
 
+int GIGArecmkdir(const char *path, mode_t mode)
+{
+    LOG_MSG(">>> FUSE_mkdir(%s): mode=[%lo]", path, (unsigned long)mode);
+
+    int ret = 0;
+    char dir[PATH_MAX] = {0};
+    char file[PATH_MAX] = {0};
+    int dir_id = 0;
+    int zeroth_srv = 0;
+    parse_path_components(path, file, dir);
+    dir_id = recursive_create_dir(dir, &zeroth_srv);
+    ret = rpc_mkdir(dir_id, zeroth_srv, file, mode);
+    ret = FUSE_ERROR(ret);
+    return ret;
+}
+
+int GIGArecmknod(const char *path, mode_t mode, dev_t dev)
+{
+    LOG_MSG(">>> FUSE_mkdir(%s): mode=[%lo]", path, (unsigned long)mode);
+
+    int ret = 0;
+    char dir[PATH_MAX] = {0};
+    char file[PATH_MAX] = {0};
+    int dir_id = 0;
+    int zeroth_srv = 0;
+    parse_path_components(path, file, dir);
+    dir_id = recursive_create_dir(dir, &zeroth_srv);
+    ret = rpc_mknod(dir_id, zeroth_srv, file, mode, dev);
+    ret = FUSE_ERROR(ret);
+    return ret;
+}
 
 int GIGAmknod(const char *path, mode_t mode, dev_t dev)
 {

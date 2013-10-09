@@ -162,7 +162,7 @@ version GIGA_RPC_VERSION {          /* version number */
 
         giga_result_t GIGA_RPC_GETMAPPING(giga_dir_id) = 102;
 
-        giga_lookup_t GIGA_RPC_LOOKUP(giga_dir_id, giga_pathname) = 103;
+        /*giga_lookup_t GIGA_RPC_LOOKUP(giga_dir_id, giga_pathname) = 103;*/
 
         giga_result_t GIGA_RPC_MKDIR(giga_dir_id, giga_pathname, mode_t) = 201;
 

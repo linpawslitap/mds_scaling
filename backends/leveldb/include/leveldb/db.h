@@ -85,7 +85,8 @@ class DB {
 
   virtual Status Exists(const ReadOptions& options,
                         const Slice& key) {
-    return Status::OK();
+    std::string tmp;
+    return Get(options, key, &tmp);
   }
 
   // Return a heap-allocated iterator over the contents of the database.

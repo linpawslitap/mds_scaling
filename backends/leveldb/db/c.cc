@@ -166,17 +166,17 @@ leveldb_t* leveldb_open(
     const char* name,
     char** errptr) {
   DB* db;
-  /*
   if (SaveError(errptr, DB::Open(options->rep, std::string(name), &db))) {
     return NULL;
   }
-  */
+  /*
   Status s;
   db = new ColumnDB(options->rep, std::string(name), s);
   if (SaveError(errptr, s)) {
     delete db;
     return NULL;
   }
+  */
   leveldb_t* result = new leveldb_t;
   result->rep = db;
   return result;

@@ -12,17 +12,6 @@
 #include <memory.h>
 #include "measure.h"
 
-#define kNumBuckets 154
-typedef struct {
-  double min_;
-  double max_;
-  double num_;
-  double sum_;
-  double sum_squares_;
-
-  double buckets_[kNumBuckets];
-} histogram_t;
-
 histogram_t hist;
 uint64_t start_time;
 uint64_t finish_time;
@@ -74,18 +63,17 @@ void histogram_add(histogram_t* hist, double value) {
   hist->sum_squares_ += (value * value);
 }
 
-/*
-void Merge(const Histogram& other) {
-  if (other.min_ < min_) min_ = other.min_;
-  if (other.max_ > max_) max_ = other.max_;
-  num_ += other.num_;
-  sum_ += other.sum_;
-  sum_squares_ += other.sum_squares_;
-  for (int b = 0; b < kNumBuckets; b++) {
-    buckets_[b] += other.buckets_[b];
+void histogram_merge(histogram_t* this, histogram_t* other) {
+  if (other->min_ < this->min_) this->min_ = other->min_;
+  if (other->max_ > this->max_) this->max_ = other->max_;
+  this->num_ += other->num_;
+  this->sum_ += other->sum_;
+  this->sum_squares_ += other->sum_squares_;
+  int b;
+  for (b = 0; b < kNumBuckets; b++) {
+    this->buckets_[b] += other->buckets_[b];
   }
 }
-*/
 
 double histogram_percentile(histogram_t* hist, double p) {
   double threshold = hist->num_ * (p / 100.0);

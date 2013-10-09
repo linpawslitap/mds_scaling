@@ -79,8 +79,8 @@ top:
     if (fd > 0) {
       time_t now_time = time(NULL);
       snprintf(message, 256,
-              "client_ops %ld %d\n",
-              now_time, now);
+              "client_ops %ld %d pid=%d\n",
+              now_time, now, pid);
       sendto(fd, message, strlen(message), 0, (struct sockaddr *) &recv_addr,
              sizeof(recv_addr));
     }
@@ -276,9 +276,9 @@ void launch_timer_thread() {
 
 int main(int argc, char **argv)
 {
-    if (argc < 6) {
+    if (argc < 7) {
         fprintf(stdout, "*** ERROR: insufficient parameters ... \n\n");
-        fprintf(stdout, "USAGE: %s <type> <dirfilename> <oplist> <num_files> <seed>\n", argv[0]);
+        fprintf(stdout, "USAGE: %s <type> <dirfilename> <oplist> <num_files> <seed> <tid>\n", argv[0]);
         fprintf(stdout, "\n");
         return -1;
     }
@@ -289,7 +289,7 @@ int main(int argc, char **argv)
     read_dir_list(argv[2]);
     if (strcmp(argv[1], "circreate") != 0)
       read_op_list(argv[3]);
-    seed = atoi(argv[5]);
+    seed = atoi(argv[5])*100+atoi(argv[6]);
     srand(seed);
 
     if (num_dirs <= 0) {

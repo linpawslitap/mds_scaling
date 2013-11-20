@@ -128,7 +128,7 @@ struct giga_directory* rpc_getpartition(int object_id, int zeroth_server) {
         }
         cache_insert(&object_id, dir);
     }
-    assert(dir != NULL);
+    //assert(dir != NULL);
     return dir;
 }
 
@@ -211,6 +211,8 @@ retry:
             *ret_zeroth_server = zeroth_server;
             struct giga_directory *next_dir =
                 rpc_getpartition(object_id, zeroth_server);
+            if (next_dir == NULL)
+              return -1;
             cache_release(next_dir);
         }
     }
@@ -239,10 +241,11 @@ int rpc_chmod(int dir_id, int zeroth_srv, const char *path, mode_t new_mode)
     int server_id = 0;
     giga_result_t rpc_reply;
 
+retry:
     server_id = get_server_for_file(dir, path);
     CLIENT *rpc_clnt = getConnection(server_id);
 
-    LOG_MSG(">>> RPC_chmod(%d, %s): to s[%d]", dir_id, path, server_id);
+    LOG_MSG(">>> RPC_chmod(%s): to s[%d]", path, server_id);
 
     if (giga_rpc_chmod_1(dir_id, (char*)path, new_mode, &rpc_reply, rpc_clnt)
         != RPC_SUCCESS) {
@@ -250,11 +253,167 @@ int rpc_chmod(int dir_id, int zeroth_srv, const char *path, mode_t new_mode)
         exit(1);
     }
 
+    // check return condition
+    //
     ret = rpc_reply.errnum;
-    cache_release(dir);
+    if (ret == -EAGAIN) {
+        update_client_mapping(dir, &rpc_reply.giga_result_t_u.bitmap);
+        LOG_MSG("bitmap update from s%d -- RETRY ...", server_id);
+        goto retry;
+    } else if (ret < 0) {
+        ;
+    } else {
+        ret = 0;
+    }
 
-    LOG_MSG("<<< RPC_chmod(%d, %s): status=[%d]%s",
-             dir_id, path, ret, strerror(ret));
+    cache_release(dir);
+    LOG_MSG("<<< RPC_chmod(%s): status=[%d]%s", path, ret, strerror(ret));
+
+    return ret;
+}
+
+int rpc_remove(int dir_id, int zeroth_srv, const char *path) {
+    int ret = 0;
+
+    struct giga_directory *dir = cache_lookup(&dir_id);
+    if (dir == NULL) {
+      dir = rpc_getpartition(dir_id, zeroth_srv);
+    }
+    if (dir == NULL) {
+        LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
+        return -EIO;
+    }
+
+    int server_id = 0;
+    giga_result_t rpc_reply;
+
+retry:
+    server_id = get_server_for_file(dir, path);
+    CLIENT *rpc_clnt = getConnection(server_id);
+
+    LOG_MSG(">>> RPC_remove(%s): to s[%d]", path, server_id);
+
+    if (giga_rpc_remove_1(dir_id, (char*)path, &rpc_reply, rpc_clnt)
+        != RPC_SUCCESS) {
+        LOG_ERR("ERR_rpc_remove(%s)", clnt_spcreateerror(path));
+        exit(1);
+    }
+
+    // check return condition
+    //
+    ret = rpc_reply.errnum;
+    if (ret == -EAGAIN) {
+        update_client_mapping(dir, &rpc_reply.giga_result_t_u.bitmap);
+        LOG_MSG("bitmap update from s%d -- RETRY ...", server_id);
+        goto retry;
+    } else if (ret < 0) {
+        ;
+    } else {
+        ret = 0;
+    }
+
+    cache_release(dir);
+    LOG_MSG("<<< RPC_remove(%s): status=[%d]%s", path, ret, strerror(ret));
+
+    return ret;
+}
+
+int rpc_getval(int dir_id, int zeroth_srv, const char *path,
+               char* *buf, int* buf_len) {
+    int ret = 0;
+
+    struct giga_directory *dir = cache_lookup(&dir_id);
+    if (dir == NULL) {
+      dir = rpc_getpartition(dir_id, zeroth_srv);
+    }
+    if (dir == NULL) {
+        LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
+        return -EIO;
+    }
+
+    int server_id = 0;
+    giga_getval_reply_t rpc_reply;
+
+retry:
+    server_id = get_server_for_file(dir, path);
+    CLIENT *rpc_clnt = getConnection(server_id);
+
+    LOG_MSG(">>> RPC_getval(%s): to s[%d]", path, server_id);
+
+    if (giga_rpc_getval_1(dir_id, (char*)path, &rpc_reply, rpc_clnt)
+        != RPC_SUCCESS) {
+        LOG_ERR("ERR_rpc_getval(%s)", clnt_spcreateerror(path));
+        exit(1);
+    }
+
+    // check return condition
+    //
+    ret = rpc_reply.result.errnum;
+    if (ret == -EAGAIN) {
+        update_client_mapping(dir, &rpc_reply.result.giga_result_t_u.bitmap);
+        LOG_MSG("bitmap update from s%d -- RETRY ...", server_id);
+        goto retry;
+    } else if (ret < 0) {
+        ;
+    } else {
+        *buf_len = rpc_reply.data.giga_file_data_len;
+        *buf = rpc_reply.data.giga_file_data_val;
+        ret = 0;
+    }
+
+    cache_release(dir);
+    LOG_MSG("<<< RPC_getval(%s): status=[%d]%s", path, ret, strerror(ret));
+
+    return ret;
+}
+
+int rpc_putval(int dir_id, int zeroth_srv, const char *path,
+               char* buf, int buf_len) {
+    int ret = 0;
+
+    struct giga_directory *dir = cache_lookup(&dir_id);
+    if (dir == NULL) {
+      dir = rpc_getpartition(dir_id, zeroth_srv);
+    }
+    if (dir == NULL) {
+        LOG_MSG("ERR_cache: dir(%d) missing!", dir_id);
+        return -EIO;
+    }
+
+    int server_id = 0;
+    giga_result_t rpc_reply;
+    giga_file_data data;
+    data.giga_file_data_val = buf;
+    data.giga_file_data_len = buf_len;
+
+retry:
+    server_id = get_server_for_file(dir, path);
+    CLIENT *rpc_clnt = getConnection(server_id);
+
+    LOG_MSG(">>> RPC_putval(%s): to s[%d]", path, server_id);
+
+
+    if (giga_rpc_putval_1(dir_id, (char*)path, data, &rpc_reply, rpc_clnt)
+        != RPC_SUCCESS) {
+        LOG_ERR("ERR_rpc_putval(%s)", clnt_spcreateerror(path));
+        exit(1);
+    }
+
+    // check return condition
+    //
+    ret = rpc_reply.errnum;
+    if (ret == -EAGAIN) {
+        update_client_mapping(dir, &rpc_reply.giga_result_t_u.bitmap);
+        LOG_MSG("bitmap update from s%d -- RETRY ...", server_id);
+        goto retry;
+    } else if (ret < 0) {
+        ;
+    } else {
+        ret = 0;
+    }
+
+    cache_release(dir);
+    LOG_MSG("<<< RPC_remove(%s): status=[%d]%s", path, ret, strerror(ret));
 
     return ret;
 }

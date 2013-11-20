@@ -19,6 +19,9 @@ all:
 #	gcc $(OPT) -o ./mkdir_lib_test ./mknod_lib_test.c -I.. ../libgiga_client.a $(LIBS) $(LDFLAGS) -I..
 	gcc $(OPT) -o ./create_all_test ./create_all_test.c -I.. ../libgiga_client.a $(LIBS) $(LDFLAGS) -I..
 	gcc $(OPT) -o ./create_dir_test ./create_dir_test.c -I.. ../libgiga_client.a $(LIBS) $(LDFLAGS) -I..
+	gcc $(OPT) -o ./create_file_test ./create_file_test.c -I.. ../libgiga_client.a $(LIBS) $(LDFLAGS) -I..
+	gcc $(OPT) -o ./stat_file_test ./stat_file_test.c -I.. ../libgiga_client.a $(LIBS) $(LDFLAGS) -I..
+	gcc $(OPT) -o ./del_dir_test ./del_dir_test.c -I.. ../libgiga_client.a $(LIBS) $(LDFLAGS) -I..
 	gcc $(OPT) -o ./traverse_dir_test ./traverse_dir_test.c -I.. ../libgiga_client.a $(LIBS) $(LDFLAGS) -I..
 #	gcc $(OPT) -o ./tree_test ./tree_test.c -I.. ../libgiga_client.a $(LIBS) $(LDFLAGS) -I..
 #	gcc $(OPT) -o ./smallfile_lib_test ./smallfile_lib_test.c -I.. ../libgiga_client.a $(LIBS) $(LDFLAGS) -I..

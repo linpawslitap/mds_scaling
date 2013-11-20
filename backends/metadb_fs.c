@@ -582,7 +582,7 @@ int metadb_create_dir(struct MetaDB *mdb,
 int metadb_insert_inode(struct MetaDB *mdb,
                       const metadb_inode_t dir_id, const int partition_id,
                       const char *path,
-                      metadb_val_t* mobj_val)
+                      char* data, int size)
 {
     int ret = 0;
     metadb_key_t mobj_key;
@@ -595,8 +595,8 @@ int metadb_insert_inode(struct MetaDB *mdb,
 
     if (!exists) {
         leveldb_put(mdb->db, mdb->insert_options,
-                (const char*) &mobj_key, METADB_KEY_LEN,
-                mobj_val->value, mobj_val->size, &err);
+                    (const char*) &mobj_key, METADB_KEY_LEN,
+                    data, size, &err);
     }
 
     if (err != NULL)
@@ -713,7 +713,7 @@ int metadb_lookup(struct MetaDB *mdb,
 
 int metadb_get_val(struct MetaDB *mdb,
                    const metadb_inode_t dir_id, const int partition_id,
-                   const char *path, char* buf, int *buf_len)
+                   const char *path, char* *buf, int *buf_len)
 {
     int ret = 0;
     metadb_val_t mobj_val;
@@ -722,14 +722,15 @@ int metadb_get_val(struct MetaDB *mdb,
 
     if (mobj_val.size != 0) {
         *buf_len = mobj_val.size;
-        memcpy(buf, mobj_val.value, *buf_len);
+        *buf = mobj_val.value;
         logMessage(METADB_LOG, __func__, "lookup found entry(%s).", path);
     } else {
         logMessage(METADB_LOG, __func__, "entry(%s) not found.", path);
+        *buf_len = 0;
+        *buf = NULL;
         ret = ENOENT;
     }
 
-    free_metadb_val(&mobj_val);
     return ret;
 }
 

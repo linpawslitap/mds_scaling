@@ -48,7 +48,7 @@ do
         count=$(($count+1))
         ./tree_select_test mknod ../traces/tree$treeid/tree$treeid.log \
         ../traces/tree$treeid/tree.client.$id.dat $files $id $count \
-        > ~/_perf/$host.$i.$j 2>&1 &
+        > ~/_perf/$host.$i.$j 2>&1 & 
 
         #( time ./mknod_test ${dir} $files ) > ~/_perf/$host.$i.$j 2>&1 &
         #./smallfile_lib_test / $filesize $files > ~/_perf/$host.$i.$j 2>&1

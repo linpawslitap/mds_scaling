@@ -54,6 +54,13 @@ int rpc_create(int dir_id, int zeroth_server,
                const char *path, mode_t mode);
 int rpc_chmod(int dir_id, int zeroth_server,
               const char *path, mode_t mode);
+int rpc_remove(int dir_id, int zeroth_server,
+               const char *path);
+int rpc_getval(int dir_id, int zeroth_server, const char *path,
+               char* *buf, int *buf_len);
+int rpc_putval(int dir_id, int zeroth_server, const char *path,
+               char* buf, int buf_len);
+
 scan_list_t rpc_readdir(int dir_id, int zeroth_server,
                         const char *path, int *num_entries);
 int rpc_opendir(int dir_id, int zeroth_server, const char *path);
@@ -208,7 +215,7 @@ int metadb_create_dir(struct MetaDB *mdb,
 int metadb_insert_inode(struct MetaDB *mdb,
                         const metadb_inode_t dir_id, const int partition_id,
                         const char *path,
-                        metadb_val_t* mobj_val);
+                        char* data, int size);
 
 // Returns "0" if MDB removes the file successfully, otherwise "-1" on error.
 int metadb_remove(struct MetaDB *mdb,
@@ -272,7 +279,7 @@ int metadb_get_val(struct MetaDB *mdb,
                    const metadb_inode_t dir_id,
                    const int partition_id,
                    const char* objname,
-                   char* buf, int* buf_len);
+                   char* *buf, int* buf_len);
 
 
 int metadb_get_file(struct MetaDB *mdb,

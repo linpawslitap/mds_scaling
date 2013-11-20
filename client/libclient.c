@@ -109,6 +109,12 @@ int gigaChmod(const char *path, mode_t mode)
   return GIGAchmod(path, mode);
 }
 
+int gigaRename(const char *path, const char* target)
+{
+  return GIGArename(path, target);
+}
+
+
 int gigaRmdir(const char *path)
 {
   return GIGArmdir(path);

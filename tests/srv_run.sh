@@ -25,6 +25,9 @@ c) # cleanup and exit
 sudo mkdir $MNT
 sudo chmod 777 $MNT
 killall -9 giga_server
+killall -9 replay
+killall -9 create_file_test
+
 rm $PID
 rm -rf $GIGA
 rm -rf $LDB

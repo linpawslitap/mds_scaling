@@ -810,7 +810,6 @@ start:
                     if (giga_rpc_mkzeroth_1(object_id, &rpc_mkzeroth_reply,
                                             rpc_clnt) != RPC_SUCCESS) {
                         LOG_ERR("ERR_rpc_mkdir(%d)", object_id);
-                        exit(1);//TODO: retry again?
                     }
                     rpc_reply->errnum = rpc_mkzeroth_reply.errnum;
                 } else {
@@ -1403,18 +1402,52 @@ exit_func:
 }
 
 bool_t giga_rpc_getval_1_svc(giga_dir_id dir_id, giga_pathname path,
-                             giga_fetch_reply_t *reply, struct svc_req *clnt) {
-  (void) dir_id;
-  (void) path;
-  (void) reply;
-  (void) clnt;
+                             giga_getval_reply_t *rpc_reply,
+                             struct svc_req *rqstp) {
 
-  return true;
+    (void)rqstp;
+    assert(path);
+
+    LOG_MSG(">>> RPC_getval(d=%d,p=%s)", dir_id, path);
+
+    bzero(rpc_reply, sizeof(giga_fetch_reply_t));
+
+    struct giga_directory *dir = fetch_dir_mapping(dir_id);
+    if (dir == NULL) {
+      rpc_reply->result.errnum = -ENOENT;
+      return true;
+    }
+
+    // check for giga specific addressing checks.
+    //
+    int index = check_giga_addressing(dir, path, &(rpc_reply->result), NULL);
+    if (index < 0) {
+        rpc_reply->result.errnum = 1;
+        goto exit_func;
+    }
+
+    char* buf = NULL;
+    int buf_len;
+
+    rpc_reply->result.errnum =
+          metadb_get_val(ldb_mds, dir_id, index, path, &buf, &buf_len);
+    if (rpc_reply->result.errnum == 0) {
+        rpc_reply->data.giga_file_data_val = buf;
+        rpc_reply->data.giga_file_data_len = buf_len;
+    }
+
+exit_func:
+    release_dir_mapping(dir);
+
+    LOG_MSG("<<< RPC_getval(d=%d,p=%s): status=[%d]",
+            dir_id, path, rpc_reply->result.errnum);
+    return true;
 }
 
 bool_t giga_rpc_putval_1_svc(giga_dir_id dir_id, giga_pathname path,
-                             giga_file_data data, int size,
-                             giga_result_t *reply, struct svc_req *clnt) {
+                             giga_file_data data,
+                             giga_result_t *rpc_reply,
+                             struct svc_req *rqstp) {
     (void)rqstp;
     assert(rpc_reply);
     assert(path);
@@ -1441,12 +1474,14 @@ start:
     ACQUIRE_MUTEX(&dir->partition_mtx, "putval(%s)", path);
 
     if(check_giga_addressing(dir, path, rpc_reply, NULL) != index) {
-        RELEASE_MUTEX(&dir->partition_mtx, "mkdir(%s)", path);
-        LOG_MSG("RECOMPUTE_INDEX: mkdir(%s) for p(%d) changed.", path, index);
+        RELEASE_MUTEX(&dir->partition_mtx, "putval(%s)", path);
+        LOG_MSG("RECOMPUTE_INDEX: putval(%s) for p(%d) changed.", path, index);
         goto start;
     }
 
-    rpc_reply->errnum = metadb_put(ldb_mds, dir_id, index, path);
+    rpc_reply->errnum = metadb_insert_inode(ldb_mds, dir_id, index, path,
+                                            data.giga_file_data_val,
+                                            data.giga_file_data_len);
     if (rpc_reply->errnum < 0)
         LOG_ERR("ERR_mdb_putval(%s): p%d of d%d", path, index, dir_id);
 

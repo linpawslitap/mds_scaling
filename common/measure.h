@@ -31,7 +31,7 @@ typedef struct {
 
 void histogram_clear(histogram_t *hist);
 void histogram_add(histogram_t* hist, double value);
-void histogram_merge(histogram_t* this, histogram_t* other);
+void histogram_merge(histogram_t* hist, histogram_t* other);
 void histogram_print(histogram_t *hist);
 
 uint64_t now_micros();

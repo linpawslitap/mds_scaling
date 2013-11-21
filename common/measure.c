@@ -63,15 +63,15 @@ void histogram_add(histogram_t* hist, double value) {
   hist->sum_squares_ += (value * value);
 }
 
-void histogram_merge(histogram_t* this, histogram_t* other) {
-  if (other->min_ < this->min_) this->min_ = other->min_;
-  if (other->max_ > this->max_) this->max_ = other->max_;
-  this->num_ += other->num_;
-  this->sum_ += other->sum_;
-  this->sum_squares_ += other->sum_squares_;
+void histogram_merge(histogram_t* hist, histogram_t* other) {
+  if (other->min_ < hist->min_) hist->min_ = other->min_;
+  if (other->max_ > hist->max_) hist->max_ = other->max_;
+  hist->num_ += other->num_;
+  hist->sum_ += other->sum_;
+  hist->sum_squares_ += other->sum_squares_;
   int b;
   for (b = 0; b < kNumBuckets; b++) {
-    this->buckets_[b] += other->buckets_[b];
+    hist->buckets_[b] += other->buckets_[b];
   }
 }
 

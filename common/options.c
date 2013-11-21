@@ -15,7 +15,7 @@
 
 #define LOG_MSG(format, ...) logMessage(LOG_FATAL, NULL, format, __VA_ARGS__);
 
-static char* backends_str[] = {
+static const char* backends_str[] = {
     // Non-networked, local backends
     "BACKEND_LOCAL_FS",         // Local file system
     "BACKEND_LOCAL_LEVELDB",    // Local levelDB
@@ -111,14 +111,16 @@ void init_self_network_IDs()
     giga_options_t.ip_addr = NULL;
     giga_options_t.port_num = DEFAULT_PORT;
 
-    if ((giga_options_t.ip_addr = malloc(sizeof(char)*HOST_NAME_MAX)) == NULL) {
+    if ((giga_options_t.ip_addr = (char*) malloc(sizeof(char)*HOST_NAME_MAX))
+        == NULL) {
         LOG_MSG("ERR_malloc: %s", strerror(errno));
         exit(1);
     }
 
     getHostIPAddress(giga_options_t.ip_addr, HOST_NAME_MAX);
 
-    if ((giga_options_t.hostname = malloc(sizeof(char)*HOST_NAME_MAX)) == NULL) {
+    if ((giga_options_t.hostname = (char*) malloc(sizeof(char)*HOST_NAME_MAX))
+        == NULL) {
         LOG_MSG("ERR_malloc: %s", strerror(errno));
         exit(1);
     }
@@ -145,7 +147,8 @@ void parse_serverlist_file(const char *serverlist_file)
     giga_options_t.serverlist = NULL;
     giga_options_t.num_servers = 0;
 
-    if ((giga_options_t.serverlist = malloc(sizeof(char*) * MAX_SERVERS)) == NULL) {
+    if ((giga_options_t.serverlist = (const char**) malloc(sizeof(char*) * MAX_SERVERS))
+        == NULL) {
         LOG_MSG("ERR_malloc: %s", strerror(errno));
         fclose(conf_fp);
         exit(1);

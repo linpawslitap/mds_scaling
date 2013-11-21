@@ -454,7 +454,7 @@ SHA1Guts (SHA1Context *sc, const uint32_t *cbuf)
 void
 SHA1Update (SHA1Context *sc, const void *vdata, uint32_t len)
 {
-  const uint8_t *data = vdata;
+  const uint8_t *data = (uint8_t *) vdata;
   uint32_t bufferBytesLeft;
   uint32_t bytesToCopy;
   int needBurn = 0;

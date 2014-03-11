@@ -34,10 +34,10 @@ LIBRARY=
 # On GCC, we pick libc's memcmp over GCC's memcmp via -fno-builtin-memcmp
 case "$TARGET_MACHINE" in
     i686)
-        LIBRARY=./leveldb/libleveldb.a
+        LIBRARY=../lib/leveldb/libleveldb.a
         ;;
     x86_64)
-        LIBRARY=./leveldb/libleveldb-64.a
+        LIBRARY=../lib/leveldb/libleveldb-64.a
         ;;
     *)
         echo "Unknown platform!"

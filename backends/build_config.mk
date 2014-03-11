@@ -1,1 +1,1 @@
-LEVELDBLIBRARY=./leveldb/libleveldb-64.a
+LEVELDBLIBRARY=../lib/leveldb/libleveldb-64.a

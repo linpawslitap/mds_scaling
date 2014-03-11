@@ -10,7 +10,6 @@ CRYPTO_LIBS = /usr/lib/libssl.so.0.9.8
 LIBS += ../backends/$(LEVELDBLIBRARY) $(CRYPTO_LIBS) $(HADOOP_LIB) ../common.a
 
 OBJS += ../backends/local_fs.o ../backends/rpc_fs.o ../backends/metadb_fs.o
-#OBJS += ../backends/*.o
 LDFLAGS += $(HADOOP_LDFLAGS)
 
 TARGETS = ../giga_server

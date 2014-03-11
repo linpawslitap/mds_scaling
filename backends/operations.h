@@ -7,7 +7,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "leveldb/include/leveldb/c.h"
+#include "include/leveldb/c.h"
 #include "common/giga_index.h"
 #include "common/rpc_giga.h"
 
